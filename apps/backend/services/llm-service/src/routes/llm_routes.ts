@@ -16,6 +16,7 @@ import type {
   StreamingLLMRequest,
   UserLLMProviderType,
 } from '@uaip/types';
+import { canAccessAgent } from '@uaip/shared-services';
 import { logger, ValidationError, isRecord } from '@uaip/utils';
 import { createRateLimiter } from '@uaip/middleware';
 import { getNginxUser, withNginxAuth } from '@uaip/middleware';
@@ -500,9 +501,29 @@ export function registerLLMRoutes(
             let selectedModel = typeof model === 'string' ? model : undefined;
 
             if (agentId) {
+              const requestedAgentId = typeof agentId === 'string' ? agentId : String(agentId);
+              const authUser = getNginxUser(ctx);
+
+              // selectProviderForAgent resolves the agent's createdBy and routing
+              // config, so reaching it without a grant is an unassigned-agent read.
+              // 404 rather than 403: a 403 would confirm the agent exists.
+              const allowed = await canAccessAgent(
+                {
+                  userId,
+                  organizationId: authUser.organizationId,
+                  role: authUser.role,
+                },
+                requestedAgentId
+              );
+
+              if (!allowed) {
+                ctx.set.status = 404;
+                return { success: false as const, error: 'Agent not found' };
+              }
+
               const selection = await userLLMService.selectProviderForAgent(
                 userId,
-                typeof agentId === 'string' ? agentId : String(agentId),
+                requestedAgentId,
                 {
                   model: typeof model === 'string' ? model : undefined,
                   provider: preferredProviderType,
@@ -574,6 +595,7 @@ export function registerLLMRoutes(
                 success: t.Literal(true),
                 data: t.Object({ sessionId: t.String(), status: t.String() }),
               }),
+              404: t.Object({ success: t.Literal(false), error: t.String() }),
             },
           }
         )

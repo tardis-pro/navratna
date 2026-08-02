@@ -1,7 +1,25 @@
 import { Elysia, t } from 'elysia'
 import { withNginxAuth, getNginxUser } from '@uaip/middleware'
 import type { AgentIntelligenceService } from '@uaip/shared-services'
-import { getIntelligenceDb, eq, ilike, and, sql, count, asc } from '@uaip/shared-services/drizzle/clients'
+import {
+  ADMIN_ORG_ID,
+  canAccessAgent,
+  isPrivilegedRole,
+  ONBOARDING_GUIDE_AGENT_ID,
+  UserAgentAssignmentRepository,
+} from '@uaip/shared-services'
+import {
+  getIntelligenceDb,
+  eq,
+  ne,
+  or,
+  ilike,
+  and,
+  sql,
+  count,
+  asc,
+  inArray,
+} from '@uaip/shared-services/drizzle/clients'
 import { agents } from '@uaip/shared-services/drizzle/intelligence'
 import { logger, isRecord } from '@uaip/utils'
 
@@ -12,6 +30,124 @@ type AgentCrudDeps = Pick<
 
 
 type AssignedMCPTool = NonNullable<typeof agents.$inferSelect.assignedMCPTools>[number]
+
+type AgentRow = typeof agents.$inferSelect
+
+interface AgentListPagination {
+  page: number
+  limit: number
+  total: number
+  hasMore: boolean
+}
+
+interface AgentListResponse {
+  success: true
+  data: AgentRow[]
+  pagination: AgentListPagination
+}
+
+interface AgentListQueryParams {
+  page: number
+  limit: number
+  search: string | null
+  /** When present, restricts the roster to these agent ids (assignment scoping). */
+  assignedAgentIds?: string[]
+}
+
+interface AssignedToolSummary {
+  toolId: string
+  toolName: string
+  serverName: string
+}
+
+interface AgentAssignedToolsRow {
+  assigned: AssignedMCPTool[] | null
+}
+
+// THE ASSIGNMENT ROW IS THE GRANT: visibility is decided by
+// user_agent_assignments rows (control plane), never by comparing
+// organization ids — all seeded agents live in the admin org and agent names
+// are globally unique, so org-equality would deny every non-admin-org user.
+// The planes may live on different Postgres hosts, so the control-plane id
+// lookup and the intelligence-plane agents query are ALWAYS two separate
+// statements joined in the application (inArray), never one SQL statement.
+const assignmentRepository = new UserAgentAssignmentRepository()
+
+async function queryAgentsPage(params: AgentListQueryParams): Promise<AgentListResponse> {
+  const { page, limit, search, assignedAgentIds } = params
+  const db = getIntelligenceDb()
+
+  // The guide is excluded for EVERY caller, privileged included. It is not a
+  // selectable agent: agent_chat_conversations is UNIQUE(org,user,agent), so a
+  // generic chat opened against it writes into the very row the interview
+  // extractor reads, corrupting the transcript. Reachable only via the explicit
+  // deny-by-default carve-out in agent_access_service, never through listings.
+  const visibleClause = and(eq(agents.isActive, true), ne(agents.id, ONBOARDING_GUIDE_AGENT_ID))
+  const baseClause = search
+    ? and(visibleClause, ilike(agents.name, `%${search}%`))
+    : visibleClause
+  const whereClause = assignedAgentIds
+    ? and(baseClause, inArray(agents.id, assignedAgentIds))
+    : baseClause
+
+  const [countRow] = await db
+    .select({ total: count() })
+    .from(agents)
+    .where(whereClause)
+
+  const total = Number(countRow?.total ?? 0)
+
+  const exactNameRank = search
+    ? sql<number>`CASE WHEN lower(${agents.name}) = lower(${search}) THEN 0 ELSE 1 END`
+    : sql<number>`1`
+
+  const rows = await db
+    .select()
+    .from(agents)
+    .where(whereClause)
+    .orderBy(exactNameRank, asc(agents.createdAt))
+    .limit(limit)
+    .offset((page - 1) * limit)
+
+  return {
+    success: true,
+    data: rows,
+    pagination: {
+      page,
+      limit,
+      total,
+      hasMore: page * limit < total,
+    },
+  }
+}
+
+function collectUniqueTools(rows: AgentAssignedToolsRow[]): AssignedToolSummary[] {
+  const seen = new Map<string, AssignedToolSummary>()
+  for (const row of rows) {
+    for (const tool of row.assigned ?? []) {
+      if (tool?.toolId && !seen.has(tool.toolId)) {
+        seen.set(tool.toolId, { toolId: tool.toolId, toolName: tool.toolName, serverName: tool.serverName })
+      }
+    }
+  }
+  return Array.from(seen.values())
+}
+
+/**
+ * Visibility predicate for a single agent the caller has ALREADY been granted.
+ *
+ * Plain org equality is wrong here: every seeded agent lives in ADMIN_ORG_ID
+ * and is offerable to every tenant (isOfferableToOrg), so an org-equality
+ * filter 404s a platform agent the caller legitimately holds a grant for.
+ * Authorization is the grant; this only keeps another tenant's PRIVATE agent
+ * indistinguishable from a missing one.
+ */
+function visibleAgentPredicate(agentId: string, organizationId: string) {
+  return and(
+    eq(agents.id, agentId),
+    or(eq(agents.organizationId, organizationId), eq(agents.organizationId, ADMIN_ORG_ID))
+  )
+}
 
 /**
  * Read-modify-write of the whole assigned_mcp_tools array loses a concurrent
@@ -26,12 +162,12 @@ async function mutateAssignedMCPTools(
   const db = getIntelligenceDb()
 
   return await db.transaction(async (tx) => {
-    // Tenant scope lives in the SAME locked query as the read: an agent from
-    // another organization must be indistinguishable from a missing one.
+    // Tenant scope lives in the SAME locked query as the read: another
+    // tenant's private agent must be indistinguishable from a missing one.
     const [row] = await tx
       .select({ assigned: agents.assignedMCPTools })
       .from(agents)
-      .where(and(eq(agents.id, agentId), eq(agents.organizationId, organizationId)))
+      .where(visibleAgentPredicate(agentId, organizationId))
       .limit(1)
       .for('update')
 
@@ -41,9 +177,18 @@ async function mutateAssignedMCPTools(
     await tx
       .update(agents)
       .set({ assignedMCPTools })
-      .where(and(eq(agents.id, agentId), eq(agents.organizationId, organizationId)))
+      .where(visibleAgentPredicate(agentId, organizationId))
     return assignedMCPTools
   })
+}
+
+// Org equality is NOT the grant: mutateAssignedMCPTools scopes by
+// organizationId, which lets any same-org member edit an agent they were never
+// assigned. Every per-agent MCP route must consult the assignment first.
+async function callerHasGrant(ctx: unknown): Promise<boolean> {
+  const { id: userId, organizationId, role } = getNginxUser(ctx)
+  const { agentId } = (ctx as { params: { agentId: string } }).params
+  return canAccessAgent({ userId, organizationId, role }, agentId)
 }
 
 const AGENT_LIST_DEFAULT_LIMIT = 12
@@ -116,41 +261,24 @@ export function registerAgentCrudRoutes(
       .get('/', async (ctx) => {
         try {
           const { page, limit, search } = parsePaginationParams(ctx.query ?? {})
-    
-          const db = getIntelligenceDb()
-          const whereClause = search
-            ? and(eq(agents.isActive, true), ilike(agents.name, `%${search}%`))
-            : eq(agents.isActive, true)
-    
-          const [countRow] = await db
-            .select({ total: count() })
-            .from(agents)
-            .where(whereClause)
-    
-          const total = Number(countRow?.total ?? 0)
-    
-          const exactNameRank = search
-            ? sql<number>`CASE WHEN lower(${agents.name}) = lower(${search}) THEN 0 ELSE 1 END`
-            : sql<number>`1`
+          const { id: userId, organizationId, role } = getNginxUser(ctx)
 
-          const rows = await db
-            .select()
-            .from(agents)
-            .where(whereClause)
-            .orderBy(exactNameRank, asc(agents.createdAt))
-            .limit(limit)
-            .offset((page - 1) * limit)
-    
-          return {
-            success: true,
-            data: rows,
-            pagination: {
-              page,
-              limit,
-              total,
-              hasMore: page * limit < total,
-            },
+          if (isPrivilegedRole(role)) {
+            return await queryAgentsPage({ page, limit, search })
           }
+
+          const assignedAgentIds = await assignmentRepository.findAgentIdsForUser(userId, organizationId)
+          // Short-circuit: inArray(col, []) generates invalid SQL in some
+          // drizzle versions, and there is nothing to fetch anyway.
+          if (assignedAgentIds.length === 0) {
+            return {
+              success: true,
+              data: [],
+              pagination: { page, limit, total: 0, hasMore: false },
+            }
+          }
+
+          return await queryAgentsPage({ page, limit, search, assignedAgentIds })
         } catch (error) {
           logger.error('Failed to list agents', { error })
           ctx.set.status = 500
@@ -186,6 +314,42 @@ export function registerAgentCrudRoutes(
             createdBy: userId,
             organizationId,
           })
+
+          // The assignment row IS the grant. Without it the agent is an
+          // unreachable orphan: GET / filters it out, and DELETE /:agentId
+          // checks access BEFORE ownership, so it answers 404 to the very user
+          // who created it. Reporting 201 would strand it permanently, so the
+          // creation is compensated and the failure surfaced instead.
+          try {
+            await new UserAgentAssignmentRepository().assignMany({
+              userId,
+              organizationId,
+              agentIds: [agent.id],
+              assignedBy: userId,
+              source: 'creator',
+            })
+          } catch (grantError) {
+            logger.error('Agent created but creator grant failed — rolling back', {
+              agentId: agent.id,
+              userId,
+              error: grantError instanceof Error ? grantError.message : String(grantError),
+            })
+
+            try {
+              await agentIntelligenceService.deleteAgent(agent.id)
+            } catch (rollbackError) {
+              logger.error('Compensating delete failed — orphaned agent left behind', {
+                agentId: agent.id,
+                userId,
+                error:
+                  rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+              })
+            }
+
+            ctx.set.status = 500
+            return { success: false, error: 'Failed to grant access to the created agent' }
+          }
+
           ctx.set.status = 201
           return { success: true, data: agent }
         } catch (error) {
@@ -217,36 +381,91 @@ export function registerAgentCrudRoutes(
         response: {
           201: t.Object({ success: t.Literal(true), data: AgentSchema }),
           400: AgentErrorSchema,
+          500: AgentErrorSchema,
         },
       })
     
+      // Static `/catalog` MUST be registered before the `/:agentId` wildcard,
+      // otherwise Elysia matches it as agentId="catalog" and the agent lookup
+      // fails with a non-UUID id → 500 (same hazard as `/mcp-tools` below).
+      .get('/catalog', async (ctx) => {
+        try {
+          const { role } = getNginxUser(ctx)
+          if (!isPrivilegedRole(role)) {
+            ctx.set.status = 403
+            return { success: false, error: 'Forbidden' }
+          }
+          const { page, limit, search } = parsePaginationParams(ctx.query ?? {})
+          return await queryAgentsPage({ page, limit, search })
+        } catch (error) {
+          logger.error('Failed to list agent catalog', { error })
+          ctx.set.status = 500
+          return { success: false, error: 'Failed to list agent catalog' }
+        }
+      }, {
+        query: t.Object({
+          page: t.Optional(t.String()),
+          limit: t.Optional(t.String()),
+          search: t.Optional(t.String()),
+        }),
+        response: {
+          200: t.Object({
+            success: t.Literal(true),
+            data: t.Array(AgentSchema),
+            pagination: t.Object({
+              page: t.Number(),
+              limit: t.Number(),
+              total: t.Number(),
+              hasMore: t.Boolean(),
+            }),
+          }),
+          403: AgentErrorSchema,
+          500: AgentErrorSchema,
+        },
+      })
+
       // Static `/mcp-tools` MUST be registered before the `/:agentId` wildcard,
       // otherwise Elysia matches it as agentId="mcp-tools" and the agent lookup
       // fails with a non-UUID id → 500.
-      .get('/mcp-tools', async () => {
-        const db = getIntelligenceDb()
-        const rows = await db
-          .select({ assigned: agents.assignedMCPTools })
-          .from(agents)
-        const seen = new Map<string, { toolId: string; toolName: string; serverName: string }>()
-        for (const row of rows) {
-          for (const tool of row.assigned ?? []) {
-            if (tool?.toolId && !seen.has(tool.toolId)) {
-              seen.set(tool.toolId, { toolId: tool.toolId, toolName: tool.toolName, serverName: tool.serverName })
-            }
+      .get('/mcp-tools', async (ctx) => {
+        try {
+          const { id: userId, organizationId, role } = getNginxUser(ctx)
+          if (isPrivilegedRole(role)) {
+            const rows = await getIntelligenceDb()
+              .select({ assigned: agents.assignedMCPTools })
+              .from(agents)
+            return { success: true, tools: collectUniqueTools(rows) }
           }
+
+          const assignedAgentIds = await assignmentRepository.findAgentIdsForUser(userId, organizationId)
+          if (assignedAgentIds.length === 0) {
+            return { success: true, tools: [] }
+          }
+
+          const rows = await getIntelligenceDb()
+            .select({ assigned: agents.assignedMCPTools })
+            .from(agents)
+            .where(inArray(agents.id, assignedAgentIds))
+          return { success: true, tools: collectUniqueTools(rows) }
+        } catch (error) {
+          logger.error('Failed to list MCP tools', { error })
+          ctx.set.status = 500
+          return { success: false, error: 'Failed to list MCP tools' }
         }
-        return { success: true, tools: Array.from(seen.values()) }
       })
 
       .get('/:agentId/mcp-tools', async (ctx) => {
         try {
           const { organizationId } = getNginxUser(ctx)
+          if (!(await callerHasGrant(ctx))) {
+            ctx.set.status = 404
+            return { success: false, error: 'Agent not found' }
+          }
           const db = getIntelligenceDb()
           const [row] = await db
             .select({ assigned: agents.assignedMCPTools, settings: agents.mcpToolSettings })
             .from(agents)
-            .where(and(eq(agents.id, ctx.params.agentId), eq(agents.organizationId, organizationId)))
+            .where(visibleAgentPredicate(ctx.params.agentId, organizationId))
             .limit(1)
           if (!row) {
             ctx.set.status = 404
@@ -262,6 +481,10 @@ export function registerAgentCrudRoutes(
 
       .post('/:agentId/mcp-tools', async (ctx) => {
         try {
+          if (!(await callerHasGrant(ctx))) {
+            ctx.set.status = 404
+            return { success: false, error: 'Agent not found' }
+          }
           const body = isRecord(ctx.body) ? ctx.body : {}
           const toolsToAssign = Array.isArray(body.toolsToAssign) ? body.toolsToAssign : []
 
@@ -293,6 +516,10 @@ export function registerAgentCrudRoutes(
 
       .put('/:agentId/mcp-tools/:toolId', async (ctx) => {
         try {
+          if (!(await callerHasGrant(ctx))) {
+            ctx.set.status = 404
+            return { success: false, error: 'Agent not found' }
+          }
           const body = isRecord(ctx.body) ? ctx.body : {}
           const enabled = body.enabled !== false
 
@@ -316,6 +543,10 @@ export function registerAgentCrudRoutes(
 
       .delete('/:agentId/mcp-tools/:toolId', async (ctx) => {
         try {
+          if (!(await callerHasGrant(ctx))) {
+            ctx.set.status = 404
+            return { success: false, error: 'Agent not found' }
+          }
           const assignedMCPTools = await mutateAssignedMCPTools(ctx.params.agentId, getNginxUser(ctx).organizationId, (current) =>
             current.filter((tool) => tool.toolId !== ctx.params.toolId)
           )
@@ -334,12 +565,21 @@ export function registerAgentCrudRoutes(
 
       .get('/:agentId', async (ctx) => {
         try {
+          const { id: userId, organizationId, role } = getNginxUser(ctx)
           const agent = await agentIntelligenceService.getAgent(ctx.params.agentId)
           if (!agent) {
             ctx.set.status = 404
             return { success: false, error: 'Agent not found' }
           }
-    
+
+          // 404 (not 403) on missing assignment: a 403 would confirm the
+          // agent exists, leaking existence to users with no grant.
+          const allowed = await canAccessAgent({ userId, organizationId, role }, ctx.params.agentId)
+          if (!allowed) {
+            ctx.set.status = 404
+            return { success: false, error: 'Agent not found' }
+          }
+
           return { success: true, data: agent }
         } catch (error) {
           logger.error('Failed to get agent', { error, agentId: ctx.params.agentId })
@@ -356,17 +596,22 @@ export function registerAgentCrudRoutes(
     
       .put('/:agentId', async (ctx) => {
         try {
-          // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
-          const userId: string = ctx.user.id
-          // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
-          const userRole: string = ctx.user.role ?? ''
-    
+          const { id: userId, organizationId, role: userRole } = getNginxUser(ctx)
+
           const existing = await agentIntelligenceService.getAgent(ctx.params.agentId)
           if (!existing) {
             ctx.set.status = 404
             return { success: false, error: 'Agent not found' }
           }
-    
+
+          // Access check FIRST, 404 (not 403) on missing assignment so agent
+          // existence never leaks to users with no grant.
+          const allowed = await canAccessAgent({ userId, organizationId, role: userRole }, ctx.params.agentId)
+          if (!allowed) {
+            ctx.set.status = 404
+            return { success: false, error: 'Agent not found' }
+          }
+
           if (existing.createdBy !== userId && userRole !== 'admin') {
             ctx.set.status = 403
             return { success: false, error: 'Forbidden: you do not own this agent' }
@@ -410,17 +655,22 @@ export function registerAgentCrudRoutes(
     
       .delete('/:agentId', async (ctx) => {
         try {
-          // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
-          const userId: string = ctx.user.id
-          // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
-          const userRole: string = ctx.user.role ?? ''
-    
+          const { id: userId, organizationId, role: userRole } = getNginxUser(ctx)
+
           const existing = await agentIntelligenceService.getAgent(ctx.params.agentId)
           if (!existing) {
             ctx.set.status = 404
             return { success: false, error: 'Agent not found' }
           }
-    
+
+          // Access check FIRST, 404 (not 403) on missing assignment so agent
+          // existence never leaks to users with no grant.
+          const allowed = await canAccessAgent({ userId, organizationId, role: userRole }, ctx.params.agentId)
+          if (!allowed) {
+            ctx.set.status = 404
+            return { success: false, error: 'Agent not found' }
+          }
+
           if (existing.createdBy !== userId && userRole !== 'admin') {
             ctx.set.status = 403
             return { success: false, error: 'Forbidden: you do not own this agent' }

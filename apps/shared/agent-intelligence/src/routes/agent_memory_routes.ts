@@ -1,12 +1,24 @@
 import { Elysia } from 'elysia'
-import { withNginxAuth } from '@uaip/middleware'
+import { withNginxAuth, getNginxUser } from '@uaip/middleware'
 import type { SemanticMemoryManager } from '@uaip/shared-services'
+import { canAccessAgent } from '@uaip/shared-services'
 import { logger, isRecord } from '@uaip/utils'
 
 type SemanticMemoryDeps = Pick<
   SemanticMemoryManager,
   'pruneMemory' | 'reinforceConcept' | 'downvoteMemory'
 >
+
+// These routes MUTATE an agent's memory, so an unguarded agentId in the URL is
+// a write primitive against any agent in any tenant.
+async function isGranted(ctx: unknown, agentId: string): Promise<boolean> {
+  const { id: userId, organizationId, role } = getNginxUser(ctx)
+  return canAccessAgent({ userId, organizationId, role }, agentId)
+}
+
+// 404 rather than 403 so an unassigned agent stays indistinguishable from a
+// missing one — a 403 confirms it exists.
+const AGENT_NOT_FOUND = { success: false, error: 'Agent not found' } as const
 
 
 export function registerAgentMemoryRoutes(
@@ -17,6 +29,10 @@ export function registerAgentMemoryRoutes(
     (group) => withNginxAuth(group)
       .delete('/:agentId/memory/semantic/:conceptId', async (ctx) => {
         try {
+          if (!(await isGranted(ctx, ctx.params.agentId))) {
+            ctx.set.status = 404
+            return AGENT_NOT_FOUND
+          }
           await semanticMemoryManager.pruneMemory(ctx.params.agentId, ctx.params.conceptId)
           return { success: true, message: 'Semantic concept pruned' }
         } catch (error) {
@@ -35,6 +51,10 @@ export function registerAgentMemoryRoutes(
     
       .patch('/:agentId/memory/semantic/:conceptId', async (ctx) => {
         try {
+          if (!(await isGranted(ctx, ctx.params.agentId))) {
+            ctx.set.status = 404
+            return AGENT_NOT_FOUND
+          }
           const body = isRecord(ctx.body) ? ctx.body : {}
           if (body.action === 'reinforce') {
             const newExample = typeof body.example === 'string' ? body.example : undefined

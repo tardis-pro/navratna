@@ -1,9 +1,10 @@
 import { Elysia } from 'elysia'
-import { withNginxAuth } from '@uaip/middleware'
+import { withNginxAuth, getNginxUser } from '@uaip/middleware'
 import type {
   AgentIntelligenceService,
   CapabilityDiscoveryService,
 } from '@uaip/shared-services'
+import { canAccessAgent } from '@uaip/shared-services'
 import { logger, isRecord } from '@uaip/utils'
 
 type CapabilityRouteDeps = Pick<
@@ -11,6 +12,17 @@ type CapabilityRouteDeps = Pick<
   'getAgent' | 'analyzeContext' | 'generateExecutionPlan' | 'learnFromOperation'
 >
 type CapabilityDiscoveryDeps = Pick<CapabilityDiscoveryService, 'getAgentCapabilities'>
+
+// Scoping the agent LIST is not sufficient: an agent id learned from any other
+// surface would otherwise let a caller drive that agent through these routes.
+async function isGranted(ctx: unknown, agentId: string): Promise<boolean> {
+  const { id: userId, organizationId, role } = getNginxUser(ctx)
+  return canAccessAgent({ userId, organizationId, role }, agentId)
+}
+
+// 404 rather than 403 for the same reason GET /:agentId uses it — a 403
+// confirms the agent exists.
+const AGENT_NOT_FOUND = { success: false, error: 'Agent not found' } as const
 
 
 export function registerAgentCapabilityRoutes(
@@ -22,6 +34,10 @@ export function registerAgentCapabilityRoutes(
     (group) => withNginxAuth(group)
       .get('/:agentId/capabilities', async (ctx) => {
         try {
+          if (!(await isGranted(ctx, ctx.params.agentId))) {
+            ctx.set.status = 404
+            return AGENT_NOT_FOUND
+          }
           const capabilities = await capabilityDiscoveryService.getAgentCapabilities(
             ctx.params.agentId
           )
@@ -38,6 +54,10 @@ export function registerAgentCapabilityRoutes(
     
       .post('/:agentId/analyze', async (ctx) => {
         try {
+          if (!(await isGranted(ctx, ctx.params.agentId))) {
+            ctx.set.status = 404
+            return AGENT_NOT_FOUND
+          }
           const agent = await agentIntelligenceService.getAgent(ctx.params.agentId)
           if (!agent) {
             ctx.set.status = 404
@@ -80,6 +100,10 @@ export function registerAgentCapabilityRoutes(
     
       .post('/:agentId/plan', async (ctx) => {
         try {
+          if (!(await isGranted(ctx, ctx.params.agentId))) {
+            ctx.set.status = 404
+            return AGENT_NOT_FOUND
+          }
           const agent = await agentIntelligenceService.getAgent(ctx.params.agentId)
           if (!agent) {
             ctx.set.status = 404
@@ -111,6 +135,10 @@ export function registerAgentCapabilityRoutes(
     
       .post('/:agentId/learn', async (ctx) => {
         try {
+          if (!(await isGranted(ctx, ctx.params.agentId))) {
+            ctx.set.status = 404
+            return AGENT_NOT_FOUND
+          }
           const body = isRecord(ctx.body) ? ctx.body : {}
           const operationId = typeof body.operationId === 'string' ? body.operationId : null
           if (!operationId) {

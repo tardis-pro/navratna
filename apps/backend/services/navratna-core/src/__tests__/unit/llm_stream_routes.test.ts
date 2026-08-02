@@ -13,6 +13,15 @@ const streamingMocks = vi.hoisted(() => ({
   startStream: vi.fn(),
 }));
 
+const accessMocks = vi.hoisted(() => ({
+  canAccessAgent: vi.fn(),
+}));
+
+vi.mock('@uaip/shared-services', async (importActual) => {
+  const actual = await importActual<Record<string, unknown>>();
+  return { ...actual, canAccessAgent: accessMocks.canAccessAgent };
+});
+
 vi.mock('@uaip/middleware', () => ({
   withNginxAuth: (app: Elysia) => app.derive(() => ({ user: authenticatedUser })),
   getNginxUser: () => authenticatedUser,
@@ -41,6 +50,7 @@ describe('LLM stream routes', () => {
     vi.restoreAllMocks();
     streamingMocks.registerProvider.mockReset();
     streamingMocks.startStream.mockReset().mockResolvedValue('stream-session-id');
+    accessMocks.canAccessAgent.mockReset().mockResolvedValue(true);
   });
 
   it('uses the authenticated request context for an OAuth user stream', async () => {
@@ -92,5 +102,37 @@ describe('LLM stream routes', () => {
       expect.objectContaining({ userId: authenticatedUser.id, prompt: 'hello' }),
       'provider-id'
     );
+  });
+
+  it('refuses to resolve routing for an agent the caller was never assigned', async () => {
+    accessMocks.canAccessAgent.mockResolvedValue(false);
+
+    const userLLMService = new UserLLMService();
+    const selectForAgent = vi
+      .spyOn(userLLMService, 'selectProviderForAgent')
+      .mockResolvedValue(null);
+    vi.spyOn(userLLMService, 'getBestProviderForUser').mockResolvedValue(null);
+
+    const app = new Elysia().use(
+      registerLLMRoutes(
+        LLMService.getInstance(),
+        ModelBootstrapService.getInstance(),
+        userLLMService
+      )
+    );
+
+    const response = await app.handle(
+      new Request('http://localhost/api/v1/llm/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: 'hello', agentId: 'someone-elses-agent' }),
+      })
+    );
+
+    // selectProviderForAgent resolves the agent's createdBy and routing config,
+    // so reaching it at all is an unassigned-agent read — the same bug class as
+    // GET /agents. 404 rather than 403: a 403 confirms the agent exists.
+    expect(selectForAgent).not.toHaveBeenCalled();
+    expect(response.status).toBe(404);
   });
 });
