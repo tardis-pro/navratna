@@ -20,6 +20,8 @@ import {
 // Import shared types - using regular imports for enums and type imports for interfaces
 import type {
   Agent,
+  AgentChatHistoryResponse,
+  AgentChatRequest,
   AgentCreate,
   AgentUpdate,
   // Persona types
@@ -428,13 +430,18 @@ export const uaipAPI = {
       const apiOptions = {
         limit: options?.limit,
         page: options?.offset ? Math.floor(options.offset / (options.limit || 50)) + 1 : undefined,
+        ...(options?.order ? { order: options.order } : {}),
       };
       return await client.discussions.getMessages(id, apiOptions);
     },
 
-    async sendMessage(id: string, message: DiscussionMessageCreate): Promise<DiscussionMessage> {
+    async sendParticipantMessage(
+      id: string,
+      participantId: string,
+      message: DiscussionMessageCreate
+    ): Promise<DiscussionMessage> {
       const client = getAPIClient();
-      return await client.discussions.sendMessage(id, {
+      return await client.discussions.sendParticipantMessage(id, participantId, {
         content: message.content,
         metadata: message.metadata,
       });
@@ -517,19 +524,18 @@ export const uaipAPI = {
       }
     },
 
+    async getChatHistory(agentId: string, limit?: number): Promise<AgentChatHistoryResponse> {
+      try {
+        return await api.agents.getChatHistory(agentId, limit);
+      } catch (error) {
+        logger.error('Failed to load agent chat history:', error);
+        return { conversationId: null, messages: [] };
+      }
+    },
+
     async chat(
       agentId: string,
-      request: {
-        message: string;
-        conversationHistory?: Array<{
-          content: string;
-          sender: string;
-          timestamp: string;
-        }>;
-        conversationId?: string;
-        context?: unknown;
-        projectId?: string;
-      }
+      request: AgentChatRequest
     ): Promise<Awaited<ReturnType<typeof api.agents.chat>>> {
       try {
         return await api.agents.chat(agentId, {
@@ -537,7 +543,12 @@ export const uaipAPI = {
           conversationId: request.conversationId,
           context: request.context || {},
           // Rebuilt field-by-field, so anything omitted here never reaches the
-          // wire: without projectId every integration MCP tool is refused.
+          // wire: without projectId every integration MCP tool is refused, and
+          // without conversationHistory the agent sees only the current message.
+          ...(request.conversationHistory && request.conversationHistory.length > 0
+            ? { conversationHistory: request.conversationHistory }
+            : {}),
+          ...(request.clientTurnId ? { clientTurnId: request.clientTurnId } : {}),
           ...(request.projectId ? { projectId: request.projectId } : {}),
         });
       } catch (error) {

@@ -29,6 +29,14 @@ import { EventBusService } from '@uaip/infra/event_bus';
 import { PersonaService } from './persona_service';
 import { logger, NotFoundError, ValidationError, InternalServerError, isRecord } from '@uaip/utils';
 
+export type MessageOrder = 'asc' | 'desc';
+
+export interface GetDiscussionMessagesOptions {
+  limit?: number;
+  offset?: number;
+  order?: MessageOrder;
+}
+
 function parseArtifactConfig(value: unknown): Partial<ArtifactGenerationConfig> | undefined {
   const parsed = ArtifactGenerationConfigSchema.partial().safeParse(value);
   return parsed.success ? parsed.data : undefined;
@@ -982,7 +990,8 @@ export class DiscussionService {
   async getMessages(
     discussionId: string,
     limit = 50,
-    offset = 0
+    offset = 0,
+    order: MessageOrder = 'asc'
   ): Promise<{
     messages: DiscussionMessage[];
     total: number;
@@ -995,7 +1004,9 @@ export class DiscussionService {
         {
           take: limit,
           skip: offset,
-          order: { createdAt: 'ASC' as const } satisfies Record<string, 'ASC' | 'DESC'>,
+          order: {
+            createdAt: (order === 'desc' ? 'DESC' : 'ASC') as 'ASC' | 'DESC',
+          } satisfies Record<string, 'ASC' | 'DESC'>,
         }
       );
 
@@ -1018,10 +1029,10 @@ export class DiscussionService {
   // Alias method for backward compatibility
   async getDiscussionMessages(
     discussionId: string,
-    options: { limit?: number; offset?: number } = {}
+    options: GetDiscussionMessagesOptions = {}
   ): Promise<DiscussionMessage[]> {
-    const { limit = 50, offset = 0 } = options;
-    const result = await this.getMessages(discussionId, limit, offset);
+    const { limit = 50, offset = 0, order = 'asc' } = options;
+    const result = await this.getMessages(discussionId, limit, offset, order);
     return result.messages;
   }
 

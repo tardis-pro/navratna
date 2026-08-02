@@ -217,9 +217,45 @@ export interface AgentParticipationRequest {
   turnData?: unknown;
 }
 
+/**
+ * One prior turn of a direct agent chat, as the UI keeps it locally. `sender` is
+ * the coarse UI role ('user' | 'agent'), NOT a user id — the backend maps it onto
+ * the canonical ChatMessage `type` before the turn reaches the model.
+ */
+export interface AgentChatHistoryEntry {
+  content: string;
+  sender: string;
+  timestamp: string;
+}
+
+export interface AgentChatHistoryMessage {
+  id: string;
+  conversationId: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}
+
+export interface AgentChatHistoryResponse {
+  conversationId: string | null;
+  messages: AgentChatHistoryMessage[];
+}
+
 export interface AgentChatRequest {
   message: string;
   conversationId?: string;
+  /**
+   * Pairs the user turn with its reply so a retry replays the stored answer
+   * instead of generating (and billing) a second one. Generated once per send.
+   */
+  clientTurnId?: string;
+  /**
+   * Prior turns of this conversation. The chat endpoint is stateless, so history
+   * omitted here is history the model never sees. Both this facade payload and the
+   * route's Elysia body schema must carry the field — either one dropping it
+   * silently reduces the turn to a single message.
+   */
+  conversationHistory?: AgentChatHistoryEntry[];
   context?: unknown;
   /**
    * Scope for tools whose credential is bound to a (project, agent) pair. Omitting
@@ -306,70 +342,10 @@ export interface TaskProgressUpdate {
   timeSpent?: number;
 }
 
-export interface WorkflowDefinition {
-  id: string;
-  name: string;
-  description?: string;
-  steps: Array<{
-    id: string;
-    name: string;
-    type: string;
-    action: string;
-    parameters?: Record<string, unknown>;
-    conditions?: Record<string, unknown>;
-    retryPolicy?: {
-      maxRetries: number;
-      backoffStrategy: 'fixed' | 'exponential';
-      initialDelay: number;
-    };
-    timeout?: number;
-    dependsOn?: string[];
-  }>;
-  triggers?: Array<{
-    type: 'event' | 'schedule' | 'webhook';
-    config: Record<string, unknown>;
-  }>;
-  metadata?: Record<string, unknown>;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface WorkflowTrigger {
-  type: 'event' | 'schedule' | 'webhook';
-  config: Record<string, unknown>;
-}
-
-export interface WorkflowExecution {
-  id: string;
-  workflowId: string;
-  status: string;
-  startedAt: string;
-  completedAt?: string;
-  currentStep?: string;
-  steps: Array<{
-    stepId: string;
-    status: string;
-    startedAt?: string;
-    completedAt?: string;
-    output?: Record<string, unknown>;
-    error?: string;
-    retryCount: number;
-  }>;
-  input?: Record<string, unknown>;
-  output?: Record<string, unknown>;
-  error?: string;
-}
-
-export interface WorkflowStepExecution {
-  stepId: string;
-  status: string;
-  startedAt?: string;
-  completedAt?: string;
-  output?: Record<string, unknown>;
-  error?: string;
-  retryCount: number;
-}
+// WorkflowDefinition / WorkflowTrigger / WorkflowExecution / WorkflowStepExecution
+// were removed from this file: they described `triggers[]`, `isActive` and a generic
+// step `action`, none of which the backend or `workflow_definitions` ever accepted.
+// The canonical, executor-accurate contract lives in ./workflow_api.ts.
 
 export interface OperationListOptions {
   page?: number;

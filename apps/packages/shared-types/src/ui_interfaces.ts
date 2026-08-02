@@ -324,6 +324,7 @@ export interface MessageSearchOptions {
   dateTo?: Date;
   limit?: number;
   offset?: number;
+  order?: 'asc' | 'desc';
 }
 
 export interface FrontendDiscussionEvent {

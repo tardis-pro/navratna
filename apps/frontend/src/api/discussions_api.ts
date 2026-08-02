@@ -25,6 +25,18 @@ export type DiscussionAnalytics = SharedDiscussionAnalytics;
 
 export type { MessageRequest, TurnRequest, DiscussionListOptions };
 
+/**
+ * `order: 'desc'` returns the NEWEST messages first. Needed for a preview, where
+ * fetching ascending would return the oldest page and force reading the whole
+ * transcript just to find the latest line.
+ */
+export interface DiscussionMessageQuery {
+  page?: number;
+  limit?: number;
+  since?: string;
+  order?: 'asc' | 'desc';
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -109,20 +121,26 @@ export const discussionsAPI = {
     );
   },
 
-  async sendMessage(discussionId: string, message: MessageRequest): Promise<DiscussionMessage> {
-    return edenRequest(`/api/v1/discussions/${discussionId}/messages`, {
-      method: 'POST',
-      body: message,
-    });
+  /**
+   * Posts AS a specific participant. The participant id is part of the path
+   * because the server refuses (403) unless it belongs to the caller — one user
+   * can never post as another. There is no actor-neutral message route: the old
+   * POST /:id/messages was never implemented and always 404'd.
+   */
+  async sendParticipantMessage(
+    discussionId: string,
+    participantId: string,
+    message: MessageRequest
+  ): Promise<DiscussionMessage> {
+    return edenRequest(
+      `/api/v1/discussions/${discussionId}/participants/${participantId}/messages`,
+      { method: 'POST', body: message }
+    );
   },
 
   async getMessages(
     discussionId: string,
-    options?: {
-      page?: number;
-      limit?: number;
-      since?: string;
-    }
+    options?: DiscussionMessageQuery
   ): Promise<DiscussionMessage[]> {
     const response = await edenWithCSRFRetry(() =>
       discussions({ id: discussionId }).messages.get({ query: options })

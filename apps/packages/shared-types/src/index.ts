@@ -11,6 +11,7 @@ export * from './service_auth.js';
 // New exports for persona and discussion management
 export * from './persona';
 export * from './discussion';
+export * from './agent_chat';
 export * from './artifact';
 // Tool types - NEW
 export * from './tool';
@@ -75,6 +76,7 @@ export * from './debate';
 export * from './workspace.js';
 export * from './basebench';
 export type * from './frontend_api.js';
+export * from './workflow_api.js';
 export * from './telescope';
 export * from './microexpression';
 export * from './ui_interfaces';

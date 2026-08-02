@@ -417,8 +417,9 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
           throw new Error('Agent is not a participant in this discussion');
         }
 
-        // Send message through backend
-        await uaipAPI.discussions.sendMessage(discussionId, {
+        // Posted as the resolved participant: the server rejects a message whose
+        // participant is not the caller's own.
+        await uaipAPI.discussions.sendParticipantMessage(discussionId, participant.id, {
           content,
           messageType: 'message',
           metadata: {

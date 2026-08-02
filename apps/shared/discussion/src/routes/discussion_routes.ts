@@ -559,10 +559,11 @@ export function registerDiscussionRoutes(
               return guardFailure;
             }
 
-            const { limit = '50', offset = '0' } = ctx.query;
+            const { limit = '50', offset = '0', order } = ctx.query;
             const messages = await discussionService.getDiscussionMessages(ctx.params.id, {
               limit: parseInt(limit, 10),
               offset: parseInt(offset, 10),
+              ...(order === 'desc' ? { order: 'desc' as const } : {}),
             });
             return {
               success: true,
@@ -575,7 +576,11 @@ export function registerDiscussionRoutes(
           }
         },
         {
-          query: t.Object({ limit: t.Optional(t.String()), offset: t.Optional(t.String()) }),
+          query: t.Object({
+            limit: t.Optional(t.String()),
+            offset: t.Optional(t.String()),
+            order: t.Optional(t.String()),
+          }),
           response: {
             200: t.Object({ success: t.Literal(true), data: t.Array(t.Any()) }),
             500: t.Object({ success: t.Literal(false), error: t.String() }),
