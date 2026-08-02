@@ -214,6 +214,25 @@ const readResponseText = (response: unknown): string => {
   return ''
 }
 
+/**
+ * Providers report a failed generation IN BAND — they resolve with
+ * `{content:'', finishReason:'error', error:'HTTP 401: Unauthorized'}` rather
+ * than throwing. Committing that as an assistant turn stores a permanently
+ * blank reply AND marks the turn 'completed', so the idempotent replay path
+ * serves the blank forever and the user can never retry.
+ */
+const readGenerationFailure = (response: unknown): string | null => {
+  if (!isRecord(response)) return 'The model returned an unreadable response.'
+  if (typeof response.error === 'string' && response.error.length > 0) return response.error
+  if (response.finishReason === 'error') return 'The model provider reported a generation error.'
+  if (readResponseText(response).trim().length > 0) return null
+  // A tool-calling turn can legitimately answer with no prose, so empty text
+  // only means failure when the model also did nothing.
+  const executed = response.toolsExecuted
+  if (Array.isArray(executed) && executed.length > 0) return null
+  return 'The model returned an empty response.'
+}
+
 const toDocumentContext = (value: unknown): DocumentContext | undefined => {
   if (!isRecord(value)) return undefined
   if (
@@ -473,6 +492,19 @@ export function registerAgentChatRoutes(
           )
           const response = await userLLMService.generateAgentResponse(userId, request)
 
+          const generationFailure = readGenerationFailure(response)
+          if (generationFailure) {
+            if (claim && chatPersistence) {
+              await chatPersistence.failTurn(claim.userMessageId, claim.processingToken)
+            }
+            logger.error('Agent chat generation failed', {
+              agentId: ctx.params.agentId,
+              reason: generationFailure,
+            })
+            ctx.set.status = 502
+            return { error: 'Agent generation failed', message: generationFailure }
+          }
+
           if (claim && chatPersistence) {
             const assistantMessageId = await chatPersistence.completeTurn({
               conversationId: claim.conversationId,
@@ -545,6 +577,9 @@ export function registerAgentChatRoutes(
           200: t.Object({ success: t.Literal(true), data: t.Any() }),
           400: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
           404: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+          // A response schema of the wrong shape makes Elysia reject the
+          // handler's own reply and answer 422 instead of the intended status.
+          502: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
           500: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
         },
       })
