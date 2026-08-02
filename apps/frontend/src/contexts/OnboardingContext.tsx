@@ -16,6 +16,12 @@ interface OnboardingContextType extends OnboardingState {
   startOnboarding: () => void;
   completeWelcome: () => void;
   completeOnboarding: (data: CompleteOnboardingData) => Promise<void>;
+  /**
+   * Finishes onboarding when the server already recorded it — the imprint
+   * interview commits through /api/v1/onboarding/interview/complete, so
+   * re-posting the legacy persona payload here would overwrite it.
+   */
+  markOnboardingSettled: () => void;
   skipOnboarding: () => void;
   restartOnboarding: () => void;
   checkOnboardingStatus: () => Promise<void>;
@@ -43,17 +49,13 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     isLoading: true,
   });
 
-  // Check if user is first-time based on multiple indicators
+  // The server is authoritative; local storage is only a fallback for when it
+  // is unreachable. Local state is per-browser and survives account switches,
+  // so trusting it first would let one skip suppress onboarding permanently.
   const detectFirstTimeUser = useCallback(async (): Promise<boolean> => {
     if (!user) return false;
 
     try {
-      const hasPreferences = localStorage.getItem('user-preferences') !== null;
-      const hasDesktopCustomizations = localStorage.getItem('desktop_preferences') !== null;
-      if (hasPreferences || hasDesktopCustomizations) {
-        return false;
-      }
-
       const onboardingStatus = await userPersonaAPI.checkOnboardingStatus();
       if (onboardingStatus && !onboardingStatus.isCompleted) {
         return true;
@@ -166,6 +168,16 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     }
   }, []);
 
+  const markOnboardingSettled = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      showOnboarding: false,
+      showWelcome: false,
+      onboardingStep: 'completed',
+      isFirstTime: false,
+    }));
+  }, []);
+
   const skipOnboarding = useCallback(() => {
     setState((prev) => ({
       ...prev,
@@ -205,6 +217,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
       startOnboarding,
       completeWelcome,
       completeOnboarding,
+      markOnboardingSettled,
       skipOnboarding,
       restartOnboarding,
       checkOnboardingStatus,
@@ -214,6 +227,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
       startOnboarding,
       completeWelcome,
       completeOnboarding,
+      markOnboardingSettled,
       skipOnboarding,
       restartOnboarding,
       checkOnboardingStatus,

@@ -4,7 +4,7 @@ import { TelescopeSurface } from '@/components/TelescopeSurface';
 import type { TelescopeFocusTarget } from '@/components/TelescopeSurface/TelescopeSurface';
 import { useExploreSurface } from '@/components/TelescopeSurface/ExploreSurfaceProvider';
 import { resolveCapabilityTarget } from '@/components/TelescopeSurface/capability_manifest';
-import { WelcomeConstellation } from '@/components/TelescopeSurface/WelcomeConstellation';
+import { ImprintInterview } from '@/components/onboarding';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
 import { useHomeShell } from '@/components/home/use_home_shell';
@@ -32,7 +32,7 @@ export default function TelescopeSurfacePage() {
   const { openDiscussionComposer } = useHomeShell();
   const navigate = useNavigate();
   const { blockId } = useParams();
-  const { showOnboarding, completeOnboarding, skipOnboarding } = useOnboarding();
+  const { showOnboarding, markOnboardingSettled, skipOnboarding } = useOnboarding();
   const { items } = useKnowledge();
   const [focusTarget, setFocusTarget] = useState<TelescopeFocusTarget>();
   const focusNonceRef = useRef(0);
@@ -109,39 +109,33 @@ export default function TelescopeSurfacePage() {
     [navigate]
   );
 
-  const handleConnectTools = useCallback(() => {
-    void navigate('/explore/settings');
-  }, [navigate]);
+  const handleInterviewComplete = useCallback(() => {
+    markOnboardingSettled();
+  }, [markOnboardingSettled]);
 
-  const handleMeetAgent = useCallback(() => {
-    void navigate('/explore/chat');
-  }, [navigate]);
-
-  const handleOnboardingComplete = useCallback(() => {
+  // Invoked by the interview ONLY after the server accepted the skip, so this
+  // must not call the API itself — a second call would double-post, and
+  // settling here unconditionally is what made a failed skip look successful.
+  const handleInterviewSkip = useCallback(() => {
     skipOnboarding();
   }, [skipOnboarding]);
 
   if (showWelcome) {
     return (
-      <div className="relative flex h-full min-h-0 flex-col items-center justify-center bg-background p-8">
-        <h1 className="mb-2 text-3xl font-bold tracking-tight text-foreground">
-          Welcome to Navratna
-        </h1>
-        <p className="mb-12 max-w-lg text-center text-muted-foreground">
-          Set up your cognitive shell in three steps. Each step builds your constellation.
-        </p>
-        <WelcomeConstellation
-          onConnectTools={handleConnectTools}
-          onMeetAgent={handleMeetAgent}
-          onAllComplete={handleOnboardingComplete}
+      <div className="relative flex h-full min-h-0 flex-col bg-background px-8 pt-12">
+        <div className="mb-2 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Let&apos;s get to know each other
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            A short conversation. Your answers decide which agents you get.
+          </p>
+        </div>
+        <ImprintInterview
+          onComplete={handleInterviewComplete}
+          onSkip={handleInterviewSkip}
+          className="min-h-0 flex-1"
         />
-        <button
-          type="button"
-          onClick={skipOnboarding}
-          className="mt-8 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Skip for now
-        </button>
       </div>
     );
   }

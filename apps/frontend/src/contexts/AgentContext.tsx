@@ -1147,24 +1147,23 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     try {
       const agentList = await uaipAPI.agents.list();
 
-      if (agentList.length > 0) {
-        agentList.forEach((backendAgent) => {
-          try {
-            const agentState = createAgentStateFromBackend(backendAgent);
+      agentList.forEach((backendAgent) => {
+        try {
+          const agentState = createAgentStateFromBackend(backendAgent);
 
-            addAgent(agentState);
-          } catch (error) {
-            logger.error('❌ Failed to create/add agent state:', {
-              backendAgent: backendAgent,
-              error: error instanceof Error ? error.message : 'Agent conversion failed',
-              stack: error instanceof Error ? error.stack : undefined,
-            });
-          }
-        });
+          addAgent(agentState);
+        } catch (error) {
+          logger.error('❌ Failed to create/add agent state:', {
+            backendAgent: backendAgent,
+            error: error instanceof Error ? error.message : 'Agent conversion failed',
+            stack: error instanceof Error ? error.stack : undefined,
+          });
+        }
+      });
 
-        // Mark as loaded after successful processing
-        agentsLoadedRef.current = true;
-      }
+      // A successful fetch is terminal even when it returns zero agents: a user
+      // whose agents have not been provisioned yet legitimately has none.
+      agentsLoadedRef.current = true;
     } catch (error) {
       logger.error('Failed to refresh agents from backend:', error);
     }
@@ -1182,17 +1181,6 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         }
 
         const agentList = await uaipAPI.agents.list();
-
-        // Defensive re-fetch: a cold first paint can land before auth is
-        // fully wired (the surrounding setTimeout(100ms) races with token
-        // hydration). If we got an empty list on the first attempt, retry
-        // once after a short delay before concluding "no agents".
-        if (agentList.length === 0 && !isRetry) {
-          logger.warn('[AgentContext] Empty agent list on first attempt; retrying after 500ms');
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          await loadAgents(true);
-          return;
-        }
 
         if (agentList.length > 0) {
           try {
@@ -1223,11 +1211,21 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
               }
             });
           }
-
-          // Mark as loaded after successful processing
-          agentsLoadedRef.current = true;
         }
+
+        agentsLoadedRef.current = true;
       } catch (error) {
+        // The mount effect fires behind setTimeout(100ms), which can still race
+        // token hydration. A THROWN request is the real signal of that race —
+        // an empty-but-successful response is not — so retry only here.
+        if (!isRetry) {
+          logger.warn('[AgentContext] Agent load failed; retrying once after 500ms', {
+            error: error instanceof Error ? error.message : error,
+          });
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          await loadAgents(true);
+          return;
+        }
         logger.error('Failed to load agents from backend:', error);
       }
     };
