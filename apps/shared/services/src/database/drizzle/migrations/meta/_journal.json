@@ -85,6 +85,27 @@
       "when": 1785577029684,
       "tag": "0011_misty_inertia",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785616814776,
+      "tag": "0012_agent_chat_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1785624036450,
+      "tag": "0013_clumsy_colossus",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1785624756639,
+      "tag": "0014_round_talisman",
+      "breakpoints": true
     }
   ]
 }

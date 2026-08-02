@@ -12,6 +12,8 @@ export { UserRepository } from './user_repository';
 export { KnowledgeRepository } from './knowledge_repository';
 
 // New user management repositories
+export { UserAgentAssignmentRepository } from './user_agent_assignment_repository';
+export type { AssignManyParams } from './user_agent_assignment_repository';
 export { UserContactRepository } from './user_contact_repository';
 export { UserMessageRepository } from './user_message_repository';
 export { UserPreferencesRepository } from './user_preferences_repository';

@@ -182,3 +182,41 @@ CREATE POLICY tenant_isolation_update ON short_links
 CREATE POLICY tenant_isolation_delete ON short_links
   FOR DELETE
   USING (organization_id = current_setting('app.tenant_id', true)::uuid);
+
+-- ─── agent_chat_conversations ─────────────────────────────────────────────
+
+CREATE POLICY tenant_isolation_select ON agent_chat_conversations
+  FOR SELECT
+  USING (organization_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY tenant_isolation_insert ON agent_chat_conversations
+  FOR INSERT
+  WITH CHECK (organization_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY tenant_isolation_update ON agent_chat_conversations
+  FOR UPDATE
+  USING       (organization_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK  (organization_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY tenant_isolation_delete ON agent_chat_conversations
+  FOR DELETE
+  USING (organization_id = current_setting('app.tenant_id', true)::uuid);
+
+-- ─── agent_chat_messages ──────────────────────────────────────────────────
+
+CREATE POLICY tenant_isolation_select ON agent_chat_messages
+  FOR SELECT
+  USING (organization_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY tenant_isolation_insert ON agent_chat_messages
+  FOR INSERT
+  WITH CHECK (organization_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY tenant_isolation_update ON agent_chat_messages
+  FOR UPDATE
+  USING       (organization_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK  (organization_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY tenant_isolation_delete ON agent_chat_messages
+  FOR DELETE
+  USING (organization_id = current_setting('app.tenant_id', true)::uuid);

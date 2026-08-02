@@ -28,9 +28,11 @@ import {
   jsonb,
   json,
   index,
+  unique,
   uniqueIndex,
   primaryKey,
   foreignKey,
+  check,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { base, llmPreferenceCommonColumns } from './schema_base';
@@ -400,6 +402,223 @@ export const projectAgentIntegrationConnections = pgTable(
       name: 'fk_project_agent_integration_connection',
     }).onDelete('cascade'),
     index('idx_project_agent_integration_connection').on(t.connectionId),
+  ]
+);
+
+export const userAgentAssignments = pgTable(
+  'user_agent_assignments',
+  {
+    ...base,
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    // cross-plane ref: intelligence.agents.id — no DB FK
+    agentId: uuid('agent_id').notNull(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .default(ADMIN_ORG_ID)
+      .references(() => organizations.id, { onDelete: 'restrict' }),
+    assignedBy: varchar('assigned_by', { length: 100 }).notNull().default('system'),
+    source: varchar('source', { length: 50 }).notNull().default('onboarding'),
+  },
+  (t) => [
+    uniqueIndex('uq_user_agent_assignments_user_agent').on(t.userId, t.agentId),
+    index('idx_user_agent_assignments_user').on(t.userId),
+    index('idx_user_agent_assignments_org').on(t.organizationId),
+  ]
+);
+
+// ─── ONBOARDING INTERVIEW (Base Imprint 10) ────────────────────────────────
+
+export const onboardingInterviews = pgTable(
+  'onboarding_interviews',
+  {
+    ...base,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .default(ADMIN_ORG_ID)
+      .references(() => organizations.id, { onDelete: 'restrict' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    // cross-plane ref: intelligence.agents.id — no DB FK
+    guideAgentId: uuid('guide_agent_id').notNull(),
+    schemaVersion: integer('schema_version').notNull().default(1),
+    status: varchar('status', { length: 20 }).notNull().default('active'),
+    currentObjective: varchar('current_objective', { length: 50 }),
+    turnCount: integer('turn_count').notNull().default(0),
+    stateVersion: integer('state_version').notNull().default(0),
+    startedAt: timestamp('started_at').defaultNow().notNull(),
+    lastActivityAt: timestamp('last_activity_at').defaultNow().notNull(),
+    completedAt: timestamp('completed_at'),
+  },
+  (t) => [
+    // A table-level UNIQUE CONSTRAINT, not a unique index: the child tables FK
+    // onto (id, organization_id) to inherit org scoping, and Postgres emits the
+    // constraint with the table while an index is only created afterwards — so
+    // an index here makes every dependent FK fail with "no unique constraint
+    // matching given keys". Not a business uniqueness rule.
+    unique('uq_onboarding_interviews_id_org').on(t.id, t.organizationId),
+    // Mirrors the durable chat conversation key.
+    uniqueIndex('uq_onboarding_interviews_user_guide').on(
+      t.organizationId,
+      t.userId,
+      t.guideAgentId
+    ),
+    index('idx_onboarding_interviews_dropoff')
+      .on(t.organizationId, t.status, t.currentObjective, t.lastActivityAt)
+      .where(sql`status IN ('active','paused')`),
+    check(
+      'chk_onboarding_interviews_status',
+      sql`status IN ('active','paused','review','completed','abandoned')`
+    ),
+    check(
+      'chk_onboarding_interviews_objective',
+      sql`current_objective IS NOT NULL OR status NOT IN ('active','paused')`
+    ),
+    check(
+      'chk_onboarding_interviews_completed_at',
+      sql`(completed_at IS NOT NULL) = (status = 'completed')`
+    ),
+    check('chk_onboarding_interviews_counters', sql`turn_count >= 0 AND state_version >= 0`),
+  ]
+);
+
+export const onboardingSlotValues = pgTable(
+  'onboarding_slot_values',
+  {
+    interviewId: uuid('interview_id').notNull(),
+    organizationId: uuid('organization_id').notNull(),
+    slotKey: varchar('slot_key', { length: 50 }).notNull(),
+    status: varchar('status', { length: 30 }).notNull().default('unanswered'),
+    value: jsonb('value'),
+    confidence: decimal('confidence', { precision: 6, scale: 5 }),
+    attempts: integer('attempts').notNull().default(0),
+    revision: integer('revision').notNull().default(0),
+    clarificationReason: text('clarification_reason'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.interviewId, t.slotKey] }),
+    foreignKey({
+      columns: [t.interviewId, t.organizationId],
+      foreignColumns: [onboardingInterviews.id, onboardingInterviews.organizationId],
+      name: 'fk_onboarding_slot_values_interview',
+    }).onDelete('cascade'),
+    check(
+      'chk_onboarding_slot_values_status',
+      sql`status IN ('unanswered','answered','needs_clarification','declined','not_applicable')`
+    ),
+    check('chk_onboarding_slot_values_answered_value', sql`status <> 'answered' OR value IS NOT NULL`),
+    check(
+      'chk_onboarding_slot_values_empty_value',
+      sql`status NOT IN ('unanswered','declined','not_applicable') OR value IS NULL`
+    ),
+    check(
+      'chk_onboarding_slot_values_confidence',
+      sql`confidence IS NULL OR (confidence >= 0 AND confidence <= 1)`
+    ),
+    check('chk_onboarding_slot_values_counters', sql`attempts >= 0 AND revision >= 0`),
+  ]
+);
+
+export const onboardingSlotEvidence = pgTable(
+  'onboarding_slot_evidence',
+  {
+    ...base,
+    interviewId: uuid('interview_id').notNull(),
+    organizationId: uuid('organization_id').notNull(),
+    slotKey: varchar('slot_key', { length: 50 }).notNull(),
+    slotRevision: integer('slot_revision').notNull(),
+    sourceKind: varchar('source_kind', { length: 20 }).notNull(),
+    // cross-plane ref: intelligence.agent_chat_messages.id — no DB FK
+    sourceMessageId: uuid('source_message_id'),
+    evidenceText: text('evidence_text').notNull(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.interviewId, t.organizationId],
+      foreignColumns: [onboardingInterviews.id, onboardingInterviews.organizationId],
+      name: 'fk_onboarding_slot_evidence_interview',
+    }).onDelete('cascade'),
+    // Partial unique: the same chat message cannot be recorded twice for a
+    // slot revision, while allowing multiple manual review edits.
+    uniqueIndex('uq_onboarding_slot_evidence_chat')
+      .on(t.interviewId, t.slotKey, t.slotRevision, t.sourceMessageId)
+      .where(sql`source_kind = 'chat_message'`),
+    index('idx_onboarding_slot_evidence_slot').on(t.interviewId, t.slotKey, t.slotRevision),
+    check(
+      'chk_onboarding_slot_evidence_source_kind',
+      sql`source_kind IN ('chat_message','review_edit')`
+    ),
+    check(
+      'chk_onboarding_slot_evidence_chat_message',
+      sql`source_kind <> 'chat_message' OR source_message_id IS NOT NULL`
+    ),
+    check(
+      'chk_onboarding_slot_evidence_review_edit',
+      sql`source_kind <> 'review_edit' OR source_message_id IS NULL`
+    ),
+    check('chk_onboarding_slot_evidence_text', sql`length(btrim(evidence_text)) > 0`),
+  ]
+);
+
+export const onboardingExtractionRuns = pgTable(
+  'onboarding_extraction_runs',
+  {
+    ...base,
+    interviewId: uuid('interview_id').notNull(),
+    organizationId: uuid('organization_id').notNull(),
+    // cross-plane ref: intelligence.agent_chat_messages.id — no DB FK
+    triggerMessageId: uuid('trigger_message_id').notNull(),
+    sourceMessageIds: uuid('source_message_ids').array(),
+    clientTurnId: varchar('client_turn_id', { length: 100 }),
+    attemptNo: integer('attempt_no').notNull().default(1),
+    outcome: varchar('outcome', { length: 20 }).notNull(),
+    model: varchar('model', { length: 100 }),
+    provider: varchar('provider', { length: 50 }),
+    promptVersion: varchar('prompt_version', { length: 20 }),
+    schemaVersion: integer('schema_version').notNull().default(1),
+    sourceStateVersion: integer('source_state_version'),
+    resultingStateVersion: integer('resulting_state_version'),
+    resultingStatus: varchar('resulting_status', { length: 20 }),
+    nextObjective: varchar('next_objective', { length: 50 }),
+    rawResponse: text('raw_response'),
+    acceptedUpdates: jsonb('accepted_updates'),
+    rejectedUpdates: jsonb('rejected_updates'),
+    validationErrors: jsonb('validation_errors'),
+    latencyMs: integer('latency_ms'),
+    tokensUsed: integer('tokens_used'),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.interviewId, t.organizationId],
+      foreignColumns: [onboardingInterviews.id, onboardingInterviews.organizationId],
+      name: 'fk_onboarding_extraction_runs_interview',
+    }).onDelete('cascade'),
+    uniqueIndex('uq_onboarding_extraction_runs_attempt').on(
+      t.interviewId,
+      t.triggerMessageId,
+      t.attemptNo
+    ),
+    // Replay idempotency: at most one accepted extraction per user message.
+    uniqueIndex('uq_onboarding_extraction_runs_accepted')
+      .on(t.interviewId, t.triggerMessageId)
+      .where(sql`outcome = 'accepted'`),
+    uniqueIndex('uq_onboarding_extraction_runs_client_turn')
+      .on(t.interviewId, t.clientTurnId)
+      .where(sql`outcome = 'accepted'`),
+    check('chk_onboarding_extraction_runs_outcome', sql`outcome IN ('accepted','rejected','failed')`),
+    check(
+      'chk_onboarding_extraction_runs_accepted',
+      sql`outcome <> 'accepted' OR (resulting_state_version = source_state_version + 1 AND resulting_status IN ('active','review'))`
+    ),
+    check(
+      'chk_onboarding_extraction_runs_not_accepted',
+      sql`outcome = 'accepted' OR (resulting_state_version IS NULL AND resulting_status IS NULL AND next_objective IS NULL)`
+    ),
+    check('chk_onboarding_extraction_runs_attempt_no', sql`attempt_no >= 1`),
   ]
 );
 
