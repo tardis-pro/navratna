@@ -1,7 +1,18 @@
-import { Home, Menu, MessageSquarePlus, Search, Sparkles } from 'lucide-react';
+import { Home, LogOut, Menu, MessageSquarePlus, Search, Sparkles } from 'lucide-react';
 import { NavLink } from 'react-router';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown_menu';
 import type { ShellHeaderProps } from './home_shell_types';
+import { userInitials } from './user_initials';
 
 const modeLinkClassName = ({ isActive }: { isActive: boolean }): string =>
   cn(
@@ -17,6 +28,10 @@ export function ShellHeader({
   onToggleWhisper,
   whisperOpen,
 }: ShellHeaderProps) {
+  const { user, logout } = useAuth();
+  const displayName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || user?.email || 'Account';
+
   return (
     <header
       className="relative z-[60] flex h-12 shrink-0 items-center gap-2 border-b border-border/70 bg-background/90 px-2 backdrop-blur-xl sm:px-3"
@@ -85,6 +100,37 @@ export function ShellHeader({
         >
           <Sparkles className="h-4 w-4" />
         </button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:h-8 sm:w-8"
+              aria-label="Account menu"
+            >
+              <Avatar className="h-7 w-7">
+                <AvatarFallback className="bg-primary/10 text-[11px] font-semibold text-primary">
+                  {userInitials(user)}
+                </AvatarFallback>
+              </Avatar>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel className="flex flex-col gap-0.5">
+              <span className="truncate text-sm font-medium">{displayName}</span>
+              {user?.email && (
+                <span className="truncate text-xs font-normal text-muted-foreground">
+                  {user.email}
+                </span>
+              )}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => void logout()}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
