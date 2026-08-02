@@ -44,6 +44,11 @@ function isSetupProjectWorkspaceInput(v: unknown): v is SetupProjectWorkspaceInp
   return isRecord(v) && typeof v['projectId'] === 'string' && typeof v['userId'] === 'string';
 }
 
+interface OperationCommandSubscription {
+  eventType: string;
+  handler: (event: EventBusMessage) => Promise<void>;
+}
+
 export class OrchestrationEngine extends EventEmitter {
   private validator: OperationValidator;
   private stepExecutionManager: StepExecutionManager;
@@ -51,6 +56,7 @@ export class OrchestrationEngine extends EventEmitter {
   private setupProjectWorkspaceWorkflow: SetupProjectWorkspaceWorkflow;
   private cleanupInterval: NodeJS.Timeout | null = null;
   private isShuttingDown = false;
+  private commandSubscriptions: OperationCommandSubscription[] = [];
 
   constructor(
     private databaseService: DatabaseService,
@@ -147,6 +153,21 @@ export class OrchestrationEngine extends EventEmitter {
 
       // Create workflow instance ID
       const workflowInstanceId = `wf-${savedOperation.id}-${Date.now()}`;
+
+      // The orchestrator's very first act is updateOperationState, which refuses to
+      // write a state it never saw created. Seed it here or every execution dies on
+      // "Operation state not found".
+      await this.stateManagerService.initializeOperationState(savedOperation.id, {
+        operationId: savedOperation.id,
+        workflowInstanceId,
+        status: OperationStatus.RUNNING,
+        completedSteps: [],
+        failedSteps: [],
+        variables: operation.context ?? {},
+        checkpoints: [],
+        startedAt: new Date(),
+        lastUpdated: new Date(),
+      });
 
       // Emit operation started event
       await this.eventBusService.publish('operation.started', {
@@ -479,43 +500,54 @@ export class OrchestrationEngine extends EventEmitter {
       await this.handleStepFailure(event);
     });
 
-    // Subscribe to external events
-    this.subscribeToExternalEvents();
   }
 
   /**
-   * Subscribe to external events via event bus
+   * Subscribes the operation command consumers. Kept out of the constructor so the
+   * caller can await it — an unawaited subscribe inside a constructor surfaces as an
+   * unhandled rejection and leaves the engine silently deaf to pause/resume/cancel.
    */
-  private async subscribeToExternalEvents(): Promise<void> {
-    // Subscribe to operation commands
-    await this.eventBusService.subscribe(
-      'operation.command.pause',
-      async (event: EventBusMessage) => {
-        if (!isEventMessage(event.data)) return;
-        await this.pauseOperation(event.data.operationId!, event.data.reason);
-      }
-    );
+  public async initialize(): Promise<void> {
+    if (this.commandSubscriptions.length > 0) return;
 
-    await this.eventBusService.subscribe(
-      'operation.command.resume',
-      async (event: EventBusMessage) => {
-        if (!isEventMessage(event.data)) return;
-        await this.resumeOperation(event.data.operationId!, event.data.checkpointId);
-      }
-    );
+    const subscriptions: OperationCommandSubscription[] = [
+      {
+        eventType: 'operation.command.pause',
+        handler: async (event: EventBusMessage) => {
+          if (!isEventMessage(event.data)) return;
+          await this.pauseOperation(event.data.operationId!, event.data.reason);
+        },
+      },
+      {
+        eventType: 'operation.command.resume',
+        handler: async (event: EventBusMessage) => {
+          if (!isEventMessage(event.data)) return;
+          await this.resumeOperation(event.data.operationId!, event.data.checkpointId);
+        },
+      },
+      {
+        eventType: 'operation.command.cancel',
+        handler: async (event: EventBusMessage) => {
+          if (!isEventMessage(event.data)) return;
+          await this.cancelOperation(
+            event.data.operationId!,
+            event.data.reason ?? '',
+            typeof event.data.compensate === 'boolean' ? event.data.compensate : false,
+            typeof event.data.force === 'boolean' ? event.data.force : false
+          );
+        },
+      },
+    ];
 
-    await this.eventBusService.subscribe(
-      'operation.command.cancel',
-      async (event: EventBusMessage) => {
-        if (!isEventMessage(event.data)) return;
-        await this.cancelOperation(
-          event.data.operationId!,
-          event.data.reason ?? '',
-          typeof event.data.compensate === 'boolean' ? event.data.compensate : false,
-          typeof event.data.force === 'boolean' ? event.data.force : false
-        );
-      }
-    );
+    for (const subscription of subscriptions) {
+      // oxlint-disable-next-line no-await-in-loop -- subscriptions must register in order
+      await this.eventBusService.subscribe(subscription.eventType, subscription.handler);
+      this.commandSubscriptions.push(subscription);
+    }
+
+    logger.info('Orchestration engine subscribed to operation commands', {
+      eventTypes: subscriptions.map((s) => s.eventType),
+    });
   }
 
   /**
@@ -589,6 +621,19 @@ export class OrchestrationEngine extends EventEmitter {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
     }
+
+    for (const subscription of this.commandSubscriptions) {
+      try {
+        // oxlint-disable-next-line no-await-in-loop -- unsubscribes must complete before teardown continues
+        await this.eventBusService.unsubscribe(subscription.eventType, subscription.handler);
+      } catch (error) {
+        logger.warn('Failed to unsubscribe operation command consumer', {
+          eventType: subscription.eventType,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    this.commandSubscriptions = [];
 
     // Clean up components
     this.workflowOrchestrator.cleanup();

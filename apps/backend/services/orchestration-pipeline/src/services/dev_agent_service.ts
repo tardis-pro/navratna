@@ -10,7 +10,7 @@ import { logger, InternalServerError } from '@uaip/utils'
 const DEVAGENT_PR_CREATED_EVENT = 'rdlo.devagent.pr.created'
 const DEVAGENT_CODE_REVIEW_EVENT = 'rdlo.devagent.code.review'
 
-interface PRGenerationResult {
+export interface PRGenerationResult {
   prUrl: string
   branch: string
   storyId: string

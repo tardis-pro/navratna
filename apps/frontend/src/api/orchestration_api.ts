@@ -13,19 +13,25 @@ import type {
 } from '@uaip/contracts/api';
 import type {
   WorkflowDefinition,
-  WorkflowStep,
+  WorkflowDefinitionStep,
   WorkflowTrigger,
+  WorkflowTriggerKind,
   WorkflowExecution,
-  WorkflowStepExecution,
+  WorkflowStepOutcome,
+  CreateWorkflowRequest,
+  UpdateWorkflowRequest,
   OperationListOptions,
 } from '@uaip/contracts/api';
 
 export type {
   WorkflowDefinition,
-  WorkflowStep,
+  WorkflowDefinitionStep,
   WorkflowTrigger,
+  WorkflowTriggerKind,
   WorkflowExecution,
-  WorkflowStepExecution,
+  WorkflowStepOutcome,
+  CreateWorkflowRequest,
+  UpdateWorkflowRequest,
   OperationListOptions,
 };
 
@@ -106,15 +112,13 @@ export const orchestrationAPI = {
     return edenWithCSRFRetry(() => workflows[workflowId].get());
   },
 
-  async createWorkflow(
-    workflow: Omit<WorkflowDefinition, 'id' | 'createdAt' | 'updatedAt'>
-  ): Promise<WorkflowDefinition> {
+  async createWorkflow(workflow: CreateWorkflowRequest): Promise<WorkflowDefinition> {
     return edenWithCSRFRetry(() => workflows.post(workflow));
   },
 
   async updateWorkflow(
     workflowId: string,
-    updates: Partial<WorkflowDefinition>
+    updates: UpdateWorkflowRequest
   ): Promise<WorkflowDefinition> {
     return edenWithCSRFRetry(() => workflows[workflowId].put(updates));
   },

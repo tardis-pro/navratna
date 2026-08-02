@@ -27,6 +27,14 @@ export default mergeConfig(
         '@uaip/config': path.resolve(import.meta.dirname, '../../../shared/config/src'),
         '@uaip/infra': path.resolve(import.meta.dirname, '../../../shared/infra/src'),
         '@uaip/middleware': path.resolve(import.meta.dirname, '../../../shared/middleware/src'),
+        '@uaip/shared-services/drizzle/clients': path.resolve(
+          import.meta.dirname,
+          '../../../shared/services/src/database/drizzle/clients/index.ts'
+        ),
+        '@uaip/shared-services/drizzle/control': path.resolve(
+          import.meta.dirname,
+          '../../../shared/services/src/database/drizzle/schemas/control_schema.ts'
+        ),
         '@uaip/shared-services': path.resolve(import.meta.dirname, '../../../shared/services/src'),
         '@uaip/llm-service': path.resolve(import.meta.dirname, '../../../shared/llm-service/src'),
       },

@@ -53,6 +53,16 @@ interface StepOutcome {
   error?: string;
 }
 
+export interface WorkflowRunSummary {
+  operationId: string;
+  workflowDefinitionId: string;
+  status: 'completed' | 'failed';
+  startedAt: Date;
+  completedAt: Date;
+  durationMs: number;
+  outcomes: StepOutcome[];
+}
+
 export class WorkflowExecutorService {
   private listening = false;
 
@@ -76,7 +86,7 @@ export class WorkflowExecutorService {
     logger.info('WorkflowExecutorService listening on workflow.definition.trigger');
   }
 
-  private async runDefinition(definitionId: string): Promise<void> {
+  async runDefinition(definitionId: string): Promise<WorkflowRunSummary | null> {
     const db = getControlDb();
     const [definition] = await db
       .select()
@@ -86,7 +96,7 @@ export class WorkflowExecutorService {
 
     if (!definition) {
       logger.warn('Fired workflow definition not found', { definitionId });
-      return;
+      return null;
     }
 
     const steps = (definition.steps ?? []) as WorkflowStep[];
@@ -134,12 +144,15 @@ export class WorkflowExecutorService {
       previousStdout = this.extractStdout(outcome.output);
     }
 
+    const completedAt = new Date();
+    const durationMs = completedAt.getTime() - startedAt.getTime();
+
     await db
       .update(operations)
       .set({
         status: failed ? OperationStatus.FAILED : OperationStatus.COMPLETED,
-        completedAt: new Date(),
-        actualDuration: Date.now() - startedAt.getTime(),
+        completedAt,
+        actualDuration: durationMs,
         result: { outcomes } as unknown as Record<string, unknown>,
         error: failed ? outcomes.find((o) => o.status === 'failed')?.error ?? 'step failed' : null,
       })
@@ -160,6 +173,16 @@ export class WorkflowExecutorService {
       status: failed ? 'failed' : 'completed',
       steps: outcomes.length,
     });
+
+    return {
+      operationId,
+      workflowDefinitionId: definitionId,
+      status: failed ? 'failed' : 'completed',
+      startedAt,
+      completedAt,
+      durationMs,
+      outcomes,
+    };
   }
 
   private async runStep(

@@ -1,12 +1,29 @@
 import type { Feature, ServiceDeps } from '@uaip/shared-services/feature-factory'
-import { EnsureSystemActor, EventBusService, TaskService } from '@uaip/shared-services'
+import {
+  CompensationService,
+  EnsureSystemActor,
+  EventBusService,
+  OperationManagementService,
+  ResourceManagerService,
+  StateManagerService,
+  StepExecutorService,
+  TaskService,
+} from '@uaip/shared-services'
+import { DatabaseService } from '@uaip/infra/database'
 import { logger } from '@uaip/utils'
 
 import { TaskController } from './controllers/task_controller.js'
+import { OrchestrationEngine } from './orchestration_engine.js'
 import { registerApprovalRoutes } from './routes/approval_routes.js'
+import { registerDevLoopRoutes } from './routes/dev_loop_routes.js'
+import { registerOperationRoutes } from './routes/operation_routes.js'
 import { registerTaskRoutes } from './routes/task_routes.js'
 import { registerWorkflowRoutes } from './routes/workflow_routes.js'
 import { registerGitHubWebhookRoutes } from './routes/github_webhook_routes.js'
+import { registerJiraWebhookRoutes } from './routes/jira_webhook_routes.js'
+import { importOpenClawWorkflows } from './seeds/openclaw-workflow-import.js'
+import { DevLoopOrchestrator } from './services/dev_loop_orchestrator.js'
+import { HealingAgentService } from './services/healing_agent_service.js'
 import { RDLOApprovalService } from './services/rdlo_approval_service.js'
 import { WorkflowEngineService } from './services/workflow_engine_service.js'
 import { WorkflowExecutorService } from './services/workflow_executor_service.js'
@@ -15,6 +32,11 @@ let taskController: TaskController
 let workflowEngineService: WorkflowEngineService
 let workflowExecutorService: WorkflowExecutorService
 let rdloApprovalService: RDLOApprovalService
+let orchestrationEngine: OrchestrationEngine | undefined
+const devLoopServices: {
+  devLoopOrchestrator?: DevLoopOrchestrator
+  healingAgent?: HealingAgentService
+} = {}
 
 export const orchestrationFeature: Feature = {
   name: 'orchestration-pipeline',
@@ -37,18 +59,49 @@ export const orchestrationFeature: Feature = {
     workflowExecutorService = new WorkflowExecutorService(eventBusService)
     rdloApprovalService = new RDLOApprovalService(eventBusService)
 
+    devLoopServices.healingAgent = new HealingAgentService(eventBusService)
+    devLoopServices.devLoopOrchestrator = new DevLoopOrchestrator(eventBusService)
+
+    const databaseService = deps.databaseService ?? DatabaseService.getInstance()
+    orchestrationEngine = new OrchestrationEngine(
+      databaseService,
+      eventBusService,
+      new StateManagerService(databaseService),
+      new ResourceManagerService(),
+      new StepExecutorService(),
+      new CompensationService(databaseService, eventBusService),
+      new OperationManagementService()
+    )
+
     // Consume the scheduled workflow triggers the engine registers — without this the
-    // cron jobs fire into a queue nobody reads.
+    // cron jobs fire into a queue nobody reads. Consumers must be listening before
+    // loadAll() registers the cron jobs that produce into them.
     await workflowExecutorService.initialize()
-    await workflowEngineService.loadAll()
     await rdloApprovalService.initialize()
+    await devLoopServices.devLoopOrchestrator.initialize()
+    await orchestrationEngine.initialize()
+
+    if (process.env.IMPORT_OPENCLAW_WORKFLOWS === 'true') {
+      try {
+        const result = await importOpenClawWorkflows()
+        logger.info('OpenClaw workflow definitions imported', result)
+      } catch (error) {
+        logger.error('OpenClaw workflow import failed', {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+
+    await workflowEngineService.loadAll()
     logger.info('orchestration-pipeline feature initialized')
   },
 
   routes(app) {
     app.use(registerApprovalRoutes(rdloApprovalService))
     app.use(registerTaskRoutes(taskController))
-    app.use(registerWorkflowRoutes(workflowEngineService))
+    app.use(registerWorkflowRoutes(workflowEngineService, workflowExecutorService))
+    app.use(registerOperationRoutes(orchestrationEngine))
+    app.use(registerDevLoopRoutes(devLoopServices))
     // GitHub webhook receiver (push/PR/check_run → CI monitor). HMAC-SHA256
     // signature verification is enforced per-request; only mount it when the
     // shared secret is configured so an unconfigured deploy doesn't expose a
@@ -58,6 +111,15 @@ export const orchestrationFeature: Feature = {
     } else {
       logger.warn('orchestration-pipeline: GITHUB_WEBHOOK_SECRET not set — GitHub webhook route not mounted')
     }
+    if (process.env.JIRA_WEBHOOK_SECRET) {
+      app.use(registerJiraWebhookRoutes())
+    } else {
+      logger.warn('orchestration-pipeline: JIRA_WEBHOOK_SECRET not set — Jira webhook route not mounted')
+    }
     return app
+  },
+
+  async shutdown(): Promise<void> {
+    await orchestrationEngine?.shutdown()
   },
 }

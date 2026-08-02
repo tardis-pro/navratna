@@ -7,8 +7,12 @@ export type {
   OperationStatusResponse,
   WorkflowDefinition,
   WorkflowStep,
+  WorkflowDefinitionStep,
   WorkflowTrigger,
+  WorkflowTriggerKind,
   WorkflowExecution,
-  WorkflowStepExecution,
+  WorkflowStepOutcome,
+  CreateWorkflowRequest,
+  UpdateWorkflowRequest,
   OperationListOptions,
 } from '@uaip/types';

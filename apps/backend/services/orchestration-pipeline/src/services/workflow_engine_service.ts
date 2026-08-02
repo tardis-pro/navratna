@@ -6,6 +6,7 @@ import {
 } from '@uaip/shared-services/drizzle/control';
 import type { RepeatableJob, RepeatOptions } from '@uaip/types';
 import { logger, ValidationError } from '@uaip/utils';
+import { parseIntervalExpression } from './interval_expression.js';
 const WORKFLOW_QUEUE_EVENT = 'workflow.definition.trigger';
 
 export class WorkflowEngineService {
@@ -114,8 +115,8 @@ export class WorkflowEngineService {
     }
 
     if (definition.trigger.kind === 'every') {
-      const every = Number.parseInt(definition.trigger.expr, 10);
-      if (!Number.isFinite(every) || every <= 0) {
+      const every = parseIntervalExpression(definition.trigger.expr);
+      if (every === null) {
         throw new ValidationError(`Invalid 'every' expression for workflow ${definition.id}: ${definition.trigger.expr}`);
       }
 

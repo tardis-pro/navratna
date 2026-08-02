@@ -70,6 +70,16 @@ function isJiraWebhookPayload(data: unknown): data is JiraWebhookPayload {
 
 export function registerJiraWebhookRoutes() {
   return new Elysia()
+    // Deliver the Jira webhook body as the raw text Jira signed. The HMAC in
+    // validateJiraWebhook is computed over the exact bytes; letting Elysia parse
+    // JSON and re-serializing it (key order / whitespace) makes every legitimate
+    // webhook fail signature verification. This instance holds only the webhook
+    // route, so overriding the parser here is safe.
+    .onParse(({ request }, contentType) => {
+      if (contentType.startsWith('application/json')) {
+        return request.text()
+      }
+    })
     .post('/api/v1/webhooks/jira', async (ctx) => {
     const rawBody = typeof ctx.body === 'string' ? ctx.body : JSON.stringify(ctx.body)
     const signatureHeader = ctx.request.headers.get('x-hub-signature')
@@ -83,7 +93,15 @@ export function registerJiraWebhookRoutes() {
       return { success: false, error: validation.error }
     }
 
-    const parsed = jiraWebhookBodySchema.safeParse(ctx.body)
+    let decodedBody: unknown
+    try {
+      decodedBody = JSON.parse(rawBody)
+    } catch {
+      ctx.set.status = 400
+      return { success: false, error: 'Invalid webhook payload' }
+    }
+
+    const parsed = jiraWebhookBodySchema.safeParse(decodedBody)
     if (!parsed.success) {
       ctx.set.status = 400
       return { success: false, error: 'Invalid webhook payload' }

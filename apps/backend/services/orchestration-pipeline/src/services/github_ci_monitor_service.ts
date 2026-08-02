@@ -7,7 +7,7 @@ import type {
 
 const GITHUB_API_BASE = 'https://api.github.com'
 
-interface CICheckResult {
+export interface CICheckResult {
   passed: boolean
   conclusion: string | null
   name: string

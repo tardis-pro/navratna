@@ -1,5 +1,5 @@
 import { EventBusService, getIntelligenceDb, knowledgeItems } from '@uaip/shared-services'
-import { eq, and, ilike } from '@uaip/shared-services/drizzle/clients'
+import { eq, and, arrayContains } from '@uaip/shared-services/drizzle/clients'
 import { KnowledgeType, SourceType } from '@uaip/types'
 import type {
   BoardProvider,
@@ -10,6 +10,10 @@ import type {
   StorySpec,
 } from '@uaip/types'
 import { logger } from '@uaip/utils'
+
+const DRIFT_SNAPSHOT_TAG = 'drift-snapshot'
+// Written by SemanticIndexService into knowledge_items.tags, never into .type.
+const CODE_SYMBOL_TAG = 'code-symbol'
 
 const DRIFT_REPORT_EVENT = 'rdlo.drift.report'
 const DRIFT_STORY_CREATED_EVENT = 'rdlo.drift.story.created'
@@ -203,7 +207,7 @@ export class DriftDetectionService {
         .where(
           and(
             eq(knowledgeItems.sourceIdentifier, repoSource),
-            ilike(knowledgeItems.type, 'drift-snapshot')
+            arrayContains(knowledgeItems.tags, [DRIFT_SNAPSHOT_TAG])
           )
         )
         .limit(1)
@@ -232,7 +236,7 @@ export class DriftDetectionService {
         .where(
           and(
             eq(knowledgeItems.sourceIdentifier, repoSource),
-            ilike(knowledgeItems.type, 'code-symbol')
+            arrayContains(knowledgeItems.tags, [CODE_SYMBOL_TAG])
           )
         )
         .limit(500)
@@ -274,7 +278,7 @@ export class DriftDetectionService {
         content,
         sourceType: SourceType.FILE_SYSTEM,
         sourceIdentifier: repoSource,
-        tags: ['drift-snapshot'],
+        tags: [DRIFT_SNAPSHOT_TAG],
         confidence: 1.0,
         metadata: { title: 'Drift Snapshot' },
         summary: `Drift detection snapshot for ${repoSource}`,

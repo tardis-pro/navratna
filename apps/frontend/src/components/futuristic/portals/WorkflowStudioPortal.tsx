@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play,
@@ -22,10 +22,14 @@ import { useDataFetch } from '@/hooks/use_data_fetch';
 import { cn } from '@/lib/utils';
 import type {
   WorkflowDefinition,
+  WorkflowDefinitionStep,
   WorkflowExecution,
+  WorkflowTriggerKind,
 } from '@uaip/types';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'history';
+
+type EditableStep = WorkflowDefinitionStep & { id: string };
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
   completed: <CheckCircle className="w-3.5 h-3.5 text-green-400" />,
@@ -35,22 +39,44 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
   cancelled: <AlertCircle className="w-3.5 h-3.5 text-gray-400" />,
 };
 
-type EmptyStep = {
-  id: string;
-  name: string;
-  type: string;
-  action: string;
-  parameters: Record<string, unknown>;
-  dependsOn: string[];
+const TRIGGER_KIND_PLACEHOLDER: Record<WorkflowTriggerKind, string> = {
+  cron: '0 9 * * *',
+  every: '15m',
+  webhook: 'my-webhook-slug',
+  event: 'agent.completed',
 };
 
-const EMPTY_STEP: EmptyStep = {
-  id: `step-${Date.now()}`,
-  name: '',
-  type: 'agentTurn',
-  action: '',
-  parameters: {},
-  dependsOn: [],
+function createEmptyStep(id: string): EditableStep {
+  return { id, type: 'agentTurn', prompt: '' };
+}
+
+/**
+ * Each step type stores its payload under a different key (bash→command,
+ * httpCall→url, agentTurn→prompt), so switching type must rebuild the step
+ * rather than carry the previous variant's fields into an invalid shape.
+ */
+function changeStepType(step: EditableStep, type: WorkflowDefinitionStep['type']): EditableStep {
+  if (type === 'bash') return { id: step.id, type, command: '' };
+  if (type === 'httpCall') return { id: step.id, type, url: '' };
+  return { id: step.id, type, prompt: '' };
+}
+
+function getStepPayload(step: EditableStep): string {
+  if (step.type === 'bash') return step.command;
+  if (step.type === 'httpCall') return step.url;
+  return step.prompt;
+}
+
+function setStepPayload(step: EditableStep, value: string): EditableStep {
+  if (step.type === 'bash') return { ...step, command: value };
+  if (step.type === 'httpCall') return { ...step, url: value };
+  return { ...step, prompt: value };
+}
+
+const STEP_PAYLOAD_LABEL: Record<WorkflowDefinitionStep['type'], string> = {
+  bash: 'Command',
+  httpCall: 'URL',
+  agentTurn: 'Prompt',
 };
 
 export function WorkflowStudioPortal() {
@@ -58,10 +84,10 @@ export function WorkflowStudioPortal() {
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
   const [formName, setFormName] = useState('');
   const [formDescription, setFormDescription] = useState('');
-  const [formActive, setFormActive] = useState(true);
-  const [formSteps, setFormSteps] = useState<WorkflowDefinition['steps']>([]);
-  const [formTriggerType, setFormTriggerType] = useState<'event' | 'schedule' | 'webhook'>('schedule');
-  const [formTriggerConfig, setFormTriggerConfig] = useState('');
+  const [formEnabled, setFormEnabled] = useState(true);
+  const [formSteps, setFormSteps] = useState<EditableStep[]>([]);
+  const [formTriggerKind, setFormTriggerKind] = useState<WorkflowTriggerKind>('cron');
+  const [formTriggerExpr, setFormTriggerExpr] = useState('');
   const [expandedExecution, setExpandedExecution] = useState<string | null>(null);
 
   const { data: workflows, loading: listLoading, refetch: refetchWorkflows } = useDataFetch(
@@ -87,10 +113,10 @@ export function WorkflowStudioPortal() {
   const resetForm = useCallback(() => {
     setFormName('');
     setFormDescription('');
-    setFormActive(true);
+    setFormEnabled(true);
     setFormSteps([]);
-    setFormTriggerType('schedule');
-    setFormTriggerConfig('');
+    setFormTriggerKind('cron');
+    setFormTriggerExpr('');
     setSelectedWorkflowId(null);
   }, []);
 
@@ -104,13 +130,12 @@ export function WorkflowStudioPortal() {
       setSelectedWorkflowId(wf.id);
       setFormName(wf.name);
       setFormDescription(wf.description ?? '');
-      setFormActive(wf.isActive);
-      setFormSteps(wf.steps);
-      const trigger = wf.triggers?.[0];
-      if (trigger) {
-        setFormTriggerType(trigger.type);
-        setFormTriggerConfig(JSON.stringify(trigger.config, null, 2));
-      }
+      setFormEnabled(wf.enabled);
+      setFormSteps(
+        wf.steps.map((step, index) => ({ ...step, id: step.id ?? `step-${index}` }))
+      );
+      setFormTriggerKind(wf.trigger.kind);
+      setFormTriggerExpr(wf.trigger.expr);
       setViewMode('edit');
     },
     []
@@ -122,19 +147,14 @@ export function WorkflowStudioPortal() {
   }, []);
 
   const handleSave = useCallback(async () => {
-    let triggerConfig: Record<string, unknown> = {};
-    try {
-      triggerConfig = formTriggerConfig ? JSON.parse(formTriggerConfig) : {};
-    } catch {
-      return;
-    }
+    if (!formTriggerExpr.trim() || formSteps.length === 0) return;
 
     const payload = {
       name: formName,
       description: formDescription,
-      isActive: formActive,
+      enabled: formEnabled,
       steps: formSteps,
-      triggers: [{ type: formTriggerType, config: triggerConfig }],
+      trigger: { kind: formTriggerKind, expr: formTriggerExpr.trim() },
     };
 
     if (viewMode === 'edit' && selectedWorkflowId) {
@@ -145,7 +165,7 @@ export function WorkflowStudioPortal() {
     await refetchWorkflows();
     setViewMode('list');
     resetForm();
-  }, [formName, formDescription, formActive, formSteps, formTriggerType, formTriggerConfig, viewMode, selectedWorkflowId, saveWorkflow, refetchWorkflows, resetForm]);
+  }, [formName, formDescription, formEnabled, formSteps, formTriggerKind, formTriggerExpr, viewMode, selectedWorkflowId, saveWorkflow, refetchWorkflows, resetForm]);
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -165,24 +185,26 @@ export function WorkflowStudioPortal() {
 
   const handleToggle = useCallback(
     async (wf: WorkflowDefinition) => {
-      await toggleWorkflow(() => orchestrationAPI.updateWorkflow(wf.id, { isActive: !wf.isActive }));
+      await toggleWorkflow(() => orchestrationAPI.updateWorkflow(wf.id, { enabled: !wf.enabled }));
       await refetchWorkflows();
     },
     [toggleWorkflow, refetchWorkflows]
   );
 
   const addStep = useCallback(() => {
-    setFormSteps((prev) => [...prev, { ...EMPTY_STEP, id: `step-${Date.now()}-${prev.length}` }]);
+    setFormSteps((prev) => [...prev, createEmptyStep(`step-${Date.now()}-${prev.length}`)]);
   }, []);
 
   const removeStep = useCallback((stepId: string) => {
     setFormSteps((prev) => prev.filter((s) => s.id !== stepId));
   }, []);
 
-  const updateStep = useCallback((stepId: string, field: string, value: string) => {
-    setFormSteps((prev) =>
-      prev.map((s) => (s.id === stepId ? { ...s, [field]: value } : s))
-    );
+  const updateStepType = useCallback((stepId: string, type: WorkflowDefinitionStep['type']) => {
+    setFormSteps((prev) => prev.map((s) => (s.id === stepId ? changeStepType(s, type) : s)));
+  }, []);
+
+  const updateStepPayload = useCallback((stepId: string, value: string) => {
+    setFormSteps((prev) => prev.map((s) => (s.id === stepId ? setStepPayload(s, value) : s)));
   }, []);
 
   if (viewMode === 'create' || viewMode === 'edit') {
@@ -220,27 +242,28 @@ export function WorkflowStudioPortal() {
           <div className="flex items-center gap-3">
             <label className="text-xs text-muted-foreground">Trigger:</label>
             <select
-              value={formTriggerType}
+              value={formTriggerKind}
               onChange={(e) => {
                     const value = e.target.value;
-                    if (value === 'event' || value === 'schedule' || value === 'webhook') {
-                      setFormTriggerType(value);
+                    if (value === 'cron' || value === 'every' || value === 'webhook' || value === 'event') {
+                      setFormTriggerKind(value);
                     }
                   }}
               className="bg-white/5 border border-border/40 rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none"
             >
-              <option value="schedule">Schedule (Cron)</option>
-              <option value="event">Event</option>
+              <option value="cron">Cron</option>
+              <option value="every">Every (interval)</option>
               <option value="webhook">Webhook</option>
+              <option value="event">Event</option>
             </select>
           </div>
 
-          <textarea
-            placeholder={formTriggerType === 'schedule' ? '{"cron": "0 9 * * *"}' : '{"event": "..."}'}
-            value={formTriggerConfig}
-            onChange={(e) => setFormTriggerConfig(e.target.value)}
-            rows={2}
-            className="w-full bg-white/5 border border-border/40 rounded-lg px-3 py-2 text-xs font-mono text-foreground placeholder-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+          <input
+            type="text"
+            placeholder={TRIGGER_KIND_PLACEHOLDER[formTriggerKind]}
+            value={formTriggerExpr}
+            onChange={(e) => setFormTriggerExpr(e.target.value)}
+            className="w-full bg-white/5 border border-border/40 rounded-lg px-3 py-2 text-xs font-mono text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500/50"
           />
 
           <div className="flex items-center justify-between">
@@ -259,17 +282,15 @@ export function WorkflowStudioPortal() {
               <div key={step.id} className="flex gap-2 items-start p-3 rounded-lg border border-border/30 bg-white/3">
                 <span className="text-[10px] text-muted-foreground mt-2 w-4 flex-shrink-0">{i + 1}</span>
                 <div className="flex-1 space-y-2">
-                  <input
-                    type="text"
-                    placeholder="Step name"
-                    value={step.name}
-                    onChange={(e) => updateStep(step.id, 'name', e.target.value)}
-                    className="w-full bg-transparent border-b border-border/30 text-xs text-foreground placeholder-muted-foreground focus:outline-none focus:border-blue-500/50 pb-1"
-                  />
                   <div className="flex gap-2">
                     <select
                       value={step.type}
-                      onChange={(e) => updateStep(step.id, 'type', e.target.value)}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === 'agentTurn' || value === 'bash' || value === 'httpCall') {
+                          updateStepType(step.id, value);
+                        }
+                      }}
                       className="bg-white/5 border border-border/30 rounded px-1.5 py-1 text-[10px] text-foreground focus:outline-none"
                     >
                       <option value="agentTurn">Agent Turn</option>
@@ -278,9 +299,9 @@ export function WorkflowStudioPortal() {
                     </select>
                     <input
                       type="text"
-                      placeholder="Action"
-                      value={step.action}
-                      onChange={(e) => updateStep(step.id, 'action', e.target.value)}
+                      placeholder={STEP_PAYLOAD_LABEL[step.type]}
+                      value={getStepPayload(step)}
+                      onChange={(e) => updateStepPayload(step.id, e.target.value)}
                       className="flex-1 bg-transparent border-b border-border/30 text-[10px] text-foreground placeholder-muted-foreground focus:outline-none focus:border-blue-500/50 pb-1"
                     />
                   </div>
@@ -444,19 +465,19 @@ export function WorkflowStudioPortal() {
                   onClick={() => void handleToggle(wf)}
                   className={cn(
                     'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors border',
-                    wf.isActive
+                    wf.enabled
                       ? 'bg-green-500/10 border-green-500/30 text-green-400'
                       : 'bg-white/5 border-border/30 text-muted-foreground'
                   )}
                 >
-                  {wf.isActive ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+                  {wf.enabled ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
                 </button>
 
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{wf.name}</p>
                   <p className="text-[10px] text-muted-foreground truncate">
                     {wf.steps.length} step{wf.steps.length !== 1 ? 's' : ''}
-                    {wf.triggers?.[0] && ` • ${wf.triggers[0].type}`}
+                    {` • ${wf.trigger.kind}`}
                     {' • '}
                     Updated {new Date(wf.updatedAt).toLocaleDateString()}
                   </p>

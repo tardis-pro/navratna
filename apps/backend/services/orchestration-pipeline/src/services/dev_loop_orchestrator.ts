@@ -41,6 +41,16 @@ const STAGE_ORDER: DevLoopStage[] = [
   'ci-healing',
 ]
 
+/**
+ * boardCredentials holds live Jira/GitHub API tokens. The operations row is
+ * readable through the operations API, so persisting the raw config would leak
+ * those tokens to anyone who can read the operation.
+ */
+function redactLoopConfig(config: DevLoopConfig): Omit<DevLoopConfig, 'boardCredentials'> {
+  const { boardCredentials: _boardCredentials, ...safe } = config
+  return safe
+}
+
 export class DevLoopOrchestrator {
   private readonly boardRegistry = new BoardProviderRegistry()
   private readonly complexityScorer = new ComplexityScorerService()
@@ -400,6 +410,10 @@ export class DevLoopOrchestrator {
   private async persistOperation(state: DevLoopState, startedBy: string): Promise<void> {
     // Via the repository so the cross-plane agentId is verified before insert.
     await new OperationRepository().createOperation({
+      // Must be the loop id, not a DB-generated uuid: updateOperationStatus
+      // matches WHERE operations.id = state.id, so omitting it makes every
+      // subsequent status write silently update zero rows.
+      id: state.id,
       type: 'rdlo-dev-loop',
       name: `RDLO: ${state.config.epicTitle}`,
       status: OperationStatus.RUNNING,
@@ -431,7 +445,7 @@ export class DevLoopOrchestrator {
       totalSteps: STAGE_ORDER.length,
       metadata: {
         loopId: state.id,
-        config: state.config,
+        config: redactLoopConfig(state.config),
         currentStage: state.currentStage,
       },
     })
