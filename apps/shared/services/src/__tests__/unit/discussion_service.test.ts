@@ -6,11 +6,16 @@ import { EventBusService } from '@uaip/infra/event_bus';
 import { PersonaService } from '../../persona_service';
 
 describe('DiscussionService - Artifact Config Merge and Persistence', () => {
+  // executeQuery is not optional plumbing: addParticipant enforces the
+  // participant cap through a database-level CAS (participant_capacity_cas.ts)
+  // because two instances can both pass a read-then-insert check. Leaving it
+  // off the mock reaches the real DatabaseService and opens a live connection.
   const mockDatabaseService = Object.assign(Object.create(DatabaseService.prototype), {
     create: vi.fn(),
     findById: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
+    executeQuery: vi.fn(),
   });
 
   const mockEventBusService = Object.assign(Object.create(EventBusService.prototype), {
@@ -35,6 +40,7 @@ describe('DiscussionService - Artifact Config Merge and Persistence', () => {
     mockDatabaseService.findById.mockResolvedValue({ id: 'agent-1', personaId: 'persona-1' });
     mockDatabaseService.findMany.mockResolvedValue([]);
     mockDatabaseService.update.mockResolvedValue({ id: 'discussion-test-id' });
+    mockDatabaseService.executeQuery.mockResolvedValue([]);
   });
 
   it('merges artifactConfig, setting enabled and generateOnCompletion correctly when top-level overrides metadata', async () => {

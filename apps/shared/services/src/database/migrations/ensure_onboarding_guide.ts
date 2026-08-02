@@ -20,7 +20,13 @@
  */
 
 import { createLogger } from '@uaip/utils';
-import { initializePlanes, getIntelligencePool } from '../drizzle/clients/index';
+import { eq, getIntelligenceDb, initializePlanes } from '../drizzle/clients/index';
+import { agents, personas } from '../drizzle/schemas/intelligence_schema';
+import type {
+  AgentIntelligenceConfig,
+  AgentRole,
+  AgentSecurityContext,
+} from '@uaip/types';
 import {
   ADMIN_ORG_ID,
   ONBOARDING_GUIDE_AGENT_ID,
@@ -55,54 +61,74 @@ const GUIDE_SYSTEM_PROMPT =
 
 export class EnsureOnboardingGuide {
   async run(): Promise<EnsureOnboardingGuideResult> {
-    const intelligencePool = getIntelligencePool();
+    const db = getIntelligenceDb();
 
     // personas before agents: agents.persona_id is NOT NULL and FKs personas.id.
-    const personaResult = await intelligencePool.query(
-      `INSERT INTO personas (id, name, role, description, background, system_prompt, created_by, organization_id)
-       VALUES ($1, $2, 'communicator', 'Server-driven onboarding interview guide',
-               'Neutral interviewer for the Base Imprint onboarding conversation.', $3, $4, $5)
-       ON CONFLICT (id) DO NOTHING`,
-      [
-        ONBOARDING_GUIDE_PERSONA_ID,
-        ONBOARDING_GUIDE_AGENT_NAME,
-        GUIDE_SYSTEM_PROMPT,
-        SYSTEM_USER_ID,
-        ADMIN_ORG_ID,
-      ]
-    );
+    const personaResult = await db
+      .insert(personas)
+      .values({
+        id: ONBOARDING_GUIDE_PERSONA_ID,
+        name: ONBOARDING_GUIDE_AGENT_NAME,
+        role: 'communicator',
+        description: 'Server-driven onboarding interview guide',
+        background: 'Neutral interviewer for the Base Imprint onboarding conversation.',
+        systemPrompt: GUIDE_SYSTEM_PROMPT,
+        createdBy: SYSTEM_USER_ID,
+        organizationId: ADMIN_ORG_ID,
+      })
+      .onConflictDoNothing({ target: personas.id })
+      .returning({ id: personas.id });
 
     // DO UPDATE, not DO NOTHING: the system prompt IS the injection guard, so a
     // row left behind by an older revision must be brought up to date.
-    const agentResult = await intelligencePool.query(
-      `INSERT INTO agents (id, name, description, role, persona_id, intelligence_config,
-                           security_context, capabilities, created_by, organization_id,
-                           is_active, system_prompt, temperature, max_tokens, model_id, api_type)
-       VALUES ($1, $2, 'Server-driven onboarding interview guide', 'communicator', $3,
-               '{"analysisDepth":"basic","contextWindowSize":4000,"decisionThreshold":0.9,"learningEnabled":false,"collaborationMode":"independent"}'::jsonb,
-               '{"securityLevel":"high","allowedCapabilities":["onboarding-interview"],"restrictedDomains":[],"approvalRequired":false,"auditLevel":"comprehensive"}'::jsonb,
-               '["onboarding-interview","question-asking"]'::jsonb,
-               $4, $5, true, $6, 0.2, 1000, 'deepcogito-v1', 'llmstudio')
-       ON CONFLICT (id) DO UPDATE
-         SET system_prompt = EXCLUDED.system_prompt,
-             persona_id    = EXCLUDED.persona_id,
-             is_active     = true,
-             updated_at    = NOW()`,
-      [
-        ONBOARDING_GUIDE_AGENT_ID,
-        ONBOARDING_GUIDE_AGENT_NAME,
-        ONBOARDING_GUIDE_PERSONA_ID,
-        SYSTEM_USER_ID,
-        ADMIN_ORG_ID,
-        GUIDE_SYSTEM_PROMPT,
-      ]
-    );
+    const agentResult = await db
+      .insert(agents)
+      .values({
+        id: ONBOARDING_GUIDE_AGENT_ID,
+        name: ONBOARDING_GUIDE_AGENT_NAME,
+        description: 'Server-driven onboarding interview guide',
+        role: 'communicator' as AgentRole,
+        personaId: ONBOARDING_GUIDE_PERSONA_ID,
+        intelligenceConfig: {
+          analysisDepth: 'basic',
+          contextWindowSize: 4000,
+          decisionThreshold: 0.9,
+          learningEnabled: false,
+          collaborationMode: 'independent',
+        } as AgentIntelligenceConfig,
+        securityContext: {
+          securityLevel: 'high',
+          allowedCapabilities: ['onboarding-interview'],
+          restrictedDomains: [],
+          approvalRequired: false,
+          auditLevel: 'comprehensive',
+        } as AgentSecurityContext,
+        capabilities: ['onboarding-interview', 'question-asking'],
+        createdBy: SYSTEM_USER_ID,
+        organizationId: ADMIN_ORG_ID,
+        isActive: true,
+        systemPrompt: GUIDE_SYSTEM_PROMPT,
+        temperature: 0.2,
+        maxTokens: 1000,
+        modelId: 'deepcogito-v1',
+        apiType: 'llmstudio',
+      })
+      .onConflictDoUpdate({
+        target: agents.id,
+        set: {
+          systemPrompt: GUIDE_SYSTEM_PROMPT,
+          personaId: ONBOARDING_GUIDE_PERSONA_ID,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      })
+      .returning({ id: agents.id });
 
     await this.verifyNoStaleNameSquatter();
 
     const result: EnsureOnboardingGuideResult = {
-      personaCreated: (personaResult.rowCount ?? 0) > 0,
-      agentCreated: (agentResult.rowCount ?? 0) > 0,
+      personaCreated: personaResult.length > 0,
+      agentCreated: agentResult.length > 0,
     };
 
     logger.info('Onboarding guide ensured', { ...result, agentId: ONBOARDING_GUIDE_AGENT_ID });
@@ -115,10 +141,10 @@ export class EnsureOnboardingGuide {
    * carve-out — which matches on the constant id — silently denies access.
    */
   private async verifyNoStaleNameSquatter(): Promise<void> {
-    const { rows } = await getIntelligencePool().query<{ id: string }>(
-      `SELECT id FROM agents WHERE name = $1`,
-      [ONBOARDING_GUIDE_AGENT_NAME]
-    );
+    const rows = await getIntelligenceDb()
+      .select({ id: agents.id })
+      .from(agents)
+      .where(eq(agents.name, ONBOARDING_GUIDE_AGENT_NAME));
 
     const squatter = rows.find((row) => row.id !== ONBOARDING_GUIDE_AGENT_ID);
     if (squatter) {
@@ -133,15 +159,17 @@ export class EnsureOnboardingGuide {
 
   /** Throws unless both rows exist — onboarding cannot start without them. */
   async verify(): Promise<void> {
-    const pool = getIntelligencePool();
-    const { rows: personaRows } = await pool.query<{ id: string }>(
-      `SELECT id FROM personas WHERE id = $1 LIMIT 1`,
-      [ONBOARDING_GUIDE_PERSONA_ID]
-    );
-    const { rows: agentRows } = await pool.query<{ id: string }>(
-      `SELECT id FROM agents WHERE id = $1 LIMIT 1`,
-      [ONBOARDING_GUIDE_AGENT_ID]
-    );
+    const db = getIntelligenceDb();
+    const personaRows = await db
+      .select({ id: personas.id })
+      .from(personas)
+      .where(eq(personas.id, ONBOARDING_GUIDE_PERSONA_ID))
+      .limit(1);
+    const agentRows = await db
+      .select({ id: agents.id })
+      .from(agents)
+      .where(eq(agents.id, ONBOARDING_GUIDE_AGENT_ID))
+      .limit(1);
 
     const missing: string[] = [];
     if (personaRows.length === 0) missing.push(`persona:${ONBOARDING_GUIDE_PERSONA_ID}`);

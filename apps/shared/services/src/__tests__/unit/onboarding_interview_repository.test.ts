@@ -37,6 +37,7 @@ import type { SlotUpdate } from '../../onboarding/schemas';
 interface ExecuteCall {
   sql: SQL;
   text: string;
+  params: unknown[];
 }
 
 interface InsertCall {
@@ -49,6 +50,9 @@ interface InsertCall {
 interface UpdateCall {
   table: unknown;
   set: unknown;
+  where?: SQL;
+  whereText?: string;
+  whereParams?: unknown[];
 }
 
 interface Recorder {
@@ -65,6 +69,10 @@ const dialect = new PgDialect();
 
 function sqlText(statement: SQL): string {
   return dialect.sqlToQuery(statement).sql;
+}
+
+function sqlParams(statement: SQL): unknown[] {
+  return dialect.sqlToQuery(statement).params;
 }
 
 function createRecorder(): Recorder {
@@ -123,7 +131,12 @@ function buildDb(rec: Recorder): Record<string, unknown> {
       rec.updates.push(call);
       return chain;
     };
-    chain.where = () => chain;
+    chain.where = (condition: SQL) => {
+      call.where = condition;
+      call.whereText = sqlText(condition);
+      call.whereParams = sqlParams(condition);
+      return chain;
+    };
     chain.returning = () => ({
       then: (resolve: (rows: Record<string, unknown>[]) => unknown) =>
         resolve(rec.updateReturnQueue.shift() ?? []),
@@ -133,7 +146,11 @@ function buildDb(rec: Recorder): Record<string, unknown> {
 
   const tx: Record<string, unknown> = {
     execute: (statement: SQL) => {
-      rec.executes.push({ sql: statement, text: sqlText(statement) });
+      rec.executes.push({
+        sql: statement,
+        text: sqlText(statement),
+        params: sqlParams(statement),
+      });
       return Promise.resolve(rec.executeQueue.shift() ?? { rows: [] });
     },
     insert: (table: unknown) => insertChain(table),
@@ -339,11 +356,9 @@ describe('OnboardingInterviewRepository', () => {
     };
 
     it('returns replayed without re-applying when an accepted run exists for the trigger message', async () => {
-      rec.executeQueue.push({
-        rows: [
-          { resulting_state_version: 5, resulting_status: 'active', next_objective: 'communication' },
-        ],
-      });
+      rec.selectQueue.push([
+        { stateVersion: 5, status: 'active', nextObjective: 'communication' },
+      ]);
 
       const result = await repo.commitTurn({
         ...baseParams,
@@ -358,13 +373,13 @@ describe('OnboardingInterviewRepository', () => {
         status: 'active',
         currentObjective: 'communication',
       });
-      expect(rec.executes).toHaveLength(1);
+      expect(rec.updates).toHaveLength(0);
       expect(rec.inserts).toHaveLength(0);
     });
 
     it('returns state_conflict when the CAS matches no row', async () => {
-      rec.executeQueue.push({ rows: [] });
-      rec.executeQueue.push({ rows: [] });
+      rec.selectQueue.push([]);
+      rec.updateReturnQueue.push([]);
 
       const result = await repo.commitTurn({
         ...baseParams,
@@ -377,24 +392,41 @@ describe('OnboardingInterviewRepository', () => {
     });
 
     it('guards the CAS on state_version and an active status in its predicate', async () => {
-      rec.executeQueue.push({ rows: [] });
-      rec.executeQueue.push({ rows: [] });
+      rec.selectQueue.push([]);
+      rec.updateReturnQueue.push([]);
 
       await repo.commitTurn({ ...baseParams, updates: [], extractionRun: runRecord() });
 
-      const cas = rec.executes[1];
-      const whereIndex = cas.text.search(/\bwhere\b/i);
-      expect(whereIndex).toBeGreaterThan(-1);
-      const predicate = cas.text.slice(whereIndex);
+      const predicate = rec.updates[0]?.whereText ?? '';
       expect(predicate).toMatch(/state_version/i);
       expect(predicate).toMatch(/status/i);
       expect(predicate).toMatch(/organization_id/i);
       expect(predicate).toMatch(/user_id/i);
     });
 
+    it('binds each allowed status as its own parameter', async () => {
+      rec.selectQueue.push([]);
+      rec.updateReturnQueue.push([]);
+
+      await repo.commitTurn({
+        ...baseParams,
+        updates: [],
+        extractionRun: runRecord(),
+        allowedFromStatuses: ['active', 'review'],
+      });
+
+      expect(rec.updates[0]?.whereParams).toContain('active');
+      expect(rec.updates[0]?.whereParams).toContain('review');
+
+      // Hand-writing this as ANY(${array}::text[]) expands to a ROW
+      // constructor — ANY(($1, $2)::text[]) — which Postgres rejects outright.
+      // inArray emits `status in ($1, $2)`; this pins that difference.
+      expect(rec.updates[0]?.whereText ?? '').not.toMatch(/ANY\(\(/i);
+    });
+
     it('increments slot revision and writes evidence at that revision', async () => {
-      rec.executeQueue.push({ rows: [] });
-      rec.executeQueue.push({ rows: [{ state_version: 5 }] });
+      rec.selectQueue.push([]);
+      rec.updateReturnQueue.push([{ stateVersion: 5 }]);
       rec.insertReturnQueue.push([{ revision: 3 }]);
 
       const result = await repo.commitTurn({
@@ -422,8 +454,8 @@ describe('OnboardingInterviewRepository', () => {
     });
 
     it('writes a review edit as source_kind=review_edit with a NULL message id', async () => {
-      rec.executeQueue.push({ rows: [] });
-      rec.executeQueue.push({ rows: [{ state_version: 5 }] });
+      rec.selectQueue.push([]);
+      rec.updateReturnQueue.push([{ stateVersion: 5 }]);
       rec.insertReturnQueue.push([{ revision: 2 }]);
 
       await repo.commitTurn({
@@ -449,8 +481,8 @@ describe('OnboardingInterviewRepository', () => {
     });
 
     it('defaults evidence to chat_message when the update carries no source kind', async () => {
-      rec.executeQueue.push({ rows: [] });
-      rec.executeQueue.push({ rows: [{ state_version: 5 }] });
+      rec.selectQueue.push([]);
+      rec.updateReturnQueue.push([{ stateVersion: 5 }]);
       rec.insertReturnQueue.push([{ revision: 1 }]);
 
       await repo.commitTurn({
@@ -466,8 +498,8 @@ describe('OnboardingInterviewRepository', () => {
     });
 
     it('records the accepted extraction run with resultingStateVersion = expected + 1', async () => {
-      rec.executeQueue.push({ rows: [] });
-      rec.executeQueue.push({ rows: [{ state_version: 5 }] });
+      rec.selectQueue.push([]);
+      rec.updateReturnQueue.push([{ stateVersion: 5 }]);
 
       await repo.commitTurn({ ...baseParams, updates: [], extractionRun: runRecord() });
 
@@ -482,8 +514,8 @@ describe('OnboardingInterviewRepository', () => {
     });
 
     it('writes no evidence row for a declined slot', async () => {
-      rec.executeQueue.push({ rows: [] });
-      rec.executeQueue.push({ rows: [{ state_version: 5 }] });
+      rec.selectQueue.push([]);
+      rec.updateReturnQueue.push([{ stateVersion: 5 }]);
       rec.insertReturnQueue.push([{ revision: 1 }]);
 
       await repo.commitTurn({
@@ -498,8 +530,8 @@ describe('OnboardingInterviewRepository', () => {
     });
 
     it('derives the attempt number from stored runs instead of trusting the caller', async () => {
-      rec.executeQueue.push({ rows: [] });
-      rec.executeQueue.push({ rows: [{ state_version: 5 }] });
+      rec.selectQueue.push([]);
+      rec.updateReturnQueue.push([{ stateVersion: 5 }]);
 
       await repo.commitTurn({ ...baseParams, updates: [], extractionRun: runRecord() });
 
@@ -509,12 +541,12 @@ describe('OnboardingInterviewRepository', () => {
       // whole commit.
       const runInsert = rec.inserts.find((c) => c.table === onboardingExtractionRuns);
       const values = runInsert?.values as Record<string, unknown>;
-      expect(sqlText(values.attemptNo as SQL)).toMatch(/max\(attempt_no\)/i);
+      expect(sqlText(values.attemptNo as SQL)).toMatch(/max\("?[\w.]*"?\."?attempt_no"?\)/i);
     });
 
     it('forces outcome accepted even when the caller passes a different outcome', async () => {
-      rec.executeQueue.push({ rows: [] });
-      rec.executeQueue.push({ rows: [{ state_version: 5 }] });
+      rec.selectQueue.push([]);
+      rec.updateReturnQueue.push([{ stateVersion: 5 }]);
 
       await repo.commitTurn({
         ...baseParams,

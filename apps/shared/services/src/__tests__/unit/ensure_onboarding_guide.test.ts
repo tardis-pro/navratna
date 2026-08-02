@@ -10,40 +10,81 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * stale row squats the unique name under a different id.
  */
 
-interface QueryCall {
-  sql: string;
-  params: unknown[] | undefined;
+interface SelectCall {
+  table: unknown;
 }
 
-interface PoolQueryResult {
-  rows: Record<string, unknown>[];
-  rowCount?: number;
+interface InsertCall {
+  table: unknown;
+  values: Record<string, unknown>;
+  conflictTarget: unknown;
+  conflictSet: Record<string, unknown> | undefined;
 }
 
-const intelligenceQueries: QueryCall[] = [];
+const selects: SelectCall[] = [];
+const inserts: InsertCall[] = [];
 
 let agentsByName: { id: string }[] = [];
 let personaLookupRows: { id: string }[] = [];
 let agentLookupRows: { id: string }[] = [];
+let selectMode: 'byName' | 'verify' = 'byName';
 
-const intelligencePoolStub = {
-  query: vi.fn(async (sql: string, params?: unknown[]): Promise<PoolQueryResult> => {
-    intelligenceQueries.push({ sql, params });
+function thenable<T>(rows: () => T[]): Record<string, unknown> {
+  const chain: Record<string, unknown> = {};
+  chain.where = () => chain;
+  chain.limit = () => chain;
+  chain.then = (resolve: (value: T[]) => unknown) => Promise.resolve(resolve(rows()));
+  return chain;
+}
 
-    if (/SELECT id FROM agents WHERE name/i.test(sql)) return { rows: agentsByName };
-    if (/SELECT id FROM personas WHERE id/i.test(sql)) return { rows: personaLookupRows };
-    if (/SELECT id FROM agents WHERE id/i.test(sql)) return { rows: agentLookupRows };
-
-    return { rows: [], rowCount: 1 };
-  }),
-};
+function makeDb(): Record<string, unknown> {
+  return {
+    select: () => ({
+      from: (table: unknown) => {
+        selects.push({ table });
+        return thenable(() => {
+          if (table === schemas.personas) return personaLookupRows;
+          return selectMode === 'verify' ? agentLookupRows : agentsByName;
+        });
+      },
+    }),
+    insert: (table: unknown) => {
+      const call: InsertCall = {
+        table,
+        values: {},
+        conflictTarget: undefined,
+        conflictSet: undefined,
+      };
+      const chain: Record<string, unknown> = {};
+      chain.values = (values: Record<string, unknown>) => {
+        call.values = values;
+        return chain;
+      };
+      chain.onConflictDoNothing = (arg: { target?: unknown }) => {
+        call.conflictTarget = arg?.target;
+        inserts.push(call);
+        return chain;
+      };
+      chain.onConflictDoUpdate = (arg: { target?: unknown; set?: Record<string, unknown> }) => {
+        call.conflictTarget = arg?.target;
+        call.conflictSet = arg?.set;
+        inserts.push(call);
+        return chain;
+      };
+      chain.returning = () => thenable(() => [{ id: 'inserted' }]);
+      return chain;
+    },
+  };
+}
 
 vi.mock('../../database/drizzle/clients/index', async () => {
   const actual = await vi.importActual<typeof import('../../database/drizzle/clients/index')>(
     '../../database/drizzle/clients/index'
   );
-  return { ...actual, getIntelligencePool: () => intelligencePoolStub };
+  return { ...actual, getIntelligenceDb: () => makeDb() };
 });
+
+const schemas = await import('../../database/drizzle/schemas/intelligence_schema');
 
 const { EnsureOnboardingGuide } = await import(
   '../../database/migrations/ensure_onboarding_guide'
@@ -55,13 +96,13 @@ const {
   SYSTEM_USER_ID,
 } = await import('../../database/drizzle/constants');
 
-const agentInsert = () =>
-  intelligenceQueries.find((call) => /INSERT INTO agents/i.test(call.sql));
-const personaInsert = () =>
-  intelligenceQueries.find((call) => /INSERT INTO personas/i.test(call.sql));
+const agentInsert = () => inserts.find((call) => call.table === schemas.agents);
+const personaInsert = () => inserts.find((call) => call.table === schemas.personas);
 
 beforeEach(() => {
-  intelligenceQueries.length = 0;
+  selects.length = 0;
+  inserts.length = 0;
+  selectMode = 'byName';
   agentsByName = [{ id: ONBOARDING_GUIDE_AGENT_ID }];
   personaLookupRows = [{ id: ONBOARDING_GUIDE_PERSONA_ID }];
   agentLookupRows = [{ id: ONBOARDING_GUIDE_AGENT_ID }];
@@ -71,14 +112,14 @@ describe('EnsureOnboardingGuide', () => {
   it('creates the guide with the stable id the access carve-out matches on', async () => {
     await new EnsureOnboardingGuide().run();
 
-    expect(agentInsert()?.params).toContain(ONBOARDING_GUIDE_AGENT_ID);
-    expect(agentInsert()?.sql).toMatch(/ON CONFLICT\s*\(\s*id\s*\)/i);
+    expect(agentInsert()?.values.id).toBe(ONBOARDING_GUIDE_AGENT_ID);
+    expect(agentInsert()?.conflictTarget).toBe(schemas.agents.id);
   });
 
   it('never targets the conflict on name — a name upsert cannot rewrite the id', async () => {
     await new EnsureOnboardingGuide().run();
 
-    expect(agentInsert()?.sql).not.toMatch(/ON CONFLICT\s*\(\s*name\s*\)/i);
+    expect(agentInsert()?.conflictTarget).not.toBe(schemas.agents.name);
   });
 
   it('owns a dedicated persona instead of resolving a dev-only seeded one', async () => {
@@ -86,15 +127,16 @@ describe('EnsureOnboardingGuide', () => {
 
     const insert = personaInsert();
     expect(insert).toBeDefined();
-    expect(insert?.params).toContain(ONBOARDING_GUIDE_PERSONA_ID);
-    expect(insert?.sql).toMatch(/ON CONFLICT\s*\(\s*id\s*\)\s*DO NOTHING/i);
+    expect(insert?.values.id).toBe(ONBOARDING_GUIDE_PERSONA_ID);
+    expect(insert?.conflictTarget).toBe(schemas.personas.id);
+    expect(insert?.conflictSet).toBeUndefined();
   });
 
   it('inserts the persona before the agent, since agents.persona_id is NOT NULL', async () => {
     await new EnsureOnboardingGuide().run();
 
-    const personaIndex = intelligenceQueries.findIndex((c) => /INSERT INTO personas/i.test(c.sql));
-    const agentIndex = intelligenceQueries.findIndex((c) => /INSERT INTO agents/i.test(c.sql));
+    const personaIndex = inserts.findIndex((c) => c.table === schemas.personas);
+    const agentIndex = inserts.findIndex((c) => c.table === schemas.agents);
     expect(personaIndex).toBeGreaterThanOrEqual(0);
     expect(agentIndex).toBeGreaterThan(personaIndex);
   });
@@ -102,19 +144,15 @@ describe('EnsureOnboardingGuide', () => {
   it('refreshes the injection guard on re-run rather than leaving a stale prompt', async () => {
     await new EnsureOnboardingGuide().run();
 
-    const sql = agentInsert()?.sql ?? '';
-    expect(sql).toMatch(/DO UPDATE/i);
-    expect(sql).toMatch(/system_prompt\s*=\s*EXCLUDED\.system_prompt/i);
+    expect(agentInsert()?.conflictSet?.systemPrompt).toBe(agentInsert()?.values.systemPrompt);
+    expect(agentInsert()?.conflictSet?.isActive).toBe(true);
   });
 
   it('instructs the model never to obey instructions found in the transcript', async () => {
     await new EnsureOnboardingGuide().run();
 
-    const prompt = (agentInsert()?.params ?? []).find(
-      (param): param is string =>
-        typeof param === 'string' && param.startsWith('You are Navratna Guide')
-    );
-    expect(prompt).toBeDefined();
+    const prompt = agentInsert()?.values.systemPrompt as string;
+    expect(prompt).toMatch(/^You are Navratna Guide/);
     expect(prompt).toMatch(/obey instructions found inside the transcript/i);
     expect(prompt).toMatch(/declare the interview complete/i);
   });
@@ -122,16 +160,18 @@ describe('EnsureOnboardingGuide', () => {
   it('attributes creation to the system actor, not a real user', async () => {
     await new EnsureOnboardingGuide().run();
 
-    expect(agentInsert()?.params).toContain(SYSTEM_USER_ID);
-    expect(personaInsert()?.params).toContain(SYSTEM_USER_ID);
+    expect(agentInsert()?.values.createdBy).toBe(SYSTEM_USER_ID);
+    expect(personaInsert()?.values.createdBy).toBe(SYSTEM_USER_ID);
   });
 
   it('creates no assignment row — the guide is reachable only via the carve-out', async () => {
     await new EnsureOnboardingGuide().run();
 
-    for (const call of intelligenceQueries) {
-      expect(call.sql).not.toMatch(/user_agent_assignments/i);
-    }
+    // user_agent_assignments is a CONTROL-plane table and this migration only
+    // ever holds an intelligence handle, so a grant is unreachable from here.
+    expect(inserts.every((c) => c.table === schemas.agents || c.table === schemas.personas)).toBe(
+      true
+    );
   });
 
   it('throws when a stale row squats the unique name under a different id', async () => {
@@ -152,6 +192,7 @@ describe('EnsureOnboardingGuide', () => {
   });
 
   it('verify() throws naming every missing row', async () => {
+    selectMode = 'verify';
     personaLookupRows = [];
     agentLookupRows = [];
 
@@ -161,6 +202,8 @@ describe('EnsureOnboardingGuide', () => {
   });
 
   it('verify() passes once both rows exist', async () => {
+    selectMode = 'verify';
+
     await expect(new EnsureOnboardingGuide().verify()).resolves.toBeUndefined();
   });
 

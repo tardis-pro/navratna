@@ -161,11 +161,12 @@ function isUniqueViolation(error: unknown): boolean {
  * commit. Derived in SQL so it is evaluated inside the same transaction.
  */
 function nextAttemptNo(interviewId: string, triggerMessageId: string): SQL<number> {
+  const runs = onboardingExtractionRuns;
   return sql<number>`(
-    SELECT COALESCE(MAX(attempt_no), 0) + 1
-    FROM onboarding_extraction_runs
-    WHERE interview_id = ${interviewId}
-      AND trigger_message_id = ${triggerMessageId}
+    SELECT COALESCE(MAX(${runs.attemptNo}), 0) + 1
+    FROM ${runs}
+    WHERE ${runs.interviewId} = ${interviewId}
+      AND ${runs.triggerMessageId} = ${triggerMessageId}
   )`;
 }
 
@@ -397,48 +398,63 @@ export class OnboardingInterviewRepository {
 
     try {
       return await this.db.transaction(async (tx) => {
-        const replay = await tx.execute(sql`
-          SELECT resulting_state_version, resulting_status, next_objective
-          FROM onboarding_extraction_runs
-          WHERE interview_id = ${interviewId}
-            AND trigger_message_id = ${triggerMessageId}
-            AND outcome = 'accepted'
-          LIMIT 1
-        `);
+        const replayRows = await tx
+          .select({
+            stateVersion: onboardingExtractionRuns.resultingStateVersion,
+            status: onboardingExtractionRuns.resultingStatus,
+            nextObjective: onboardingExtractionRuns.nextObjective,
+          })
+          .from(onboardingExtractionRuns)
+          .where(
+            and(
+              eq(onboardingExtractionRuns.interviewId, interviewId),
+              eq(onboardingExtractionRuns.triggerMessageId, triggerMessageId),
+              eq(onboardingExtractionRuns.outcome, 'accepted')
+            )
+          )
+          .limit(1);
 
-        const replayRow = replay.rows[0];
+        const replayRow = replayRows[0];
         if (replayRow) {
           return {
             committed: false,
             reason: 'replayed',
-            stateVersion: toNumber(replayRow.resulting_state_version),
-            status: replayRow.resulting_status as InterviewStatus,
-            currentObjective: (replayRow.next_objective as OnboardingSlot | null) ?? null,
+            stateVersion: toNumber(replayRow.stateVersion),
+            status: replayRow.status as InterviewStatus,
+            currentObjective: (replayRow.nextObjective as OnboardingSlot | null) ?? null,
           };
         }
 
-        const cas = await tx.execute(sql`
-          UPDATE onboarding_interviews
-          SET current_objective = ${nextObjective},
-              status = ${nextStatus},
-              turn_count = turn_count + 1,
-              state_version = state_version + 1,
-              last_activity_at = NOW(),
-              updated_at = NOW(),
-              completed_at = CASE WHEN ${nextStatus} = 'completed' THEN NOW() ELSE completed_at END
-          WHERE id = ${interviewId}
-            AND organization_id = ${organizationId}
-            AND user_id = ${userId}
-            AND state_version = ${expectedStateVersion}
-            AND status = ANY(${allowedFromStatuses}::text[])
-          RETURNING state_version
-        `);
+        const now = new Date();
+        const casRows = await tx
+          .update(onboardingInterviews)
+          .set({
+            currentObjective: nextObjective,
+            status: nextStatus,
+            turnCount: sql`${onboardingInterviews.turnCount} + 1`,
+            stateVersion: sql`${onboardingInterviews.stateVersion} + 1`,
+            lastActivityAt: now,
+            updatedAt: now,
+            // Left undefined for any other status so Drizzle omits the column
+            // entirely, preserving whatever completed_at already held.
+            completedAt: nextStatus === 'completed' ? now : undefined,
+          })
+          .where(
+            and(
+              eq(onboardingInterviews.id, interviewId),
+              eq(onboardingInterviews.organizationId, organizationId),
+              eq(onboardingInterviews.userId, userId),
+              eq(onboardingInterviews.stateVersion, expectedStateVersion),
+              inArray(onboardingInterviews.status, allowedFromStatuses)
+            )
+          )
+          .returning({ stateVersion: onboardingInterviews.stateVersion });
 
-        const casRow = cas.rows[0];
+        const casRow = casRows[0];
         if (!casRow) {
           return { committed: false, reason: 'state_conflict' };
         }
-        const resultingStateVersion = toNumber(casRow.state_version);
+        const resultingStateVersion = toNumber(casRow.stateVersion);
 
         for (const update of updates) {
           const rows = (await tx

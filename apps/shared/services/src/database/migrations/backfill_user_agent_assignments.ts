@@ -20,7 +20,9 @@
  */
 
 import { createLogger } from '@uaip/utils';
-import { initializePlanes, getIntelligencePool, getControlPool } from '../drizzle/clients/index';
+import { eq, getControlDb, getControlPool, getIntelligenceDb, initializePlanes } from '../drizzle/clients/index';
+import { agents } from '../drizzle/schemas/intelligence_schema';
+import { dataMigrations, userAgentAssignments, users } from '../drizzle/schemas/control_schema';
 import { ONBOARDING_GUIDE_AGENT_ID, isOfferableToOrg } from '../drizzle/constants';
 
 const logger = createLogger({
@@ -40,20 +42,6 @@ export interface BackfillUserAgentAssignmentsResult {
   agentsFound: number;
   skipped: number;
   alreadyApplied: boolean;
-}
-
-interface ActiveAgentRow {
-  id: string;
-  organization_id: string | null;
-}
-
-interface BackfillUserRow {
-  id: string;
-  organization_id: string;
-}
-
-interface InsertedCountRow {
-  inserted_count: string;
 }
 
 interface PoolClient {
@@ -84,19 +72,25 @@ export class BackfillUserAgentAssignments {
     const client = (await getControlPool().connect()) as PoolClient;
 
     try {
+      // Drizzle exposes no advisory-lock API; this is the one statement that
+      // must stay raw, and it must run on a single pinned connection because
+      // a session lock is released only by the connection that took it.
       await client.query('SELECT pg_advisory_lock($1)', [BACKFILL_LOCK_KEY]);
-      return await this.runLocked(client);
+      return await this.runLocked();
     } finally {
       await client.query('SELECT pg_advisory_unlock($1)', [BACKFILL_LOCK_KEY]);
       client.release();
     }
   }
 
-  private async runLocked(client: PoolClient): Promise<BackfillUserAgentAssignmentsResult> {
-    const { rows: ledgerRows } = await client.query(
-      'SELECT name FROM data_migrations WHERE name = $1 LIMIT 1',
-      [BACKFILL_MIGRATION_NAME]
-    );
+  private async runLocked(): Promise<BackfillUserAgentAssignmentsResult> {
+    const db = getControlDb();
+
+    const ledgerRows = await db
+      .select({ name: dataMigrations.name })
+      .from(dataMigrations)
+      .where(eq(dataMigrations.name, BACKFILL_MIGRATION_NAME))
+      .limit(1);
 
     if (ledgerRows.length > 0) {
       logger.info('Backfill already applied — skipping');
@@ -110,9 +104,10 @@ export class BackfillUserAgentAssignments {
     }
 
     // Step 1 — intelligence plane only: which active agents exist?
-    const { rows: agentRows } = await getIntelligencePool().query<ActiveAgentRow>(
-      'SELECT id, organization_id FROM agents WHERE is_active = true'
-    );
+    const agentRows = await getIntelligenceDb()
+      .select({ id: agents.id, organizationId: agents.organizationId })
+      .from(agents)
+      .where(eq(agents.isActive, true));
 
     const candidateAgents = agentRows.filter((row) => row.id !== ONBOARDING_GUIDE_AGENT_ID);
 
@@ -128,9 +123,9 @@ export class BackfillUserAgentAssignments {
     }
 
     // Step 2 — control plane only: which users need grants?
-    const { rows: userRowsResult } = await client.query<BackfillUserRow>(
-      'SELECT id, organization_id FROM users'
-    );
+    const userRowsResult = await db
+      .select({ id: users.id, organizationId: users.organizationId })
+      .from(users);
 
     let assignmentsCreated = 0;
     let skipped = 0;
@@ -141,28 +136,27 @@ export class BackfillUserAgentAssignments {
     // very cross-tenant access this table exists to prevent.
     for (const user of userRowsResult) {
       const agentIds = candidateAgents
-        .filter((agent) => isOfferableToOrg(agent.organization_id, user.organization_id))
+        .filter((agent) => isOfferableToOrg(agent.organizationId, user.organizationId))
         .map((agent) => agent.id);
 
       if (agentIds.length === 0) continue;
 
-      const valuesSql = agentIds
-        .map((_, index) => `($1, $${index + 3}, $2, 'backfill')`)
-        .join(', ');
-      const params = [user.id, user.organization_id, ...agentIds];
-
       try {
-        const { rows: insertedRows } = await client.query<InsertedCountRow>(
-          `WITH inserted AS (
-             INSERT INTO user_agent_assignments (user_id, agent_id, organization_id, source)
-             VALUES ${valuesSql}
-             ON CONFLICT (user_id, agent_id) DO NOTHING
-             RETURNING id
-           )
-           SELECT COUNT(*) AS inserted_count FROM inserted`,
-          params
-        );
-        assignmentsCreated += parseInt(insertedRows[0]?.inserted_count ?? '0', 10);
+        const inserted = await db
+          .insert(userAgentAssignments)
+          .values(
+            agentIds.map((agentId) => ({
+              userId: user.id,
+              agentId,
+              organizationId: user.organizationId,
+              source: 'backfill',
+            }))
+          )
+          .onConflictDoNothing({
+            target: [userAgentAssignments.userId, userAgentAssignments.agentId],
+          })
+          .returning({ id: userAgentAssignments.id });
+        assignmentsCreated += inserted.length;
       } catch (error) {
         skipped += 1;
         logger.error('Backfill failed for user — continuing', {
@@ -183,12 +177,10 @@ export class BackfillUserAgentAssignments {
     // Only a run that covered EVERY user is final. Marking a partial run
     // complete would strand the skipped users with an empty roster forever.
     if (skipped === 0) {
-      await client.query(
-        `INSERT INTO data_migrations (name, details)
-         VALUES ($1, $2)
-         ON CONFLICT (name) DO NOTHING`,
-        [BACKFILL_MIGRATION_NAME, JSON.stringify(result)]
-      );
+      await db
+        .insert(dataMigrations)
+        .values({ name: BACKFILL_MIGRATION_NAME, details: result })
+        .onConflictDoNothing({ target: dataMigrations.name });
     } else {
       logger.warn('Backfill incomplete — not marking as applied, will retry on next boot', {
         skipped,

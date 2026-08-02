@@ -428,6 +428,20 @@ export const userAgentAssignments = pgTable(
   ]
 );
 
+/**
+ * One-shot data migrations that cannot be expressed as DDL — a backfill is
+ * ledgered here rather than inferred from its own output rows, because a run
+ * that crashed halfway looks identical to a finished one.
+ *
+ * Created by EnsureOnboardingSchema at boot, not by drizzle-kit: production
+ * has an empty __drizzle_migrations table, so the migrate chain never runs.
+ */
+export const dataMigrations = pgTable('data_migrations', {
+  name: varchar('name', { length: 200 }).primaryKey(),
+  appliedAt: timestamp('applied_at').notNull().defaultNow(),
+  details: json('details'),
+});
+
 // ─── ONBOARDING INTERVIEW (Base Imprint 10) ────────────────────────────────
 
 export const onboardingInterviews = pgTable(
