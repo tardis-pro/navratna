@@ -139,6 +139,10 @@ export class LLMService {
             // (LLMProviderRepository.decryptProviderRow). Pass it as the plain apiKey
             // so BaseProvider.getApiKey() can authenticate model-fetch/chat calls.
             apiKey: dbProvider.apiKeyEncrypted ?? undefined,
+            // Providers fall back to config.defaultModel when a request names no
+            // model. Dropping the column here makes every such call throw
+            // "no model configured", however the row is filled in.
+            defaultModel: dbProvider.defaultModel ?? undefined,
           };
 
           switch (providerType) {
