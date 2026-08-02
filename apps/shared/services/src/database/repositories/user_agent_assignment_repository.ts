@@ -10,6 +10,13 @@ import { logger } from '@uaip/utils';
 type UserAgentAssignmentRow = typeof userAgentAssignments.$inferSelect;
 type NewUserAgentAssignment = typeof userAgentAssignments.$inferInsert;
 
+/**
+ * Grants written by the pre-scoping backfill. They hand out the whole roster so
+ * existing users are not stranded, and are revoked once onboarding picks a real
+ * one — so this string must match the source the backfill writes.
+ */
+export const PROVISIONAL_ASSIGNMENT_SOURCE = 'backfill';
+
 export interface AssignManyParams {
   userId: string;
   organizationId: string;
@@ -146,6 +153,76 @@ export class UserAgentAssignmentRepository {
         .returning();
     } catch (error: unknown) {
       logger.error('UserAgentAssignmentRepository.assignMany failed', {
+        userId,
+        organizationId,
+        agentCount: uniqueAgentIds.length,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Install the onboarding-chosen roster and retire the provisional grants.
+   *
+   * The backfill grants every pre-existing user the FULL roster so nobody is
+   * left with an empty list when visibility scoping ships. Onboarding is what
+   * narrows it — but assignMany only ever adds, so a user who finished the
+   * interview kept all their backfill rows and still saw every agent.
+   *
+   * Both steps run in one transaction: deleting first would leave the user with
+   * no agents at all if the insert then failed.
+   *
+   * Recommended agents are re-sourced rather than skipped, because a backfill
+   * row already exists for most of them — without the update, the delete below
+   * would revoke an agent onboarding just chose.
+   */
+  async replaceProvisionalAssignments(params: AssignManyParams): Promise<UserAgentAssignmentRow[]> {
+    const { userId, organizationId, agentIds, assignedBy, source } = params;
+    const uniqueAgentIds = [...new Set(agentIds)];
+    const grantSource = source ?? 'onboarding';
+
+    try {
+      if (uniqueAgentIds.length > 0) {
+        await CrossPlaneGuard.verifyMany(getIntelligencePool(), 'agents', uniqueAgentIds, 'agent');
+      }
+
+      return await this.db.transaction(async (tx) => {
+        let granted: UserAgentAssignmentRow[] = [];
+
+        if (uniqueAgentIds.length > 0) {
+          granted = await tx
+            .insert(userAgentAssignments)
+            .values(
+              uniqueAgentIds.map((agentId) => ({
+                userId,
+                agentId,
+                organizationId,
+                ...(assignedBy !== undefined ? { assignedBy } : {}),
+                source: grantSource,
+              }))
+            )
+            .onConflictDoUpdate({
+              target: [userAgentAssignments.userId, userAgentAssignments.agentId],
+              set: { source: grantSource },
+            })
+            .returning();
+        }
+
+        await tx
+          .delete(userAgentAssignments)
+          .where(
+            and(
+              eq(userAgentAssignments.userId, userId),
+              eq(userAgentAssignments.organizationId, organizationId),
+              eq(userAgentAssignments.source, PROVISIONAL_ASSIGNMENT_SOURCE)
+            )
+          );
+
+        return granted;
+      });
+    } catch (error: unknown) {
+      logger.error('UserAgentAssignmentRepository.replaceProvisionalAssignments failed', {
         userId,
         organizationId,
         agentCount: uniqueAgentIds.length,

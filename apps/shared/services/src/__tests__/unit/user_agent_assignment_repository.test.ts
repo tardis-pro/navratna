@@ -12,7 +12,9 @@ const { mocks } = vi.hoisted(() => ({
     selectRows: [] as unknown[],
     insertedValues: [] as unknown[],
     deleteResult: { rowCount: 0 },
+    deleteWheres: [] as unknown[],
     verifyMany: vi.fn(),
+    conflictUpdates: [] as unknown[],
   },
 }));
 
@@ -35,12 +37,20 @@ const controlDbStub = {
         onConflictDoNothing: vi.fn(() => ({
           returning: vi.fn(async () => rows),
         })),
+        onConflictDoUpdate: vi.fn((cfg: unknown) => {
+          mocks.conflictUpdates.push(cfg);
+          return { returning: vi.fn(async () => rows) };
+        }),
       };
     }),
   })),
   delete: vi.fn(() => ({
-    where: vi.fn(async () => mocks.deleteResult),
+    where: vi.fn(async (predicate: unknown) => {
+      mocks.deleteWheres.push(predicate);
+      return mocks.deleteResult;
+    }),
   })),
+  transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(controlDbStub)),
 };
 
 const getControlDbMock = vi.fn(() => controlDbStub);
@@ -83,6 +93,8 @@ describe('UserAgentAssignmentRepository', () => {
     mocks.selectRows = [];
     mocks.insertedValues = [];
     mocks.deleteResult = { rowCount: 0 };
+    mocks.deleteWheres = [];
+    mocks.conflictUpdates = [];
     mocks.verifyMany.mockResolvedValue(undefined);
     repo = new UserAgentAssignmentRepository();
   });
@@ -170,5 +182,85 @@ describe('UserAgentAssignmentRepository', () => {
     const exists = await repo.hasAssignment(USER_ID, AGENT_A, ORG_ID);
 
     expect(exists).toBe(false);
+  });
+});
+
+/**
+ * The pre-scoping backfill grants every existing user the FULL roster. If
+ * completing onboarding only ADDED the recommended agents, those backfill rows
+ * would survive and the user would still see every agent — the exact symptom
+ * reported in prod after a completed interview.
+ */
+describe('replaceProvisionalAssignments', () => {
+  let repo: RepositoryInstance;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.insertedValues = [];
+    mocks.deleteWheres = [];
+    mocks.conflictUpdates = [];
+    mocks.deleteResult = { rowCount: 0 };
+    mocks.verifyMany.mockResolvedValue(undefined);
+    repo = new UserAgentAssignmentRepository();
+  });
+
+  it('revokes the provisional grants after installing the chosen roster', async () => {
+    await repo.replaceProvisionalAssignments({
+      userId: USER_ID,
+      organizationId: ORG_ID,
+      agentIds: [AGENT_A],
+      source: 'onboarding',
+    });
+
+    expect(controlDbStub.insert).toHaveBeenCalled();
+    expect(mocks.deleteWheres).toHaveLength(1);
+  });
+
+  it('runs the grant and the revoke in one transaction', async () => {
+    await repo.replaceProvisionalAssignments({
+      userId: USER_ID,
+      organizationId: ORG_ID,
+      agentIds: [AGENT_A],
+    });
+
+    expect(controlDbStub.transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-sources a recommended agent that already had a provisional grant', async () => {
+    await repo.replaceProvisionalAssignments({
+      userId: USER_ID,
+      organizationId: ORG_ID,
+      agentIds: [AGENT_A],
+      source: 'onboarding',
+    });
+
+    expect(mocks.conflictUpdates).toHaveLength(1);
+    expect(mocks.conflictUpdates[0]).toMatchObject({ set: { source: 'onboarding' } });
+  });
+
+  it('verifies agent ids across the plane boundary before granting', async () => {
+    await repo.replaceProvisionalAssignments({
+      userId: USER_ID,
+      organizationId: ORG_ID,
+      agentIds: [AGENT_A, AGENT_B],
+    });
+
+    expect(mocks.verifyMany).toHaveBeenCalledWith(
+      expect.anything(),
+      'agents',
+      [AGENT_A, AGENT_B],
+      'agent'
+    );
+  });
+
+  it('still revokes when onboarding recommended nothing', async () => {
+    await repo.replaceProvisionalAssignments({
+      userId: USER_ID,
+      organizationId: ORG_ID,
+      agentIds: [],
+    });
+
+    expect(controlDbStub.insert).not.toHaveBeenCalled();
+    expect(mocks.deleteWheres).toHaveLength(1);
   });
 });

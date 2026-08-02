@@ -127,7 +127,10 @@ interface Deps extends OnboardingServiceDeps {
     failTurn: ReturnType<typeof vi.fn>;
     loadHistory: ReturnType<typeof vi.fn>;
   };
-  assignments: { assignMany: ReturnType<typeof vi.fn> };
+  assignments: {
+    assignMany: ReturnType<typeof vi.fn>;
+    replaceProvisionalAssignments: ReturnType<typeof vi.fn>;
+  };
 }
 
 function buildDeps(): Deps {
@@ -155,7 +158,10 @@ function buildDeps(): Deps {
       failTurn: vi.fn().mockResolvedValue(undefined),
       loadHistory: vi.fn().mockResolvedValue([]),
     },
-    assignments: { assignMany: vi.fn().mockResolvedValue([]) },
+    assignments: {
+      assignMany: vi.fn().mockResolvedValue([]),
+      replaceProvisionalAssignments: vi.fn().mockResolvedValue([]),
+    },
   } as unknown as Deps;
 }
 
@@ -606,7 +612,7 @@ describe('OnboardingService.completeInterview', () => {
     const result = await service.completeInterview(USER_ID, ORG_ID, INTERVIEW_ID, CANDIDATES);
 
     expect(result.outcome).toBe('completed');
-    expect(deps.assignments.assignMany).toHaveBeenCalledWith(
+    expect(deps.assignments.replaceProvisionalAssignments).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: USER_ID,
         organizationId: ORG_ID,
@@ -614,7 +620,7 @@ describe('OnboardingService.completeInterview', () => {
         agentIds: expect.any(Array),
       })
     );
-    const assigned = deps.assignments.assignMany.mock.calls[0][0].agentIds;
+    const assigned = deps.assignments.replaceProvisionalAssignments.mock.calls[0][0].agentIds;
     expect(assigned.length).toBeGreaterThan(0);
   });
 
@@ -624,7 +630,7 @@ describe('OnboardingService.completeInterview', () => {
     const result = await service.completeInterview(USER_ID, ORG_ID, INTERVIEW_ID, CANDIDATES);
 
     expect(result.outcome).toBe('not_ready');
-    expect(deps.assignments.assignMany).not.toHaveBeenCalled();
+    expect(deps.assignments.replaceProvisionalAssignments).not.toHaveBeenCalled();
   });
 
   it('marks the user onboarded and persists the imprint', async () => {
@@ -679,7 +685,7 @@ describe('OnboardingService.completeInterview', () => {
     await expect(
       service.completeInterview(USER_ID, ORG_ID, INTERVIEW_ID, CANDIDATES)
     ).rejects.toThrow();
-    expect(deps.assignments.assignMany).not.toHaveBeenCalled();
+    expect(deps.assignments.replaceProvisionalAssignments).not.toHaveBeenCalled();
   });
 });
 

@@ -463,7 +463,10 @@ export class OnboardingService {
     const imprint = assembleImprint(interview.slots);
     const { recommendations } = recommendAgents({ slots: interview.slots, candidates });
 
-    await this.deps.assignments.assignMany({
+    // Replace, don't add: the pre-scoping backfill granted this user the whole
+    // roster, so merely inserting the recommendations would leave every other
+    // agent visible and the interview would appear to have done nothing.
+    await this.deps.assignments.replaceProvisionalAssignments({
       userId,
       organizationId,
       agentIds: recommendations.map((recommendation) => recommendation.agentId),

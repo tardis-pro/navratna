@@ -24,6 +24,7 @@ import { eq, getControlDb, getControlPool, getIntelligenceDb, initializePlanes }
 import { agents } from '../drizzle/schemas/intelligence_schema';
 import { dataMigrations, userAgentAssignments, users } from '../drizzle/schemas/control_schema';
 import { ONBOARDING_GUIDE_AGENT_ID, isOfferableToOrg } from '../drizzle/constants';
+import { PROVISIONAL_ASSIGNMENT_SOURCE } from '../repositories/user_agent_assignment_repository';
 
 const logger = createLogger({
   serviceName: 'migration:backfill-user-agent-assignments',
@@ -149,7 +150,7 @@ export class BackfillUserAgentAssignments {
               userId: user.id,
               agentId,
               organizationId: user.organizationId,
-              source: 'backfill',
+              source: PROVISIONAL_ASSIGNMENT_SOURCE,
             }))
           )
           .onConflictDoNothing({
