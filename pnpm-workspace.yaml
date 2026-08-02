@@ -133,6 +133,7 @@ ignoredBuiltDependencies:
   - sharp
 
 onlyBuiltDependencies:
+  - '@sentry/cli'
   - '@swc/core'
   - '@tailwindcss/oxide'
   - bcrypt

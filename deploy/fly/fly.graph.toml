@@ -1,0 +1,65 @@
+# fly.graph.toml — navratna-graph: self-hosted Neo4j Community
+#
+# Replaces Neo4j Aura, whose free tier auto-pauses on idle (hostname goes
+# NXDOMAIN) and rotates credentials on resume — a silent production outage
+# for the MCP tool graph and knowledge-graph traversal.
+#
+# Deliberate choices:
+#   * NO [http_service] / [[services]] — this app is NOT exposed to the public
+#     internet. Consumers reach it over Fly's private 6PN network at
+#     navratna-graph.internal:7687. Strictly tighter than Aura, whose bolt
+#     endpoint is internet-facing.
+#   * NO auto_stop_machines — suspending this would recreate the exact
+#     auto-pause problem we are migrating away from.
+#   * Deployed by image, not Dockerfile:
+#       fly deploy -c deploy/fly/fly.graph.toml -a navratna-graph \
+#         --image neo4j:2026.06.0-community
+#
+# Consumers (both set enableNeo4j: true):
+#   navratna-core     — apps/backend/services/navratna-core/src/index.ts
+#   navratna-gateway  — apps/backend/services/capability-registry/src/index.ts
+
+app = 'navratna-graph'
+primary_region = 'sin'
+
+[build]
+  image = 'neo4j:2026.06.0-community'
+
+[env]
+  # Bolt + HTTP bound to all interfaces so the 6PN address is reachable.
+  NEO4J_server_default__listen__address = '0.0.0.0'
+  NEO4J_server_bolt_listen__address = '0.0.0.0:7687'
+  NEO4J_server_http_listen__address = '0.0.0.0:7474'
+
+  # Memory. The stock image ships 512M heap + 512M pagecache, which alone
+  # exceeds a 1GB VM before JVM overhead and the OS — hence 2GB below.
+  # Neo4j recommends reserving ~1GB for the OS on a dedicated host.
+  NEO4J_server_memory_heap_initial__size = '512m'
+  NEO4J_server_memory_heap_max__size = '512m'
+  NEO4J_server_memory_pagecache_size = '512m'
+
+  # Community Edition serves exactly one user database, named 'neo4j', matching
+  # the default in apps/shared/config/src/config.ts. A server.default_database
+  # key here would crash-loop the container: strict config validation rejects
+  # unrecognised settings.
+
+# Neo4j is in-memory-hot but disk-durable: store files, transaction logs and
+# indexes all live under /data. Without this volume every redeploy wipes the
+# graph, since Fly machine root filesystems are ephemeral.
+[mounts]
+  source = 'neo4j_data'
+  destination = '/data'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '2048mb'
+
+# TCP check on the bolt port. An HTTP check against :7474 would also work but
+# bolt is the port that actually matters to consumers.
+[checks]
+  [checks.bolt]
+    type = 'tcp'
+    port = 7687
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '120s'

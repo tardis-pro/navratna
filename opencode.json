@@ -1,14 +1,15 @@
 {
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "nx-mcp": {
-      "type": "local",
-      "command": [
-        "npx",
-        "nx",
-        "mcp"
-      ],
-      "enabled": true
+    "$schema": "https://opencode.ai/config.json",
+    "mcp": {
+        "nx-mcp": {
+            "type": "local",
+            "command": ["npx", "nx", "mcp"],
+            "enabled": true
+        },
+        "sentry": {
+            "type": "local",
+            "enabled": true,
+            "command": ["npx", "-y", "@sentry/mcp-server@latest"]
+        }
     }
-  }
 }
