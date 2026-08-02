@@ -446,9 +446,30 @@ export function ChatComposer({
     [selectedSuggestionIndex, showSuggestions, suggestions],
   );
 
+  // ── Mention / Command menu visibility ──────────────────────────────────
+  const { mentionOpen, commandOpen, mentionQuery, commandQuery } = useMemo(() => {
+    const cursor = textareaRef.current?.selectionStart ?? value.length;
+    const head = value.slice(0, cursor);
+    if (/(^|\s)@\w*$/.test(head)) {
+      const query = /(?:^|\s)@(\w*)$/.exec(head)?.[1] ?? '';
+      return { mentionOpen: true, commandOpen: false, mentionQuery: query, commandQuery: '' };
+    }
+    if (/(^|\s)\/\w*$/.test(head)) {
+      const query = /(?:^|\s)\/(\w*)$/.exec(head)?.[1] ?? '';
+      return { mentionOpen: false, commandOpen: true, mentionQuery: '', commandQuery: query };
+    }
+    return { mentionOpen: false, commandOpen: false, mentionQuery: '', commandQuery: '' };
+  }, [value]);
+
   // ── Key handling on textarea ───────────────────────────────────────────
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
+      // While a picker is open it owns Enter/arrows/Escape. It listens on window
+      // in the capture phase, so its preventDefault cannot stop this React
+      // handler — without this bail-out both run and Enter submits the raw "/ta"
+      // text instead of selecting the command.
+      if (mentionOpen || commandOpen) return;
+
       // ↑ in empty composer recalls last sent message
       if (e.key === 'ArrowUp' && value === '') {
         if (lastSentRef.current) {
@@ -486,7 +507,9 @@ export function ChatComposer({
     },
     [
       acceptSelectedSuggestion,
+      commandOpen,
       fireSubmit,
+      mentionOpen,
       selectedSuggestionIndex,
       showSuggestions,
       suggestions.length,
@@ -502,21 +525,6 @@ export function ChatComposer({
     },
     [triggerAutocomplete],
   );
-
-  // ── Mention / Command menu visibility ──────────────────────────────────
-  const { mentionOpen, commandOpen, mentionQuery, commandQuery } = useMemo(() => {
-    const cursor = textareaRef.current?.selectionStart ?? value.length;
-    const head = value.slice(0, cursor);
-    if (/(^|\s)@\w*$/.test(head)) {
-      const query = /(?:^|\s)@(\w*)$/.exec(head)?.[1] ?? '';
-      return { mentionOpen: true, commandOpen: false, mentionQuery: query, commandQuery: '' };
-    }
-    if (/(^|\s)\/\w*$/.test(head)) {
-      const query = /(?:^|\s)\/(\w*)$/.exec(head)?.[1] ?? '';
-      return { mentionOpen: false, commandOpen: true, mentionQuery: '', commandQuery: query };
-    }
-    return { mentionOpen: false, commandOpen: false, mentionQuery: '', commandQuery: '' };
-  }, [value]);
 
   // While typing in a slash / at-mention trigger, suppress the suggestion popup
   // (MentionPicker / CommandPicker are showing instead).

@@ -53,3 +53,34 @@ describe('ChatComposer', () => {
     expect(composer).toHaveValue(`${suggestion.text} `);
   });
 });
+
+/**
+ * The slash menu is a sibling popover, not part of the textarea. CommandPicker
+ * binds its keys on `window` in the CAPTURE phase, so its Enter handler runs
+ * before the textarea's React onKeyDown — but preventDefault does not stop the
+ * React handler, so both fire on a single press.
+ */
+describe('ChatComposer slash commands', () => {
+  it('opens the command menu when the composer starts with a slash', () => {
+    render(<ChatComposer onSubmit={vi.fn()} />);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Message composer' }), {
+      target: { value: '/' },
+    });
+
+    expect(screen.getByText('Insert Context Command')).toBeInTheDocument();
+  });
+
+  it('picks the command on Enter instead of sending the raw slash text', () => {
+    const onSubmit = vi.fn();
+    render(<ChatComposer onSubmit={onSubmit} />);
+
+    const composer = screen.getByRole('textbox', { name: 'Message composer' });
+    fireEvent.change(composer, { target: { value: '/ta' } });
+
+    fireEvent.keyDown(window, { key: 'ArrowDown' });
+    fireEvent.keyDown(composer, { key: 'Enter' });
+
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+});
