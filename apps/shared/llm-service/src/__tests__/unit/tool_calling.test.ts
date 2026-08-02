@@ -169,3 +169,82 @@ describe('runToolCallingLoop', () => {
     expect(callProvider.mock.calls[1][0].prompt).toContain('executor offline');
   });
 });
+
+/**
+ * Each loop iteration is a separately billed provider call, but only the final
+ * response is returned — so the total has to be accumulated or a tool-using turn
+ * under-reports exactly the turns that cost the most.
+ */
+describe('runToolCallingLoop token accounting', () => {
+  it('sums tokens across every provider call in the loop', async () => {
+    const callProvider = vi
+      .fn()
+      .mockResolvedValueOnce({
+        content: '',
+        model: 'test',
+        tokensUsed: 100,
+        finishReason: 'tool_calls',
+        toolCalls: [
+          { id: 'c1', type: 'function', function: { name: 'lookup', arguments: '{}' } },
+        ],
+      })
+      .mockResolvedValueOnce({
+        content: 'done',
+        model: 'test',
+        tokensUsed: 40,
+        finishReason: 'stop',
+      });
+
+    const result = await runToolCallingLoop({
+      request: { prompt: 'go', model: 'test' } as never,
+      callProvider,
+      executeTool: async () => ({
+        toolId: 'c1',
+        toolName: 'lookup',
+        success: true,
+        result: 'ok',
+        timestamp: new Date().toISOString(),
+      }),
+    });
+
+    expect(callProvider).toHaveBeenCalledTimes(2);
+    expect(result.tokensUsed).toBe(140);
+  });
+
+  it('reports the single call total when no tool is requested', async () => {
+    const callProvider = vi.fn().mockResolvedValue({
+      content: 'hi',
+      model: 'test',
+      tokensUsed: 25,
+      finishReason: 'stop',
+    });
+
+    const result = await runToolCallingLoop({
+      request: { prompt: 'go', model: 'test' } as never,
+      callProvider,
+      executeTool: async () => {
+        throw new Error('should not run');
+      },
+    });
+
+    expect(result.tokensUsed).toBe(25);
+  });
+
+  it('leaves tokensUsed undefined when the provider reports none', async () => {
+    const callProvider = vi.fn().mockResolvedValue({
+      content: 'hi',
+      model: 'test',
+      finishReason: 'stop',
+    });
+
+    const result = await runToolCallingLoop({
+      request: { prompt: 'go', model: 'test' } as never,
+      callProvider,
+      executeTool: async () => {
+        throw new Error('should not run');
+      },
+    });
+
+    expect(result.tokensUsed).toBeUndefined();
+  });
+});

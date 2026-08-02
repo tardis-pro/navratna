@@ -109,6 +109,10 @@ export async function runToolCallingLoop(options: ToolCallingLoopOptions): Promi
   let currentRequest: LLMRequest = request;
   let response: LLMResponse = await callProvider(currentRequest);
   let iterations = 1;
+  // Every iteration is a separate billed provider call, but only the last
+  // response is returned. Without this running total a tool-using turn reports
+  // just the final call's tokens and under-bills exactly the expensive turns.
+  let tokensUsed = response.tokensUsed;
 
   while (
     response.finishReason === 'tool_calls' &&
@@ -157,14 +161,14 @@ export async function runToolCallingLoop(options: ToolCallingLoopOptions): Promi
 
     response = await callProvider(currentRequest);
     iterations += 1;
-  }
-
-  if (executed.length === 0 && pendingApproval.length === 0) {
-    return response;
+    if (response.tokensUsed !== undefined) {
+      tokensUsed = (tokensUsed ?? 0) + response.tokensUsed;
+    }
   }
 
   return {
     ...response,
+    ...(tokensUsed !== undefined ? { tokensUsed } : {}),
     ...(executed.length > 0 ? { toolsExecuted: executed } : {}),
     ...(pendingApproval.length > 0 ? { suggestedTools: pendingApproval } : {}),
   };
