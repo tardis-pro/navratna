@@ -39,6 +39,7 @@ import {
 import type {
   AutocompleteSuggestion,
   FrontendAgentState,
+  LLMModel,
   ThreadAttachment,
   ThreadState,
 } from '@uaip/types';
@@ -49,6 +50,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { AutocompleteSuggestionItems } from '@/components/ui/AutocompleteSuggestionItems';
 import { AttachmentTray } from '@/components/chat/AttachmentTray';
+import { ModelSwitcher } from '@/components/chat/ModelSwitcher';
 import { CommandPicker, type CommandOption } from '@/components/chat/CommandPicker';
 import { MentionPicker } from '@/components/chat/MentionPicker';
 
@@ -119,6 +121,14 @@ export interface ChatComposerProps {
   onDropFiles?: (files: File[]) => void;
   /** Fired when user clicks a command chip (project/task/doc) to open its companion */
   onChipClick?: (chip: CommandChipStub) => void;
+  /** Model catalogue for the in-composer switcher. Omit to hide the switcher. */
+  models?: LLMModel[];
+  /** Provider-native model name overriding the agent's, or undefined for the agent default. */
+  model?: string;
+  /** The model the agent falls back to when no override is selected. */
+  agentDefaultModel?: string;
+  modelsLoading?: boolean;
+  onModelChange?: (model: string | undefined) => void;
   /** className forward to the outer shell. */
   className?: string;
 }
@@ -169,6 +179,11 @@ export function ChatComposer({
   onSubmit,
   onDropFiles,
   onChipClick,
+  models,
+  model,
+  agentDefaultModel,
+  modelsLoading,
+  onModelChange,
   className,
 }: ChatComposerProps) {
   // ── Core text state ─────────────────────────────────────────────────────
@@ -762,11 +777,24 @@ export function ChatComposer({
           {disabled ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </div>
-      <div className="border-t border-border/20 px-3 py-1.5 text-[10px] text-muted-foreground">
-        <span className="flex items-center gap-2">
-          <CheckCircle2 className="h-3 w-3" />
-          Enter to send · Shift+Enter for newline · type <span className="font-mono">@</span> to summon agent · <span className="font-mono">/</span> for context
+      <div className="flex items-center justify-between gap-2 border-t border-border/20 px-3 py-1.5 text-[10px] text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-2">
+          <CheckCircle2 className="h-3 w-3 shrink-0" />
+          <span className="truncate">
+            Enter to send · Shift+Enter for newline · type <span className="font-mono">@</span> to summon agent · <span className="font-mono">/</span> for context
+          </span>
         </span>
+        {models && onModelChange && (
+          <ModelSwitcher
+            models={models}
+            value={model}
+            agentDefaultModel={agentDefaultModel}
+            isLoading={modelsLoading}
+            disabled={disabled}
+            onChange={onModelChange}
+            className="shrink-0"
+          />
+        )}
       </div>
     </div>
   );

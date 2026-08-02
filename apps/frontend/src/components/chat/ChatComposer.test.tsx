@@ -84,3 +84,44 @@ describe('ChatComposer slash commands', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });
+
+describe('ChatComposer model switcher', () => {
+  const models = [
+    { id: 'm1', name: 'dirt-cheap', provider: 'Tardis', isAvailable: true },
+    { id: 'm2', name: 'ultra-smart-reliable', provider: 'Tardis', isAvailable: true },
+  ] as never[];
+
+  it('shows the agent default until the user overrides it', () => {
+    render(
+      <ChatComposer
+        onSubmit={vi.fn()}
+        models={models}
+        agentDefaultModel="dirt-cheap"
+        onModelChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('combobox', { name: 'Select model' })).toHaveTextContent('dirt-cheap');
+  });
+
+  it('shows the override in place of the agent default once one is chosen', () => {
+    render(
+      <ChatComposer
+        onSubmit={vi.fn()}
+        models={models}
+        model="ultra-smart-reliable"
+        agentDefaultModel="dirt-cheap"
+        onModelChange={vi.fn()}
+      />
+    );
+
+    const trigger = screen.getByRole('combobox', { name: 'Select model' });
+    expect(trigger).toHaveTextContent('ultra-smart-reliable');
+    expect(trigger).not.toHaveTextContent('dirt-cheap');
+  });
+
+  it('stays hidden when no model catalogue is supplied', () => {
+    render(<ChatComposer onSubmit={vi.fn()} />);
+    expect(screen.queryByRole('combobox', { name: 'Select model' })).not.toBeInTheDocument();
+  });
+});

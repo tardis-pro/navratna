@@ -263,6 +263,12 @@ export interface AgentChatRequest {
    * credential from that binding. Authorized server-side against the caller.
    */
   projectId?: string;
+  /**
+   * Provider-native model name overriding the agent's for THIS TURN only, so a
+   * switch never rewrites the shared agent row. The credential still comes from
+   * the user's own provider, resolved server-side.
+   */
+  model?: string;
 }
 
 export interface AgentChatResponse {

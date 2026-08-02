@@ -287,7 +287,8 @@ const toAgentRequest = (
   messages: ChatMessage[],
   context?: DocumentContext,
   tools?: AvailableTool[],
-  projectId?: string
+  projectId?: string,
+  modelOverride?: string
 ): AgentResponseRequest => ({
   agent: {
     id: agent.id,
@@ -305,7 +306,13 @@ const toAgentRequest = (
             typeof agent.persona.description === 'string' ? agent.persona.description : undefined,
         }
       : undefined,
-    modelId: typeof agent.modelId === 'string' ? agent.modelId : undefined,
+    /**
+     * A per-turn override changes ONLY this reply. The agent row is untouched,
+     * so switching model mid-thread cannot silently repoint the agent for every
+     * other user and thread that shares it.
+     */
+    modelId:
+      modelOverride ?? (typeof agent.modelId === 'string' ? agent.modelId : undefined),
     apiType: typeof agent.apiType === 'string' ? agent.apiType : undefined,
     userLLMProviderId:
       typeof agent.userLLMProviderId === 'string' ? agent.userLLMProviderId : undefined,
@@ -483,12 +490,18 @@ export function registerAgentChatRoutes(
           )
           const tools = await resolveAgentTools(assignedTools, toolSchemaProvider)
 
+          const modelOverride =
+            typeof body.model === 'string' && body.model.trim() !== ''
+              ? body.model.trim()
+              : undefined
+
           const request = toAgentRequest(
             agent,
             messages,
             toDocumentContext(body.context),
             tools,
-            projectId
+            projectId,
+            modelOverride
           )
           const response = await userLLMService.generateAgentResponse(userId, request)
 
@@ -572,6 +585,10 @@ export function registerAgentChatRoutes(
           // context". No `format:` validator — the prod AOT build rejects
           // unregistered TypeBox formats.
           projectId: t.Optional(t.String()),
+          // Provider-native model name (e.g. "dirt-cheap"), not a uuid. Overrides
+          // the agent's model for this turn only; the credential still comes from
+          // the user's own provider, resolved server-side.
+          model: t.Optional(t.String()),
         }),
         response: {
           200: t.Object({ success: t.Literal(true), data: t.Any() }),

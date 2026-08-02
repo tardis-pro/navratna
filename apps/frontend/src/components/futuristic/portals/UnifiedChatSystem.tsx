@@ -35,7 +35,6 @@ import type {
 } from './UnifiedChatSystem.types';
 import { ThreadContainer } from '../../chat/ThreadContainer';
 import { FloatingThreadContainer } from '../../chat/FloatingThreadContainer';
-import { AgentSwitcher } from '../../chat/AgentSwitcher';
 import { CompanionPane } from '../../chat/CompanionPane';
 import { ContextChipBar, type ContextChip } from '../../chat/ContextChipBar';
 import { ProjectCompanion } from '../../chat/ProjectCompanion';
@@ -170,7 +169,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   mode = 'hybrid',
   defaultAgentId,
 }) => {
-  const { agents, refreshAgents } = useAgents();
+  const { agents, modelState, loadModels } = useAgents();
   const { isAuthenticated, user } = useAuth();
   const {
     isConnected: isWebSocketConnected,
@@ -189,7 +188,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     mode === 'portal' ? 'portal' : 'floating'
   );
   const [selectedAgentId, setSelectedAgentId] = useState<string>(defaultAgentId || '');
-  const [pendingAgentId, setPendingAgentId] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string | undefined>(undefined);
   const [portalMessages, setPortalMessages] = useState<ChatMessage[]>([]);
   const [conversationHistory, setConversationHistory] = useState<
     Array<{ content: string; sender: string; timestamp: string }>
@@ -316,6 +315,10 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     );
     focusable?.focus();
   }, []);
+
+  useEffect(() => {
+    void loadModels();
+  }, [loadModels]);
 
   const handleContextChipClick = useCallback((chip: ContextChip) => {
     setActiveContextChip((prev) => (prev?.id === chip.id ? null : chip));
@@ -1035,6 +1038,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           clientTurnId,
           context: { intent },
           projectId: activeProjectId,
+          model: selectedModel,
         });
         appendPortalAgentMessage(restResponse);
       } catch (error) {
@@ -1117,27 +1121,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     }
   }, [agentList, selectedAgentId, viewMode]);
 
-  const handleAgentChange = useCallback(
-    (nextAgentId: string) => {
-      if (nextAgentId === selectedAgentId) return;
-      if (viewMode === 'portal' && portalMessages.length > 0) {
-        setPendingAgentId(nextAgentId);
-        return;
-      }
-      setSelectedAgentId(nextAgentId);
-    },
-    [selectedAgentId, viewMode, portalMessages.length]
-  );
-
-  const confirmAgentSwitch = useCallback(() => {
-    if (!pendingAgentId) return;
-    setSelectedAgentId(pendingAgentId);
-    setPendingAgentId(null);
-  }, [pendingAgentId]);
-
-  const cancelAgentSwitch = useCallback(() => {
-    setPendingAgentId(null);
-  }, []);
 
   // Rebind the portal to the selected agent's durable discussion and restore its
   // transcript. The clear is only the interim state while the load is in flight —
@@ -1442,6 +1425,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       // on "Agent is thinking..." forever — `agent.chat.request` has no subscriber.
       const restResponse = await uaipAPI.agents.chat(selectedAgentId, {
         message: messageText,
+        model: selectedModel,
         conversationHistory: conversationHistory.slice(-10),
         context: {},
         projectId: activeProjectId,
@@ -1923,21 +1907,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         </div>
 
         {agentList.length > 0 && (
-          <div className="mt-2 flex items-start gap-2">
-            <div className="min-w-0 flex-1">
-              <AgentSwitcher
-                agents={agents}
-                value={selectedAgentId}
-                onChange={handleAgentChange}
-                onCreateAgent={() => {
-                  window.dispatchEvent(new CustomEvent('navigate-to-agent-manager'));
-                }}
-                onRetry={() => {
-                  void refreshAgents();
-                }}
-              />
-            </div>
-
+          <div className="mt-2 flex items-start justify-end gap-2">
             {selectedAgent && (
               <details className="group relative shrink-0">
                 <summary className="flex h-9 cursor-pointer list-none items-center rounded-md border border-border/60 px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
@@ -1965,53 +1935,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
               </details>
             )}
 
-            {pendingAgentId &&
-              (() => {
-                const pendingAgent = agentList.find((a) => a.id === pendingAgentId);
-                if (!pendingAgent) return null;
-                return (
-                  <div
-                    role="alertdialog"
-                    aria-labelledby="agent-switch-confirm-title"
-                    aria-describedby="agent-switch-confirm-desc"
-                    className="absolute left-3 right-3 top-full z-40 mt-2 flex flex-col gap-2 rounded-xl border border-amber-500/40 bg-popover px-4 py-3 text-sm shadow-2xl"
-                  >
-                    <p
-                      id="agent-switch-confirm-title"
-                      className="font-medium text-amber-200"
-                    >
-                      Switch to {pendingAgent.name}?
-                    </p>
-                    <p
-                      id="agent-switch-confirm-desc"
-                      className="text-xs text-amber-200/80"
-                    >
-                      Your current conversation with{' '}
-                      <span className="font-semibold">
-                        {selectedAgent?.name ?? 'this agent'}
-                      </span>{' '}
-                      will be cleared from this portal view. Floating chat windows
-                      for {selectedAgent?.name ?? 'this agent'} stay open.
-                    </p>
-                    <div className="mt-1 flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={cancelAgentSwitch}
-                        className="rounded-lg border border-amber-500/30 px-3 py-1.5 text-xs text-amber-100 transition-colors hover:bg-amber-500/10"
-                      >
-                        Keep conversation
-                      </button>
-                      <button
-                        type="button"
-                        onClick={confirmAgentSwitch}
-                        className="rounded-lg bg-amber-500/90 px-3 py-1.5 text-xs font-medium text-amber-950 transition-colors hover:bg-amber-400"
-                      >
-                        Switch &amp; clear
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
           </div>
         )}
       </motion.div>
@@ -2144,6 +2067,11 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                     // withheld from the turn.
                     ...(chip.resourceId ? { resourceId: chip.resourceId } : {}),
                   })}
+                  models={modelState.models}
+                  modelsLoading={modelState.loadingModels}
+                  model={selectedModel}
+                  agentDefaultModel={selectedAgent?.modelId}
+                  onModelChange={setSelectedModel}
                   onSubmit={(payload: ChatComposerSubmitPayload) => {
                     sendPortalMessageWithText(payload.text, payload.intent);
                   }}
