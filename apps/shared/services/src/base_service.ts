@@ -1,4 +1,5 @@
 import { createAppServer, type AppServer } from './http_app';
+import { resolveErrorStatus } from './http_error_status';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import {
@@ -120,11 +121,7 @@ export abstract class BaseService {
 
     this.app.onError(({ code, error, request, set }) => {
       const url = new URL(request.url);
-      const statusCode = typeof set.status === 'number'
-        ? set.status
-        : code === 'NOT_FOUND'
-          ? 404
-          : 500;
+      const statusCode = resolveErrorStatus(code, set.status);
       logger.error(`${this.config.name}: onError`, {
         code,
         error: error instanceof Error ? error.message : String(error),

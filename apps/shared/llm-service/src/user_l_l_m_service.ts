@@ -728,7 +728,10 @@ export class UserLLMService {
         const taskType = await taskTypeResolver.determineTaskType(
           agentForTaskType as Parameters<typeof taskTypeResolver.determineTaskType>[0],
           {
-            userIntent: request.messages?.[0]?.content,
+            // The CURRENT turn is the last element, not the first. Reading [0]
+            // classifies the task from the oldest message once real conversation
+            // history is supplied, routing the turn to the wrong model.
+            userIntent: request.messages?.[request.messages.length - 1]?.content,
             conversationHistory: request.messages,
           }
         );
