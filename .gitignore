@@ -51,3 +51,8 @@ tmp/
 # CodeGraph local indexes
 .codegraph/
 **/.codegraph/
+
+# Agent scratch journals and local tool caches
+.debug-journal*.md
+apps/frontend/.debug-journal.md
+apps/frontend/.cortexkit/
