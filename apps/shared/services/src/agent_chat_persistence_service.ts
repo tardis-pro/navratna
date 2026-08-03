@@ -1,7 +1,8 @@
-import { and, asc, eq, inArray, lt, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type {
   AgentChatMessage,
   AgentChatRole,
+  AgentChatThreadSummary,
   AgentChatTurnState,
   AgentChatUsage,
 } from '@uaip/types';
@@ -19,6 +20,24 @@ import {
  * otherwise wedge the conversation permanently.
  */
 const TURN_LEASE_MS = 3 * 60 * 1000;
+
+const THREAD_LIST_LIMIT = 100;
+const THREAD_TITLE_MAX_LENGTH = 60;
+
+export interface ListThreadsParams {
+  organizationId: string;
+  userId: string;
+  limit?: number;
+}
+
+export interface UpdateThreadParams {
+  conversationId: string;
+  organizationId: string;
+  userId: string;
+  title?: string;
+  model?: string | null;
+  archived?: boolean;
+}
 
 export interface ResolveConversationParams {
   organizationId: string;
@@ -326,10 +345,12 @@ export class AgentChatPersistenceService {
   /**
    * Looks up the conversation by OWNER identity rather than by a caller-supplied
    * id, so a reader can only ever reach their own transcript. Returns null when
-   * the user has not chatted with this agent yet.
+   * the user has no such thread yet.
    */
   async findOwnedConversation(params: ResolveConversationParams): Promise<string | null> {
     const db = getIntelligenceDb();
+    const threadKey = params.threadKey ?? params.agentId;
+
     const [row] = await db
       .select({ id: agentChatConversations.id })
       .from(agentChatConversations)
@@ -337,12 +358,137 @@ export class AgentChatPersistenceService {
         and(
           eq(agentChatConversations.organizationId, params.organizationId),
           eq(agentChatConversations.userId, params.userId),
-          eq(agentChatConversations.agentId, params.agentId)
+          eq(agentChatConversations.threadKey, threadKey)
         )
       )
       .limit(1);
 
     return row?.id ?? null;
+  }
+
+  /**
+   * Every thread the user owns, newest activity first. Archived threads are
+   * excluded — archiving is how a thread leaves the list without losing history.
+   */
+  async listThreads(params: ListThreadsParams): Promise<AgentChatThreadSummary[]> {
+    const db = getIntelligenceDb();
+
+    const rows = await db
+      .select({
+        id: agentChatConversations.id,
+        threadKey: agentChatConversations.threadKey,
+        agentId: agentChatConversations.agentId,
+        title: agentChatConversations.title,
+        model: agentChatConversations.model,
+        createdAt: agentChatConversations.createdAt,
+        updatedAt: agentChatConversations.updatedAt,
+      })
+      .from(agentChatConversations)
+      .where(
+        and(
+          eq(agentChatConversations.organizationId, params.organizationId),
+          eq(agentChatConversations.userId, params.userId),
+          isNull(agentChatConversations.archivedAt)
+        )
+      )
+      .orderBy(sql`${agentChatConversations.updatedAt} DESC`)
+      .limit(params.limit ?? THREAD_LIST_LIMIT);
+
+    if (rows.length === 0) return [];
+
+    const participantRows = await db
+      .select({
+        conversationId: agentChatParticipants.conversationId,
+        agentId: agentChatParticipants.agentId,
+      })
+      .from(agentChatParticipants)
+      .where(
+        inArray(
+          agentChatParticipants.conversationId,
+          rows.map((row) => row.id)
+        )
+      );
+
+    const byConversation = new Map<string, string[]>();
+    for (const row of participantRows) {
+      const list = byConversation.get(row.conversationId) ?? [];
+      list.push(row.agentId);
+      byConversation.set(row.conversationId, list);
+    }
+
+    return rows.map((row) => ({
+      id: row.id,
+      threadKey: row.threadKey,
+      agentId: row.agentId,
+      title: row.title,
+      model: row.model,
+      agentIds: byConversation.get(row.id) ?? [],
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    }));
+  }
+
+  /**
+   * Scoped by owner on the WHERE rather than by id alone, so a caller cannot
+   * rename, archive or re-model a thread that is not theirs. Returns false when
+   * nothing matched, which the route reports as 404.
+   */
+  async updateOwnedThread(params: UpdateThreadParams): Promise<boolean> {
+    const db = getIntelligenceDb();
+
+    const patch: Partial<typeof agentChatConversations.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+    if (params.title !== undefined) patch.title = params.title;
+    if (params.model !== undefined) patch.model = params.model;
+    if (params.archived !== undefined) patch.archivedAt = params.archived ? new Date() : null;
+
+    const updated = await db
+      .update(agentChatConversations)
+      .set(patch)
+      .where(
+        and(
+          eq(agentChatConversations.id, params.conversationId),
+          eq(agentChatConversations.organizationId, params.organizationId),
+          eq(agentChatConversations.userId, params.userId)
+        )
+      )
+      .returning({ id: agentChatConversations.id });
+
+    return updated.length > 0;
+  }
+
+  /**
+   * Derives a title from the opening message so a thread is identifiable without
+   * the user naming it. Best-effort by design: it must never fail a turn, and it
+   * only ever fills an EMPTY title so a user's own name is never overwritten.
+   */
+  async ensureThreadTitle(conversationId: string, firstMessage: string): Promise<void> {
+    const trimmed = firstMessage.trim().replace(/\s+/g, ' ');
+    if (trimmed.length === 0) return;
+
+    const title =
+      trimmed.length > THREAD_TITLE_MAX_LENGTH
+        ? `${trimmed.slice(0, THREAD_TITLE_MAX_LENGTH - 1)}…`
+        : trimmed;
+
+    try {
+      const db = getIntelligenceDb();
+      await db
+        .update(agentChatConversations)
+        .set({ title })
+        .where(
+          and(
+            eq(agentChatConversations.id, conversationId),
+            isNull(agentChatConversations.title)
+          )
+        );
+    } catch (error) {
+      logger.warn('Failed to derive an agent chat thread title', {
+        conversationId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }
 

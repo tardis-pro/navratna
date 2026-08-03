@@ -40,6 +40,19 @@ export const AgentChatConversationSchema = z.object({
 });
 export type AgentChatConversation = z.infer<typeof AgentChatConversationSchema>;
 
+export const AgentChatThreadSummarySchema = z.object({
+  id: z.string().uuid(),
+  threadKey: z.string().uuid(),
+  agentId: z.string().uuid().nullable().optional(),
+  title: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
+  /** Every agent in the thread, not just the primary — one entry for a 1:1 chat. */
+  agentIds: z.array(z.string().uuid()),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type AgentChatThreadSummary = z.infer<typeof AgentChatThreadSummarySchema>;
+
 /** Per-turn provider accounting. Null when a provider reports no usage. */
 export const AgentChatUsageSchema = z.object({
   promptTokens: z.number().int().nonnegative().nullable().optional(),

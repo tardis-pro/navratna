@@ -56,6 +56,9 @@ const persistenceMocks = {
   failTurn: vi.fn(),
   loadHistory: vi.fn(),
   findOwnedConversation: vi.fn(),
+  listThreads: vi.fn(),
+  updateOwnedThread: vi.fn(),
+  ensureThreadTitle: vi.fn(),
 };
 
 function chatApp() {
@@ -100,6 +103,7 @@ beforeEach(() => {
   persistenceMocks.loadHistory.mockResolvedValue([]);
   persistenceMocks.completeTurn.mockResolvedValue('assistant-message-id');
   persistenceMocks.failTurn.mockResolvedValue(undefined);
+  persistenceMocks.ensureThreadTitle.mockResolvedValue(undefined);
 });
 
 describe('agent chat rejects an in-band generation failure', () => {

@@ -5,6 +5,7 @@ import type {
   AgentAssignedTool,
   AgentChatMessage,
   AgentChatTurnClaim,
+  AgentChatThreadSummary,
   AgentChatTurnState,
   AgentChatUsage,
   AgentResponseRequest,
@@ -26,6 +27,7 @@ export type AgentChatPersistence = {
     organizationId: string
     userId: string
     agentId: string
+    threadKey?: string
     clientTurnId: string
     content: string
   }): Promise<AgentChatTurnState>
@@ -47,7 +49,22 @@ export type AgentChatPersistence = {
     organizationId: string
     userId: string
     agentId: string
+    threadKey?: string
   }): Promise<string | null>
+  listThreads(params: {
+    organizationId: string
+    userId: string
+    limit?: number
+  }): Promise<AgentChatThreadSummary[]>
+  updateOwnedThread(params: {
+    conversationId: string
+    organizationId: string
+    userId: string
+    title?: string
+    model?: string | null
+    archived?: boolean
+  }): Promise<boolean>
+  ensureThreadTitle(conversationId: string, firstMessage: string): Promise<void>
 }
 
 type AgentChatDeps = Pick<AgentIntelligenceService, 'getAgent'>
@@ -440,6 +457,12 @@ export function registerAgentChatRoutes(
             organizationId: user.organizationId,
             userId,
             agentId: agent.id,
+            // Omitted by clients that predate threads; the persistence layer then
+            // falls back to the agent id, which is where their history already is.
+            threadKey:
+              typeof body.threadKey === 'string' && body.threadKey.trim() !== ''
+                ? body.threadKey.trim()
+                : undefined,
           }
 
           // Resolved ONCE: the user and assistant rows of a turn are paired by
@@ -562,6 +585,12 @@ export function registerAgentChatRoutes(
               metadata: { agentId: agent.id },
             })
 
+            // After the reply, never before: a title must not delay the turn, and
+            // a failed generation should not leave a titled but empty thread.
+            if (currentMessage) {
+              await chatPersistence.ensureThreadTitle(claim.conversationId, currentMessage)
+            }
+
             return {
               success: true,
               data: {
@@ -622,6 +651,7 @@ export function registerAgentChatRoutes(
           // the agent's model for this turn only; the credential still comes from
           // the user's own provider, resolved server-side.
           model: t.Optional(t.String()),
+          threadKey: t.Optional(t.String()),
         }),
         response: {
           200: t.Object({ success: t.Literal(true), data: t.Any() }),
@@ -631,6 +661,86 @@ export function registerAgentChatRoutes(
           // handler's own reply and answer 422 instead of the intended status.
           502: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
           500: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+        },
+      })
+
+      .get('/chat/threads', async (ctx) => {
+        try {
+          if (!chatPersistence) return { success: true, data: { threads: [] } }
+
+          const user = getNginxUser(ctx)
+          const threads = await chatPersistence.listThreads({
+            organizationId: user.organizationId,
+            userId: user.id,
+          })
+
+          return { success: true, data: { threads } }
+        } catch (error) {
+          logger.error('Failed to list agent chat threads', { error })
+          ctx.set.status = 500
+          return { success: false, error: 'Failed to list chat threads' }
+        }
+      }, {
+        response: {
+          200: t.Object({ success: t.Literal(true), data: t.Any() }),
+          500: t.Object({ success: t.Literal(false), error: t.String() }),
+        },
+      })
+
+      .patch('/chat/threads/:conversationId', async (ctx) => {
+        try {
+          if (!chatPersistence) {
+            ctx.set.status = 404
+            return { success: false, error: 'Thread not found' }
+          }
+
+          const user = getNginxUser(ctx)
+          const body = isRecord(ctx.body) ? ctx.body : {}
+
+          const title =
+            typeof body.title === 'string' && body.title.trim() !== ''
+              ? body.title.trim().slice(0, 200)
+              : undefined
+          const model = typeof body.model === 'string' ? body.model.trim() || null : undefined
+          const archived = typeof body.archived === 'boolean' ? body.archived : undefined
+
+          if (title === undefined && model === undefined && archived === undefined) {
+            ctx.set.status = 400
+            return { success: false, error: 'No supported thread fields to update' }
+          }
+
+          // Ownership is enforced INSIDE the update predicate, so a thread the
+          // caller does not own matches no row and is indistinguishable from one
+          // that does not exist.
+          const updated = await chatPersistence.updateOwnedThread({
+            conversationId: ctx.params.conversationId,
+            organizationId: user.organizationId,
+            userId: user.id,
+            title,
+            model,
+            archived,
+          })
+
+          if (!updated) {
+            ctx.set.status = 404
+            return { success: false, error: 'Thread not found' }
+          }
+
+          return { success: true, data: { conversationId: ctx.params.conversationId } }
+        } catch (error) {
+          logger.error('Failed to update an agent chat thread', {
+            error,
+            conversationId: ctx.params.conversationId,
+          })
+          ctx.set.status = 500
+          return { success: false, error: 'Failed to update the chat thread' }
+        }
+      }, {
+        response: {
+          200: t.Object({ success: t.Literal(true), data: t.Any() }),
+          400: t.Object({ success: t.Literal(false), error: t.String() }),
+          404: t.Object({ success: t.Literal(false), error: t.String() }),
+          500: t.Object({ success: t.Literal(false), error: t.String() }),
         },
       })
 
@@ -648,6 +758,10 @@ export function registerAgentChatRoutes(
             organizationId: user.organizationId,
             userId: user.id,
             agentId: ctx.params.agentId,
+            threadKey:
+              typeof ctx.query.threadKey === 'string' && ctx.query.threadKey.trim() !== ''
+                ? ctx.query.threadKey.trim()
+                : undefined,
           })
 
           if (!conversationId) {
@@ -670,7 +784,7 @@ export function registerAgentChatRoutes(
           return { success: false, error: 'Failed to load chat history' }
         }
       }, {
-        query: t.Object({ limit: t.Optional(t.String()) }),
+        query: t.Object({ limit: t.Optional(t.String()), threadKey: t.Optional(t.String()) }),
         response: {
           200: t.Object({ success: t.Literal(true), data: t.Any() }),
           500: t.Object({ success: t.Literal(false), error: t.String() }),
