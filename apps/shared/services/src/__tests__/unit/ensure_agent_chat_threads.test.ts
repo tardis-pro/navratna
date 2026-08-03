@@ -57,6 +57,21 @@ describe('AGENT_CHAT_THREAD_STATEMENTS', () => {
     expect(assistantTurn).toContain(`WHERE role = 'assistant'`);
   });
 
+  it('widens the per-message reply index by agent so a thread can fan out', () => {
+    const created = indexOfStatement('uq_agent_chat_assistant_reply_agent');
+    const dropped = indexOfStatement('DROP INDEX IF EXISTS "uq_agent_chat_assistant_reply"');
+
+    expect(created).toBeGreaterThanOrEqual(0);
+    expect(dropped).toBeGreaterThan(created);
+
+    // The original index was UNIQUE on reply_to_message_id alone, which allows
+    // exactly ONE assistant reply per user message — correct for 1:1, fatal for a
+    // thread where several agents each answer the same turn.
+    const statement = AGENT_CHAT_THREAD_STATEMENTS[created];
+    expect(statement).toContain('"reply_to_message_id","agent_id"');
+    expect(statement).toContain(`WHERE role = 'assistant'`);
+  });
+
   it('adds thread_key nullable, backfills it, and only then demands NOT NULL', () => {
     const added = indexOfStatement('ADD COLUMN IF NOT EXISTS "thread_key"');
     const backfilled = indexOfStatement('SET "thread_key" = "agent_id"');

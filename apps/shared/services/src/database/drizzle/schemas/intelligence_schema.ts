@@ -555,6 +555,13 @@ export const agentChatMessages = pgTable(
     uniqueIndex('uq_agent_chat_assistant_turn')
       .on(t.conversationId, t.clientTurnId, t.agentId)
       .where(sql`${t.role} = 'assistant'`),
+    /**
+     * Scoped BY AGENT: an agent may not answer the same user message twice, but
+     * several agents in a thread must each be able to answer it once.
+     */
+    uniqueIndex('uq_agent_chat_assistant_reply_agent')
+      .on(t.replyToMessageId, t.agentId)
+      .where(sql`${t.role} = 'assistant'`),
     index('idx_agent_chat_history').on(t.conversationId, t.createdAt, t.id),
   ]
 );

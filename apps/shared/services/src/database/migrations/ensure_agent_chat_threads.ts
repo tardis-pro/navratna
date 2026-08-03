@@ -110,6 +110,16 @@ export const AGENT_CHAT_THREAD_STATEMENTS: readonly string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS "uq_agent_chat_user_turn" ON "agent_chat_messages" USING btree ("conversation_id","client_turn_id") WHERE role = 'user'`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "uq_agent_chat_assistant_turn" ON "agent_chat_messages" USING btree ("conversation_id","client_turn_id","agent_id") WHERE role = 'assistant'`,
   `DROP INDEX IF EXISTS "uq_agent_chat_turn_role"`,
+
+  /**
+   * uq_agent_chat_assistant_reply was UNIQUE on reply_to_message_id alone, which
+   * permits exactly ONE assistant reply per user message — the correct rule for a
+   * 1:1 chat and a hard block on a thread where several agents answer the same
+   * turn. Widening it by agent keeps the real guarantee (an agent cannot answer
+   * the same message twice) while allowing the fan-out.
+   */
+  `CREATE UNIQUE INDEX IF NOT EXISTS "uq_agent_chat_assistant_reply_agent" ON "agent_chat_messages" USING btree ("reply_to_message_id","agent_id") WHERE role = 'assistant'`,
+  `DROP INDEX IF EXISTS "uq_agent_chat_assistant_reply"`,
 ];
 
 /** Arbitrary but FIXED — every booting machine must derive the same number. */
