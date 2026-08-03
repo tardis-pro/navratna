@@ -7,6 +7,7 @@ import {
   DatabaseService,
   EnsureOnboardingGuide,
   EnsureOnboardingSchema,
+  EnsureAgentChatThreads,
   McpConnectionResolver,
   SecurityService,
   ServiceFactory,
@@ -107,9 +108,10 @@ export const agentIntelligenceFeature: Feature = {
     // FKs agents.id, so without it the first interview turn dies on an FK
     // violation; the backfill follows because GET /agents now returns assigned
     // agents only, so every pre-existing user would otherwise see an empty
-    // roster. All three are idempotent; a failure must not take the service down.
+    // roster. All four are idempotent; a failure must not take the service down.
     try {
       await new EnsureOnboardingSchema().run()
+      await new EnsureAgentChatThreads().run()
       await new EnsureOnboardingGuide().run()
       await new BackfillUserAgentAssignments().run()
     } catch (err) {

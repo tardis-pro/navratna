@@ -3,12 +3,14 @@ import type {
   AgentChatMessage,
   AgentChatRole,
   AgentChatTurnState,
+  AgentChatUsage,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { getIntelligenceDb } from './database/drizzle/clients/index.js';
 import {
   agentChatConversations,
   agentChatMessages,
+  agentChatParticipants,
 } from './database/drizzle/schemas/intelligence_schema.js';
 
 /**
@@ -22,6 +24,12 @@ export interface ResolveConversationParams {
   organizationId: string;
   userId: string;
   agentId: string;
+  /**
+   * Which thread of this user's to use. Defaults to the agent id, which is what
+   * the pre-thread schema effectively stored — so a client that does not send one
+   * keeps resolving to its existing conversation.
+   */
+  threadKey?: string;
 }
 
 export interface BeginTurnParams extends ResolveConversationParams {
@@ -36,6 +44,9 @@ export interface CompleteTurnParams {
   userMessageId: string;
   processingToken: string;
   content: string;
+  agentId: string;
+  model?: string;
+  usage?: AgentChatUsage;
   metadata?: Record<string, unknown>;
 }
 
@@ -46,7 +57,7 @@ export interface LoadHistoryParams {
 
 export class AgentChatPersistenceService {
   /**
-   * One conversation per (organization, user, agent), resolved with a single
+   * One conversation per (organization, user, threadKey), resolved with a single
    * database-enforced upsert. A plain select-then-insert would let two concurrent
    * navratna-core machines both miss and both insert; the unique index makes the
    * database pick the winner. The no-op `set` is what turns the conflict into a
@@ -54,18 +65,21 @@ export class AgentChatPersistenceService {
    */
   async resolveConversation(params: ResolveConversationParams): Promise<string> {
     const db = getIntelligenceDb();
+    const threadKey = params.threadKey ?? params.agentId;
+
     const [conversation] = await db
       .insert(agentChatConversations)
       .values({
         organizationId: params.organizationId,
         userId: params.userId,
         agentId: params.agentId,
+        threadKey,
       })
       .onConflictDoUpdate({
         target: [
           agentChatConversations.organizationId,
           agentChatConversations.userId,
-          agentChatConversations.agentId,
+          agentChatConversations.threadKey,
         ],
         set: { updatedAt: new Date() },
       })
@@ -74,6 +88,20 @@ export class AgentChatPersistenceService {
     if (!conversation) {
       throw new Error('Failed to resolve the agent chat conversation');
     }
+
+    // Membership is what makes an agent addressable in the thread; without this
+    // the very first turn would have no participant row to attribute a reply to.
+    await db
+      .insert(agentChatParticipants)
+      .values({
+        conversationId: conversation.id,
+        agentId: params.agentId,
+        organizationId: params.organizationId,
+      })
+      .onConflictDoNothing({
+        target: [agentChatParticipants.conversationId, agentChatParticipants.agentId],
+      });
+
     return conversation.id;
   }
 
@@ -99,11 +127,10 @@ export class AgentChatPersistenceService {
         generationStatus: 'pending',
       })
       .onConflictDoNothing({
-        target: [
-          agentChatMessages.conversationId,
-          agentChatMessages.clientTurnId,
-          agentChatMessages.role,
-        ],
+        // Matches the partial index predicate; without it Postgres cannot tell
+        // which of the two turn indexes this conflict target refers to.
+        target: [agentChatMessages.conversationId, agentChatMessages.clientTurnId],
+        where: sql`${agentChatMessages.role} = 'user'`,
       });
 
     const [userMessage] = await db
@@ -210,6 +237,12 @@ export class AgentChatPersistenceService {
           role: 'assistant',
           content: params.content,
           replyToMessageId: params.userMessageId,
+          agentId: params.agentId,
+          model: params.model,
+          promptTokens: params.usage?.promptTokens ?? null,
+          completionTokens: params.usage?.completionTokens ?? null,
+          totalTokens: params.usage?.totalTokens ?? null,
+          costUsd: params.usage?.costUsd ?? null,
           metadata: params.metadata ?? {},
         })
         .returning({ id: agentChatMessages.id });
@@ -278,6 +311,12 @@ export class AgentChatPersistenceService {
       content: row.content,
       generationStatus: row.generationStatus,
       replyToMessageId: row.replyToMessageId,
+      agentId: row.agentId,
+      model: row.model,
+      promptTokens: row.promptTokens,
+      completionTokens: row.completionTokens,
+      totalTokens: row.totalTokens,
+      costUsd: row.costUsd,
       metadata: row.metadata ?? {},
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,

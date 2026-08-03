@@ -452,9 +452,17 @@ export const discussionMessages = pgTable('discussion_messages', {
 );
 
 /**
- * Direct 1:1 user<->agent chat. Deliberately NOT modelled as a `discussion`: the
+ * A user-owned chat thread. Deliberately NOT modelled as a `discussion`: the
  * orchestrator polls active discussions every 5s and would independently trigger
- * the agent, making a solo chat talk to itself.
+ * the agent, making a solo chat talk to itself. Threads here only ever speak
+ * when the user sends a turn.
+ *
+ * Identity is (organization, user, threadKey) rather than (…, agent) because a
+ * thread may hold several agents — see agentChatParticipants. `agentId` survives
+ * as the PRIMARY agent: the one that answers when a turn mentions nobody. Legacy
+ * rows were backfilled with threadKey := agentId, which cannot collide because
+ * the old unique index already guaranteed one row per (org, user, agent), and it
+ * lets a client that sends no threadKey keep resolving to its existing thread.
  */
 export const agentChatConversations = pgTable(
   'agent_chat_conversations',
@@ -463,13 +471,42 @@ export const agentChatConversations = pgTable(
     organizationId: uuid('organization_id').notNull().default(ADMIN_ORG_ID),
     // cross-plane ref: control.users.id — no DB FK
     userId: uuid('user_id').notNull(),
+    agentId: uuid('agent_id').references(() => agents.id, { onDelete: 'cascade' }),
+    threadKey: uuid('thread_key').notNull(),
+    title: text('title'),
+    /**
+     * The model selection this thread should reopen with. Provenance of what
+     * actually produced a given reply lives on the message, because the user may
+     * switch models mid-thread.
+     */
+    model: text('model'),
+    userLlmProviderId: uuid('user_llm_provider_id'),
+    archivedAt: timestamp('archived_at'),
+  },
+  (t) => [
+    uniqueIndex('uq_agent_chat_thread').on(t.organizationId, t.userId, t.threadKey),
+    index('idx_agent_chat_thread_list').on(t.organizationId, t.userId, t.updatedAt),
+  ]
+);
+
+/**
+ * Which agents belong to a thread. Membership lives here rather than on the
+ * conversation so a thread can hold several agents; the conversation's `agentId`
+ * is only the default responder.
+ */
+export const agentChatParticipants = pgTable(
+  'agent_chat_participants',
+  {
+    ...base,
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => agentChatConversations.id, { onDelete: 'cascade' }),
     agentId: uuid('agent_id')
       .notNull()
       .references(() => agents.id, { onDelete: 'cascade' }),
+    organizationId: uuid('organization_id').notNull().default(ADMIN_ORG_ID),
   },
-  (t) => [
-    uniqueIndex('uq_agent_chat_conversation').on(t.organizationId, t.userId, t.agentId),
-  ]
+  (t) => [uniqueIndex('uq_agent_chat_participant').on(t.conversationId, t.agentId)]
 );
 
 export const agentChatMessages = pgTable(
@@ -490,10 +527,34 @@ export const agentChatMessages = pgTable(
     generationStatus: text('generation_status').$type<AgentChatGenerationStatus>(),
     processingToken: uuid('processing_token'),
     replyToMessageId: uuid('reply_to_message_id'),
+    /** Which agent produced an assistant row. NULL on user rows. */
+    agentId: uuid('agent_id'),
+    /** What actually generated this reply — history is mixed once a user switches models. */
+    model: text('model'),
+    promptTokens: integer('prompt_tokens'),
+    completionTokens: integer('completion_tokens'),
+    totalTokens: integer('total_tokens'),
+    /**
+     * Stays NULL until per-model pricing exists: llm_models is empty and the
+     * user-facing model list bypasses it, so there is nothing to price against.
+     */
+    costUsd: numericDecimal('cost_usd', { precision: 12, scale: 6 }),
     metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
   },
   (t) => [
-    uniqueIndex('uq_agent_chat_turn_role').on(t.conversationId, t.clientTurnId, t.role),
+    /**
+     * Two PARTIAL indexes, not one composite: a turn has exactly one user row but
+     * may have N assistant rows, one per responding agent. A single
+     * (conversation, turn, role, agent) index would not constrain the user row at
+     * all, because Postgres treats NULL agent_id values as distinct and would let
+     * duplicate user rows through — silently breaking retry idempotency.
+     */
+    uniqueIndex('uq_agent_chat_user_turn')
+      .on(t.conversationId, t.clientTurnId)
+      .where(sql`${t.role} = 'user'`),
+    uniqueIndex('uq_agent_chat_assistant_turn')
+      .on(t.conversationId, t.clientTurnId, t.agentId)
+      .where(sql`${t.role} = 'assistant'`),
     index('idx_agent_chat_history').on(t.conversationId, t.createdAt, t.id),
   ]
 );

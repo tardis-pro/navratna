@@ -6,6 +6,7 @@ import type {
   AgentChatMessage,
   AgentChatTurnClaim,
   AgentChatTurnState,
+  AgentChatUsage,
   AgentResponseRequest,
   AvailableTool,
   ChatMessage,
@@ -35,6 +36,9 @@ export type AgentChatPersistence = {
     userMessageId: string
     processingToken: string
     content: string
+    agentId: string
+    model?: string
+    usage?: AgentChatUsage
     metadata?: Record<string, unknown>
   }): Promise<string | null>
   failTurn(userMessageId: string, processingToken: string): Promise<void>
@@ -212,6 +216,32 @@ const readResponseText = (response: unknown): string => {
   if (typeof response.response === 'string') return response.response
   if (typeof response.content === 'string') return response.content
   return ''
+}
+
+const readNumber = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) ? value : undefined
+
+/**
+ * Adapters disagree on the usage shape: some nest it under `usage`, older ones
+ * report only a flat `tokensUsed` total. Reading just one loses accounting for
+ * every provider that uses the other.
+ */
+const readUsage = (response: unknown): AgentChatUsage | undefined => {
+  if (!isRecord(response)) return undefined
+
+  const usage = isRecord(response.usage) ? response.usage : undefined
+  const promptTokens = readNumber(usage?.promptTokens ?? usage?.prompt_tokens)
+  const completionTokens = readNumber(usage?.completionTokens ?? usage?.completion_tokens)
+  const totalTokens =
+    readNumber(usage?.totalTokens ?? usage?.total_tokens ?? response.tokensUsed) ??
+    (promptTokens !== undefined && completionTokens !== undefined
+      ? promptTokens + completionTokens
+      : undefined)
+
+  if (promptTokens === undefined && completionTokens === undefined && totalTokens === undefined) {
+    return undefined
+  }
+  return { promptTokens, completionTokens, totalTokens }
 }
 
 /**
@@ -526,6 +556,9 @@ export function registerAgentChatRoutes(
               userMessageId: claim.userMessageId,
               processingToken: claim.processingToken,
               content: readResponseText(response),
+              agentId: agent.id,
+              model: modelOverride ?? (typeof agent.modelId === 'string' ? agent.modelId : undefined),
+              usage: readUsage(response),
               metadata: { agentId: agent.id },
             })
 

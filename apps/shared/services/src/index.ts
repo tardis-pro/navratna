@@ -493,6 +493,10 @@ export {
   EnsureOnboardingSchema,
   ONBOARDING_SCHEMA_STATEMENTS,
 } from './database/migrations/ensure_onboarding_schema';
+export {
+  EnsureAgentChatThreads,
+  AGENT_CHAT_THREAD_STATEMENTS,
+} from './database/migrations/ensure_agent_chat_threads';
 export { BackfillUserAgentAssignments } from './database/migrations/backfill_user_agent_assignments';
 export type { BackfillUserAgentAssignmentsResult } from './database/migrations/backfill_user_agent_assignments';
 

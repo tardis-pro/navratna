@@ -376,6 +376,7 @@ export class OnboardingService {
         userMessageId,
         processingToken,
         content: reply,
+        agentId: interview.guideAgentId,
         metadata: { onboardingInterviewId: interview.id, objective: nextObjective },
       });
     } catch (error: unknown) {
@@ -555,6 +556,7 @@ export class OnboardingService {
       userMessageId: turn.claim.userMessageId,
       processingToken: turn.claim.processingToken,
       content: params.question,
+      agentId: params.agentId,
       metadata: { onboardingInterviewId: params.interviewId, opening: true },
     });
   }
