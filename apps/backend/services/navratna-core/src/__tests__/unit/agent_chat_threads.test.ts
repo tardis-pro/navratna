@@ -58,6 +58,8 @@ const persistenceMocks = {
   listThreads: vi.fn(),
   updateOwnedThread: vi.fn(),
   ensureThreadTitle: vi.fn(),
+  ensureParticipants: vi.fn(),
+  completeTurnWithReplies: vi.fn(),
 };
 
 function chatApp() {
@@ -92,6 +94,8 @@ beforeEach(() => {
   persistenceMocks.loadHistory.mockResolvedValue([]);
   persistenceMocks.completeTurn.mockResolvedValue('assistant-message-id');
   persistenceMocks.ensureThreadTitle.mockResolvedValue(undefined);
+  persistenceMocks.ensureParticipants.mockResolvedValue(undefined);
+  persistenceMocks.completeTurnWithReplies.mockResolvedValue(['assistant-message-id']);
   persistenceMocks.listThreads.mockResolvedValue([]);
   persistenceMocks.updateOwnedThread.mockResolvedValue(true);
   llmMocks.generateAgentResponse.mockResolvedValue({
@@ -146,7 +150,7 @@ describe('POST /:agentId/chat thread routing', () => {
       'what is the weather'
     );
     const titleOrder = persistenceMocks.ensureThreadTitle.mock.invocationCallOrder[0];
-    const completeOrder = persistenceMocks.completeTurn.mock.invocationCallOrder[0];
+    const completeOrder = persistenceMocks.completeTurnWithReplies.mock.invocationCallOrder[0];
     expect(titleOrder).toBeGreaterThan(completeOrder);
   });
 

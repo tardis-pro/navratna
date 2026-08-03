@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia'
 import { getNginxUser, withNginxAuth } from '@uaip/middleware'
 import type { AgentIntelligenceService } from '@uaip/shared-services'
+import { canAccessAgent } from '@uaip/shared-services'
 import type {
   AgentAssignedTool,
   AgentChatMessage,
@@ -65,9 +66,77 @@ export type AgentChatPersistence = {
     archived?: boolean
   }): Promise<boolean>
   ensureThreadTitle(conversationId: string, firstMessage: string): Promise<void>
+  ensureParticipants(params: {
+    conversationId: string
+    organizationId: string
+    agentIds: string[]
+  }): Promise<void>
+  completeTurnWithReplies(params: {
+    conversationId: string
+    organizationId: string
+    clientTurnId: string
+    userMessageId: string
+    processingToken: string
+    replies: AgentChatReply[]
+  }): Promise<string[] | null>
+}
+
+export type AgentChatReply = {
+  agentId: string
+  content: string
+  model?: string
+  usage?: AgentChatUsage
+  metadata?: Record<string, unknown>
+}
+
+/**
+ * Which agents answer this turn.
+ *
+ * Mentioned ids arrive from the client, so each is checked against the caller's
+ * own assignments — an unassigned id is DROPPED rather than refused, because one
+ * stale mention in a message should not block the whole turn. Falling back to the
+ * addressed agent keeps a plain 1:1 chat working when nobody is mentioned.
+ */
+export const resolveRespondingAgents = async (
+  mentionedAgentIds: string[],
+  fallbackAgentId: string,
+  canAccess: (agentId: string) => Promise<boolean>
+): Promise<string[]> => {
+  const unique = [...new Set(mentionedAgentIds.map((id) => id.trim()).filter((id) => id !== ''))]
+  if (unique.length === 0) return [fallbackAgentId]
+
+  const checked = await Promise.all(
+    unique.map(async (agentId) => ((await canAccess(agentId)) ? agentId : null))
+  )
+  const allowed = checked.filter((id): id is string => id !== null)
+
+  return allowed.length > 0 ? allowed : [fallbackAgentId]
 }
 
 type AgentChatDeps = Pick<AgentIntelligenceService, 'getAgent'>
+type AgentRecord = NonNullable<Awaited<ReturnType<AgentIntelligenceService['getAgent']>>>
+type AgentGeneration = Awaited<ReturnType<UserLLMService['generateAgentResponse']>>
+/**
+ * `threw` separates an unexpected exception from a provider reporting failure in
+ * band. They map to different statuses (500 vs 502), and fan-out must catch both
+ * per agent so one bad responder cannot discard the replies that did arrive.
+ */
+type FailedGeneration = { agentId: string; failure: string; threw: boolean }
+type SuccessfulGeneration = {
+  agentId: string
+  responder: AgentRecord
+  response: AgentGeneration
+}
+type GenerationOutcome = FailedGeneration | SuccessfulGeneration
+
+const isSuccessfulGeneration = (
+  outcome: GenerationOutcome
+): outcome is SuccessfulGeneration => 'response' in outcome
+
+const readMentionedAgentIds = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim() !== '')
+    : []
 type UserLlmDeps = Pick<UserLLMService, 'generateAgentResponse'>
 type ApprovalWorkflowRepo = {
   findById(id: string): Promise<Record<string, unknown> | null>
@@ -537,52 +606,120 @@ export function registerAgentChatRoutes(
           // than being trusted here.
           const projectId = typeof body.projectId === 'string' ? body.projectId : undefined
 
-          const assignedTools = filterToolsForProject(
-            toAssignedTools(agent.assignedMCPTools),
-            await loadProjectToolScope(projectScopeProvider, projectId, agent.id)
-          )
-          const tools = await resolveAgentTools(assignedTools, toolSchemaProvider)
-
           const modelOverride =
             typeof body.model === 'string' && body.model.trim() !== ''
               ? body.model.trim()
               : undefined
 
-          const request = toAgentRequest(
-            agent,
-            messages,
-            toDocumentContext(body.context),
-            tools,
-            projectId,
-            modelOverride
+          const respondingAgentIds = await resolveRespondingAgents(
+            readMentionedAgentIds(body.mentionedAgentIds),
+            agent.id,
+            (candidateId) =>
+              canAccessAgent(
+                { userId, organizationId: user.organizationId, role: user.role },
+                candidateId
+              )
           )
-          const response = await userLLMService.generateAgentResponse(userId, request)
 
-          const generationFailure = readGenerationFailure(response)
-          if (generationFailure) {
+          const generateFor = async (responder: AgentRecord) => {
+            const assignedTools = filterToolsForProject(
+              toAssignedTools(responder.assignedMCPTools),
+              await loadProjectToolScope(projectScopeProvider, projectId, responder.id)
+            )
+            const tools = await resolveAgentTools(assignedTools, toolSchemaProvider)
+
+            const request = toAgentRequest(
+              responder,
+              messages,
+              toDocumentContext(body.context),
+              tools,
+              projectId,
+              modelOverride
+            )
+
+            return userLLMService.generateAgentResponse(userId, request)
+          }
+
+          // Parallel, not sequential: every mentioned agent answers the same
+          // prompt independently. Feeding one agent's reply to the next would make
+          // this a debate, which is what the discussion orchestrator already does.
+          const outcomes: GenerationOutcome[] = await Promise.all(
+            respondingAgentIds.map(async (responderId): Promise<GenerationOutcome> => {
+              const responder =
+                responderId === agent.id ? agent : await agentIntelligenceService.getAgent(responderId)
+              if (!responder) {
+                return { agentId: responderId, failure: 'Agent not found', threw: false }
+              }
+
+              try {
+                const response = await generateFor(responder)
+                const failure = readGenerationFailure(response)
+                if (failure) return { agentId: responderId, failure, threw: false }
+                return { agentId: responderId, responder, response }
+              } catch (error) {
+                return {
+                  agentId: responderId,
+                  failure: error instanceof Error ? error.message : String(error),
+                  threw: true,
+                }
+              }
+            })
+          )
+
+          const succeeded = outcomes.filter(isSuccessfulGeneration)
+
+          // Only a TOTAL failure fails the turn. With several agents answering, one
+          // provider erroring must not discard the replies that did arrive.
+          if (succeeded.length === 0) {
+            const failures = outcomes.filter(
+              (outcome): outcome is FailedGeneration => !isSuccessfulGeneration(outcome)
+            )
+            const thrown = failures.find((failure) => failure.threw)
             if (claim && chatPersistence) {
               await chatPersistence.failTurn(claim.userMessageId, claim.processingToken)
             }
             logger.error('Agent chat generation failed', {
               agentId: ctx.params.agentId,
-              reason: generationFailure,
+              reason: (thrown ?? failures[0])?.failure,
             })
+
+            // An exception is OUR fault (500); a provider reporting failure in
+            // band is the upstream's (502). Collapsing both would misreport which.
+            if (thrown) {
+              ctx.set.status = 500
+              return { success: false, error: thrown.failure }
+            }
+
             ctx.set.status = 502
-            return { error: 'Agent generation failed', message: generationFailure }
+            return { error: 'Agent generation failed', message: failures[0]?.failure }
           }
 
+          const primary = succeeded[0]!
+
           if (claim && chatPersistence) {
-            const assistantMessageId = await chatPersistence.completeTurn({
+            await chatPersistence.ensureParticipants({
+              conversationId: claim.conversationId,
+              organizationId: user.organizationId,
+              agentIds: succeeded.map((outcome) => outcome.agentId),
+            })
+
+            const assistantMessageIds = await chatPersistence.completeTurnWithReplies({
               conversationId: claim.conversationId,
               organizationId: user.organizationId,
               clientTurnId,
               userMessageId: claim.userMessageId,
               processingToken: claim.processingToken,
-              content: readResponseText(response),
-              agentId: agent.id,
-              model: modelOverride ?? (typeof agent.modelId === 'string' ? agent.modelId : undefined),
-              usage: readUsage(response),
-              metadata: { agentId: agent.id },
+              replies: succeeded.map((outcome) => ({
+                agentId: outcome.agentId,
+                content: readResponseText(outcome.response),
+                model:
+                  modelOverride ??
+                  (typeof outcome.responder.modelId === 'string'
+                    ? outcome.responder.modelId
+                    : undefined),
+                usage: readUsage(outcome.response),
+                metadata: { agentId: outcome.agentId, agentName: outcome.responder.name },
+              })),
             })
 
             // After the reply, never before: a title must not delay the turn, and
@@ -594,15 +731,21 @@ export function registerAgentChatRoutes(
             return {
               success: true,
               data: {
-                ...(isRecord(response) ? response : {}),
+                ...(isRecord(primary.response) ? primary.response : {}),
                 conversationId: claim.conversationId,
                 userMessageId: claim.userMessageId,
-                assistantMessageId,
+                assistantMessageId: assistantMessageIds?.[0] ?? null,
+                replies: succeeded.map((outcome, index) => ({
+                  agentId: outcome.agentId,
+                  agentName: outcome.responder.name,
+                  content: readResponseText(outcome.response),
+                  messageId: assistantMessageIds?.[index] ?? null,
+                })),
               },
             }
           }
 
-          return { success: true, data: response }
+          return { success: true, data: primary.response }
         } catch (error) {
           if (claim && chatPersistence) {
             await chatPersistence.failTurn(claim.userMessageId, claim.processingToken)
@@ -652,6 +795,9 @@ export function registerAgentChatRoutes(
           // the user's own provider, resolved server-side.
           model: t.Optional(t.String()),
           threadKey: t.Optional(t.String()),
+          // Every agent that should answer this turn. Authorized server-side
+          // against the caller's assignments, so a forged id reaches nothing.
+          mentionedAgentIds: t.Optional(t.Array(t.String())),
         }),
         response: {
           200: t.Object({ success: t.Literal(true), data: t.Any() }),

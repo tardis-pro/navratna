@@ -574,6 +574,9 @@ export const uaipAPI = {
           ...(request.projectId ? { projectId: request.projectId } : {}),
           ...(request.model ? { model: request.model } : {}),
           ...(request.threadKey ? { threadKey: request.threadKey } : {}),
+          ...(request.mentionedAgentIds?.length
+            ? { mentionedAgentIds: request.mentionedAgentIds }
+            : {}),
         });
       } catch (error) {
         logger.error('Agent chat error:', error);

@@ -69,6 +69,29 @@ export interface CompleteTurnParams {
   metadata?: Record<string, unknown>;
 }
 
+export interface EnsureParticipantsParams {
+  conversationId: string;
+  organizationId: string;
+  agentIds: string[];
+}
+
+export interface AgentChatReply {
+  agentId: string;
+  content: string;
+  model?: string;
+  usage?: AgentChatUsage;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CompleteTurnWithRepliesParams {
+  conversationId: string;
+  organizationId: string;
+  clientTurnId: string;
+  userMessageId: string;
+  processingToken: string;
+  replies: AgentChatReply[];
+}
+
 export interface LoadHistoryParams {
   conversationId: string;
   limit?: number;
@@ -122,6 +145,41 @@ export class AgentChatPersistenceService {
       });
 
     return conversation.id;
+  }
+
+  /**
+   * Adds agents to a thread's membership. Idempotent, so re-mentioning someone
+   * already in the thread is a no-op rather than a duplicate row.
+   */
+  async ensureParticipants(params: EnsureParticipantsParams): Promise<void> {
+    if (params.agentIds.length === 0) return;
+
+    const db = getIntelligenceDb();
+    const unique = [...new Set(params.agentIds)];
+
+    await db
+      .insert(agentChatParticipants)
+      .values(
+        unique.map((agentId) => ({
+          conversationId: params.conversationId,
+          agentId,
+          organizationId: params.organizationId,
+        }))
+      )
+      .onConflictDoNothing({
+        target: [agentChatParticipants.conversationId, agentChatParticipants.agentId],
+      });
+  }
+
+  async listParticipants(conversationId: string): Promise<string[]> {
+    const db = getIntelligenceDb();
+
+    const rows = await db
+      .select({ agentId: agentChatParticipants.agentId })
+      .from(agentChatParticipants)
+      .where(eq(agentChatParticipants.conversationId, conversationId));
+
+    return rows.map((row) => row.agentId);
   }
 
   /**
@@ -231,6 +289,42 @@ export class AgentChatPersistenceService {
    * never end up with two assistant rows.
    */
   async completeTurn(params: CompleteTurnParams): Promise<string | null> {
+    const ids = await this.completeTurnWithReplies({
+      conversationId: params.conversationId,
+      organizationId: params.organizationId,
+      clientTurnId: params.clientTurnId,
+      userMessageId: params.userMessageId,
+      processingToken: params.processingToken,
+      replies: [
+        {
+          agentId: params.agentId,
+          content: params.content,
+          model: params.model,
+          usage: params.usage,
+          metadata: params.metadata,
+        },
+      ],
+    });
+
+    return ids?.[0] ?? null;
+  }
+
+  /**
+   * Writes EVERY agent's reply to one user turn under a single lease release.
+   *
+   * The lease lives on the user row, so it can only be released once no matter how
+   * many agents answered — releasing per reply would let the second agent find the
+   * turn already completed and silently drop its answer. All replies therefore
+   * share one transaction: either the whole turn lands or none of it does.
+   *
+   * Returns null when the lease was already lost, which the caller reports as a
+   * replay rather than generating again.
+   */
+  async completeTurnWithReplies(
+    params: CompleteTurnWithRepliesParams
+  ): Promise<string[] | null> {
+    if (params.replies.length === 0) return null;
+
     const db = getIntelligenceDb();
 
     return db.transaction(async (tx) => {
@@ -247,23 +341,25 @@ export class AgentChatPersistenceService {
 
       if (!released) return null;
 
-      const [assistant] = await tx
+      const inserted = await tx
         .insert(agentChatMessages)
-        .values({
-          conversationId: params.conversationId,
-          organizationId: params.organizationId,
-          clientTurnId: params.clientTurnId,
-          role: 'assistant',
-          content: params.content,
-          replyToMessageId: params.userMessageId,
-          agentId: params.agentId,
-          model: params.model,
-          promptTokens: params.usage?.promptTokens ?? null,
-          completionTokens: params.usage?.completionTokens ?? null,
-          totalTokens: params.usage?.totalTokens ?? null,
-          costUsd: params.usage?.costUsd ?? null,
-          metadata: params.metadata ?? {},
-        })
+        .values(
+          params.replies.map((reply) => ({
+            conversationId: params.conversationId,
+            organizationId: params.organizationId,
+            clientTurnId: params.clientTurnId,
+            role: 'assistant' as const,
+            content: reply.content,
+            replyToMessageId: params.userMessageId,
+            agentId: reply.agentId,
+            model: reply.model,
+            promptTokens: reply.usage?.promptTokens ?? null,
+            completionTokens: reply.usage?.completionTokens ?? null,
+            totalTokens: reply.usage?.totalTokens ?? null,
+            costUsd: reply.usage?.costUsd ?? null,
+            metadata: reply.metadata ?? {},
+          }))
+        )
         .returning({ id: agentChatMessages.id });
 
       await tx
@@ -271,7 +367,7 @@ export class AgentChatPersistenceService {
         .set({ updatedAt: new Date() })
         .where(eq(agentChatConversations.id, params.conversationId));
 
-      return assistant?.id ?? null;
+      return inserted.map((row) => row.id);
     });
   }
 

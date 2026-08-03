@@ -5,6 +5,7 @@ export { registerOnboardingRoutes } from './routes/onboarding_routes.js'
 export {
   registerAgentChatRoutes,
   resolveAgentTools,
+  resolveRespondingAgents,
   filterToolsForProject,
   toAssignedTools,
 } from './routes/agent_chat_routes.js'

@@ -275,6 +275,11 @@ export interface AgentChatRequest {
    * the pre-threads conversation, which the server derives from the agent id.
    */
   threadKey?: string;
+  /**
+   * Agents summoned by @mention. Each is authorized server-side against the
+   * caller's assignments, so an id the user cannot reach is simply ignored.
+   */
+  mentionedAgentIds?: string[];
 }
 
 export interface AgentChatThreadListResponse {
@@ -288,10 +293,22 @@ export interface AgentChatThreadPatch {
   archived?: boolean;
 }
 
+export interface AgentChatReplyView {
+  agentId: string;
+  agentName: string;
+  content: string;
+  messageId: string | null;
+}
+
 export interface AgentChatResponse {
   response: string;
   conversationId: string;
   timestamp: string;
+  /**
+   * One entry per agent that answered. Present whenever the turn was persisted;
+   * `response` mirrors the first so a single-agent caller needs no change.
+   */
+  replies?: AgentChatReplyView[];
   metadata?: Record<string, unknown>;
 }
 

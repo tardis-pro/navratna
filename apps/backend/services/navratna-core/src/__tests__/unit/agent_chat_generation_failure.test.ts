@@ -59,6 +59,8 @@ const persistenceMocks = {
   listThreads: vi.fn(),
   updateOwnedThread: vi.fn(),
   ensureThreadTitle: vi.fn(),
+  ensureParticipants: vi.fn(),
+  completeTurnWithReplies: vi.fn(),
 };
 
 function chatApp() {
@@ -104,6 +106,8 @@ beforeEach(() => {
   persistenceMocks.completeTurn.mockResolvedValue('assistant-message-id');
   persistenceMocks.failTurn.mockResolvedValue(undefined);
   persistenceMocks.ensureThreadTitle.mockResolvedValue(undefined);
+  persistenceMocks.ensureParticipants.mockResolvedValue(undefined);
+  persistenceMocks.completeTurnWithReplies.mockResolvedValue(['assistant-message-id']);
 });
 
 describe('agent chat rejects an in-band generation failure', () => {
@@ -118,7 +122,7 @@ describe('agent chat rejects an in-band generation failure', () => {
     const res = await sendChat('hello');
 
     expect(res.status).toBe(502);
-    expect(persistenceMocks.completeTurn).not.toHaveBeenCalled();
+    expect(persistenceMocks.completeTurnWithReplies).not.toHaveBeenCalled();
     expect(persistenceMocks.failTurn).toHaveBeenCalledWith(USER_MESSAGE_ID, 'token-1');
   });
 
@@ -145,7 +149,7 @@ describe('agent chat rejects an in-band generation failure', () => {
     const res = await sendChat('hello');
 
     expect(res.status).toBe(502);
-    expect(persistenceMocks.completeTurn).not.toHaveBeenCalled();
+    expect(persistenceMocks.completeTurnWithReplies).not.toHaveBeenCalled();
   });
 
   it('accepts a tool-only turn that legitimately has no prose', async () => {
@@ -159,7 +163,7 @@ describe('agent chat rejects an in-band generation failure', () => {
     const res = await sendChat('search for something');
 
     expect(res.status).toBe(200);
-    expect(persistenceMocks.completeTurn).toHaveBeenCalled();
+    expect(persistenceMocks.completeTurnWithReplies).toHaveBeenCalled();
     expect(persistenceMocks.failTurn).not.toHaveBeenCalled();
   });
 
@@ -173,8 +177,10 @@ describe('agent chat rejects an in-band generation failure', () => {
     const res = await sendChat('say pineapple');
 
     expect(res.status).toBe(200);
-    expect(persistenceMocks.completeTurn).toHaveBeenCalledWith(
-      expect.objectContaining({ content: 'PINEAPPLE' })
+    expect(persistenceMocks.completeTurnWithReplies).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replies: [expect.objectContaining({ content: 'PINEAPPLE' })],
+      })
     );
     expect(persistenceMocks.failTurn).not.toHaveBeenCalled();
   });

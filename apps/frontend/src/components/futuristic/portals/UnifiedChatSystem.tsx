@@ -11,6 +11,7 @@ import {
   ChatComposer,
   type ChatComposerSubmitPayload,
 } from '../../chat/ChatComposer';
+import { resolveMentionedAgentIds } from '../../chat/mention_resolution';
 import { PromptSuggestions } from '../../chat/PromptSuggestions';
 import { ConversationTopicDisplay } from '../../chat/ConversationTopicDisplay';
 import { useConversationIntelligence } from '../../../hooks/use_conversation_intelligence';
@@ -350,6 +351,10 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   }
 
   const agentList = Object.values(agents);  const selectedAgent = agentList.find((agent) => agent.id === selectedAgentId);
+  const mentionCandidates = useMemo(
+    () => agentList.map((agent) => ({ id: agent.id, name: agent.name })),
+    [agentList]
+  );
 
   // Enhanced AI Sidekick Refs
   const windowRefs = useRef<{ [windowId: string]: HTMLDivElement | null }>({});
@@ -911,7 +916,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   }, [streamingMessageId, cancelAgentStream]);
 
   const sendPortalMessageWithText = useCallback(
-    async (messageText: string, intent?: unknown) => {
+    async (messageText: string, intent?: unknown, mentionedAgentIds?: string[]) => {
       if (!messageText?.trim() || !selectedAgentId) return;
 
       const trimmedMessage = messageText.trim();
@@ -1015,11 +1020,25 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       };
 
       const appendPortalAgentMessage = (restResponse: Awaited<ReturnType<typeof uaipAPI.agents.chat>>) => {
-        const agentMessage: ChatMessage = {
-          id: `msg-${Date.now()}-agent`,
-          content: restResponse.response,
+        // A group turn returns one entry per responding agent. Rendering only
+        // `response` would silently drop every agent but the first.
+        const replies =
+          Array.isArray(restResponse.replies) && restResponse.replies.length > 0
+            ? restResponse.replies
+            : [
+                {
+                  agentId: selectedAgentId,
+                  agentName: readAgentName(restResponse, selectedAgent?.name || 'Assistant'),
+                  content: restResponse.response,
+                  messageId: null,
+                },
+              ];
+
+        const agentMessages: ChatMessage[] = replies.map((reply, index) => ({
+          id: reply.messageId ?? `msg-${Date.now()}-agent-${index}`,
+          content: reply.content,
           sender: 'agent',
-          senderName: readAgentName(restResponse, selectedAgent?.name || 'Assistant'),
+          senderName: reply.agentName,
           timestamp: new Date().toISOString(),
           messageType: MessageType.MESSAGE,
           confidence: readConfidence(restResponse),
@@ -1027,11 +1046,16 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           knowledgeUsed: readKnowledgeUsed(restResponse),
           toolsExecuted: toToolsExecuted(readAgentChatMetadata(restResponse).toolsExecuted),
           toolsWithheld: toToolsWithheld(readAgentChatMetadata(restResponse).suggestedTools),
-        };
-        setPortalMessages((prev) => [...prev, agentMessage]);
+        }));
+
+        setPortalMessages((prev) => [...prev, ...agentMessages]);
         setConversationHistory((prev) => [
           ...prev,
-          { content: restResponse.response, sender: 'agent', timestamp: new Date().toISOString() },
+          ...replies.map((reply) => ({
+            content: reply.content,
+            sender: reply.agentName,
+            timestamp: new Date().toISOString(),
+          })),
         ]);
         clearPortalLoadingState();
       };
@@ -1045,6 +1069,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           projectId: activeProjectId,
           model: selectedModel,
           threadKey,
+          ...(mentionedAgentIds && mentionedAgentIds.length > 0 ? { mentionedAgentIds } : {}),
         });
         appendPortalAgentMessage(restResponse);
         onThreadActivity?.();
@@ -2095,7 +2120,11 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                   agentDefaultModel={selectedAgent?.modelId}
                   onModelChange={setSelectedModel}
                   onSubmit={(payload: ChatComposerSubmitPayload) => {
-                    sendPortalMessageWithText(payload.text, payload.intent);
+                    sendPortalMessageWithText(
+                      payload.text,
+                      payload.intent,
+                      resolveMentionedAgentIds(payload.text, mentionCandidates)
+                    );
                   }}
                 />
               </motion.div>
