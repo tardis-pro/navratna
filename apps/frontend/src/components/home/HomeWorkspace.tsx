@@ -5,15 +5,21 @@ import { useHomeShell } from './use_home_shell';
 
 export function HomeWorkspace() {
   const { agents } = useAgents();
-  const { selectedAgentId, selectAgent } = useHomeShell();
+  const { selectedAgentId, selectedThreadKey, selectAgent, startNewThread, onThreadActivity } =
+    useHomeShell();
 
   if (selectedAgentId) {
     return (
       <div className="relative h-full w-full" data-testid="active-thread-workspace">
         <UnifiedChatSystem
-          key={selectedAgentId}
+          // Keyed on the thread, not just the agent: without the thread in the key
+          // React reuses the mounted chat and its state carries into the new thread.
+          key={`${selectedAgentId}:${selectedThreadKey ?? 'default'}`}
           mode="portal"
           defaultAgentId={selectedAgentId}
+          threadKey={selectedThreadKey}
+          onStartNewThread={() => startNewThread(selectedAgentId)}
+          onThreadActivity={onThreadActivity}
         />
       </div>
     );

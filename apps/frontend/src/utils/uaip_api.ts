@@ -21,6 +21,8 @@ import {
 import type {
   Agent,
   AgentChatHistoryResponse,
+  AgentChatThreadListResponse,
+  AgentChatThreadPatch,
   AgentChatRequest,
   AgentCreate,
   AgentUpdate,
@@ -524,13 +526,33 @@ export const uaipAPI = {
       }
     },
 
-    async getChatHistory(agentId: string, limit?: number): Promise<AgentChatHistoryResponse> {
+    async getChatHistory(
+      agentId: string,
+      limit?: number,
+      threadKey?: string
+    ): Promise<AgentChatHistoryResponse> {
       try {
-        return await api.agents.getChatHistory(agentId, limit);
+        return await api.agents.getChatHistory(agentId, limit, threadKey);
       } catch (error) {
         logger.error('Failed to load agent chat history:', error);
         return { conversationId: null, messages: [] };
       }
+    },
+
+    async listChatThreads(): Promise<AgentChatThreadListResponse> {
+      try {
+        return await api.agents.listChatThreads();
+      } catch (error) {
+        logger.error('Failed to list agent chat threads:', error);
+        return { threads: [] };
+      }
+    },
+
+    async updateChatThread(
+      conversationId: string,
+      patch: AgentChatThreadPatch
+    ): Promise<{ conversationId: string }> {
+      return api.agents.updateChatThread(conversationId, patch);
     },
 
     async chat(
@@ -550,6 +572,8 @@ export const uaipAPI = {
             : {}),
           ...(request.clientTurnId ? { clientTurnId: request.clientTurnId } : {}),
           ...(request.projectId ? { projectId: request.projectId } : {}),
+          ...(request.model ? { model: request.model } : {}),
+          ...(request.threadKey ? { threadKey: request.threadKey } : {}),
         });
       } catch (error) {
         logger.error('Agent chat error:', error);

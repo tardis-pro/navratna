@@ -17,7 +17,15 @@ vi.mock('@/utils/uaip_api', () => ({
     discussions: {
       list: listDiscussions,
     },
+    agents: {
+      listChatThreads: vi.fn().mockResolvedValue({ threads: [] }),
+      updateChatThread: vi.fn(),
+    },
   },
+}));
+
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { firstName: 'Test', email: 'test@example.com' }, logout: vi.fn() }),
 }));
 
 vi.mock('@/components/DiscussionConfigModal', () => ({

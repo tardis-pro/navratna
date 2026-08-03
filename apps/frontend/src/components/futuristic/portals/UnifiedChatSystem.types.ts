@@ -29,4 +29,10 @@ export interface UnifiedChatSystemProps {
   className?: string;
   mode?: 'floating' | 'portal' | 'hybrid';
   defaultAgentId?: string;
+  /** Which thread to load and post to. Undefined keeps the agent's default. */
+  threadKey?: string;
+  /** Opens another thread with the same agent, leaving this one untouched. */
+  onStartNewThread?: () => void;
+  /** Fires after a turn so the thread list can pick up a new or renamed thread. */
+  onThreadActivity?: () => void;
 }

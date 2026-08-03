@@ -17,15 +17,23 @@ export interface AnimatingThreadRect {
 
 export interface HomeShellContextValue {
   selectedAgentId: string | null;
+  /** Which of the agent's threads is open. Undefined means the default thread. */
+  selectedThreadKey: string | undefined;
   selectAgent: (agentId: string) => void;
   selectThreadById: (threadId: string) => void;
   openDiscussionComposer: () => void;
+  /** Opens a fresh thread with the same agent, leaving the current one intact. */
+  startNewThread: (agentId: string) => void;
+  onThreadActivity: () => void;
 }
 
 export interface ThreadDockProps {
   threads: Thread[];
   selectedAgentId: string | null;
+  selectedThreadKey?: string;
   onSelectThread: (thread: Thread, event: MouseEvent<HTMLButtonElement>) => void;
+  onRenameThread?: (conversationId: string, title: string) => void;
+  onArchiveThread?: (conversationId: string) => void;
   onClose?: () => void;
   className?: string;
 }

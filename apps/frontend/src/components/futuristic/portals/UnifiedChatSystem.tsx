@@ -16,6 +16,7 @@ import { ConversationTopicDisplay } from '../../chat/ConversationTopicDisplay';
 import { useConversationIntelligence } from '../../../hooks/use_conversation_intelligence';
 import {
   MessageSquare,
+  MessageSquarePlus,
   Users,
   LayoutGrid,
   Maximize,
@@ -127,10 +128,11 @@ function readKnowledgeUsed(response: AgentChatResponseView): number | undefined 
  */
 const loadAgentChatHistory = async (
   agentId: string,
-  agentName: string
+  agentName: string,
+  threadKey?: string
 ): Promise<ChatMessage[]> => {
   try {
-    const history = await uaipAPI.agents.getChatHistory(agentId);
+    const history = await uaipAPI.agents.getChatHistory(agentId, undefined, threadKey);
     return history.messages.map((message) => ({
       id: message.id,
       content: message.content,
@@ -168,6 +170,9 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   className,
   mode = 'hybrid',
   defaultAgentId,
+  threadKey,
+  onStartNewThread,
+  onThreadActivity,
 }) => {
   const { agents, modelState, loadModels } = useAgents();
   const { isAuthenticated, user } = useAuth();
@@ -1039,8 +1044,10 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           context: { intent },
           projectId: activeProjectId,
           model: selectedModel,
+          threadKey,
         });
         appendPortalAgentMessage(restResponse);
+        onThreadActivity?.();
       } catch (error) {
         logger.error('Portal chat error:', error);
 
@@ -1135,7 +1142,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     const agentName = agents[selectedAgentId]?.name || 'Assistant';
 
     void (async () => {
-      const restored = await loadAgentChatHistory(selectedAgentId, agentName);
+      const restored = await loadAgentChatHistory(selectedAgentId, agentName, threadKey);
       if (cancelled) return;
 
       setPortalMessages(restored);
@@ -1151,7 +1158,9 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [selectedAgentId, viewMode, agents]);
+    // threadKey is a dependency, not an afterthought: switching threads must
+    // reload the transcript, otherwise the new thread shows the old one's messages.
+  }, [selectedAgentId, viewMode, agents, threadKey]);
 
   const closeChatWindow = useCallback(
     async (windowId: string) => {
@@ -1429,6 +1438,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         conversationHistory: conversationHistory.slice(-10),
         context: {},
         projectId: activeProjectId,
+        threadKey,
       });
 
       const agentMessage: ChatMessage = {
@@ -1883,10 +1893,22 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                 preselectedAgents={selectedAgentId ? [selectedAgentId] : []}
               />
             )}
+            {onStartNewThread && (
+              <button
+                type="button"
+                onClick={onStartNewThread}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="New thread with this agent"
+              >
+                <MessageSquarePlus className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">New thread</span>
+              </button>
+            )}
             {portalMessages.length > 0 && (
               <button
                 onClick={clearPortalConversation}
                 className="inline-flex h-8 items-center rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                title="Hide these messages from view. The thread is kept — use New thread to start a fresh one."
               >
                 Clear
               </button>

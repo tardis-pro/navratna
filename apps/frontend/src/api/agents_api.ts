@@ -22,7 +22,11 @@ import type {
   AgentChatResponse,
   AgentChatHistoryResponse,
 } from '@uaip/contracts/api';
-import type { MCPToolItem } from '@uaip/types';
+import type {
+  MCPToolItem,
+  AgentChatThreadListResponse,
+  AgentChatThreadPatch,
+} from '@uaip/types';
 
 type AgentMCPToolsResponse = {
   success: boolean;
@@ -101,10 +105,28 @@ export const agentsAPI = {
 
   async getChatHistory(
     id: string,
-    limit?: number
+    limit?: number,
+    threadKey?: string
   ): Promise<AgentChatHistoryResponse> {
-    const query = limit ? `?limit=${limit}` : '';
+    const params = new URLSearchParams();
+    if (limit) params.set('limit', String(limit));
+    if (threadKey) params.set('threadKey', threadKey);
+    const query = params.size > 0 ? `?${params.toString()}` : '';
     return edenRequest(`/api/v1/agents/${id}/chat/messages${query}`, { method: 'GET' });
+  },
+
+  async listChatThreads(): Promise<AgentChatThreadListResponse> {
+    return edenRequest('/api/v1/agents/chat/threads', { method: 'GET' });
+  },
+
+  async updateChatThread(
+    conversationId: string,
+    patch: AgentChatThreadPatch
+  ): Promise<{ conversationId: string }> {
+    return edenRequest(`/api/v1/agents/chat/threads/${conversationId}`, {
+      method: 'PATCH',
+      body: patch,
+    });
   },
 
   async resolveApproval(

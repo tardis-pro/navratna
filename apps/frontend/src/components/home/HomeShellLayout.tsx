@@ -14,6 +14,8 @@ import { uaipAPI } from '@/utils/uaip_api';
 import { logger } from '@/utils/browser_logger';
 import { ShellHeader } from './ShellHeader';
 import { ThreadDock } from './ThreadDock';
+import { decodeThreadRouteId, encodeThreadRouteId } from './thread_route_id';
+import { useAgentChatThreads } from './use_agent_chat_threads';
 import { WhisperRail } from './WhisperRail';
 import type {
   AnimatingThreadRect,
@@ -73,10 +75,18 @@ export function HomeShellLayout() {
   const [threadPreviews, setThreadPreviews] = useState<Record<string, DiscussionMessage>>({});
   const requestedPreviews = useRef<Set<string>>(new Set());
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [selectedThreadKey, setSelectedThreadKey] = useState<string | undefined>(undefined);
   const [whisperOpen, setWhisperOpen] = useState(false);
   const [threadDockOpen, setThreadDockOpen] = useState(false);
   const [animatingCard, setAnimatingCard] = useState<AnimatingThreadRect | null>(null);
   const [discussionModalOpen, setDiscussionModalOpen] = useState(false);
+
+  const {
+    threads: chatThreadSummaries,
+    refresh: refreshChatThreads,
+    rename: renameChatThread,
+    archive: archiveChatThread,
+  } = useAgentChatThreads(true);
 
   const fetchDiscussions = useCallback(async () => {
     try {
@@ -149,6 +159,37 @@ export function HomeShellLayout() {
   }, [location.pathname]);
 
   const threads = useMemo<Thread[]>(() => {
+    const chatThreads = chatThreadSummaries.map((summary) => {
+      const primaryAgentId = summary.agentId ?? summary.agentIds[0];
+      const agent = primaryAgentId ? agents[primaryAgentId] : undefined;
+
+      return {
+        id: encodeThreadRouteId({
+          agentId: primaryAgentId ?? 'unknown',
+          threadKey: summary.threadKey,
+        }),
+        participants: [
+          {
+            type: 'agent' as const,
+            agentId: primaryAgentId ?? 'unknown',
+            name: summary.title || agent?.name || 'Thread',
+            avatar: '',
+            role: agent?.role || 'assistant',
+          },
+        ],
+        messages: createEmptyThreadMessages(),
+        state: ThreadState.ACTIVE,
+        presence: ThreadPresence.RESTING,
+        createdAt: toIsoString(summary.createdAt),
+        updatedAt: toIsoString(summary.updatedAt),
+        metadata: {
+          agentId: primaryAgentId,
+          conversationId: summary.id,
+          threadKey: summary.threadKey,
+        },
+      };
+    });
+
     const discussionThreads = discussions.map((discussion) => {
       const firstParticipant = discussion.participants?.[0];
       const primaryAgentId =
@@ -179,12 +220,17 @@ export function HomeShellLayout() {
       };
     });
 
+    // Only agents with no thread at all get a placeholder row, so a real thread is
+    // never shadowed by an empty duplicate for the same agent.
+    const representedAgentIds = new Set(
+      [...chatThreads, ...discussionThreads]
+        .map((thread) => getThreadAgentId(thread))
+        .filter((agentId): agentId is string => typeof agentId === 'string')
+    );
+
     const agentThreads = Object.values(agents)
       .filter((agent) => agent.isActive)
-      .filter(
-        (agent) =>
-          !discussionThreads.some((thread) => getThreadAgentId(thread) === agent.id)
-      )
+      .filter((agent) => !representedAgentIds.has(agent.id))
       .map((agent) => ({
         id: `agent-thread-${agent.id}`,
         participants: [
@@ -204,8 +250,8 @@ export function HomeShellLayout() {
         metadata: { agentId: agent.id },
       }));
 
-    return [...discussionThreads, ...agentThreads];
-  }, [agents, discussions, threadPreviews]);
+    return [...chatThreads, ...discussionThreads, ...agentThreads];
+  }, [agents, chatThreadSummaries, discussions, threadPreviews]);
 
   const whisperSuggestions = useMemo<WhisperSuggestion[]>(() => {
     if (location.pathname.startsWith('/explore')) {
@@ -245,18 +291,43 @@ export function HomeShellLayout() {
       : 'Active agents are ready when you need a second perspective.';
 
   const selectAgent = useCallback(
-    (agentId: string) => {
+    (agentId: string, threadKey?: string) => {
       setSelectedAgentId(agentId);
-      void navigate(`/thread/${encodeURIComponent(`agent-thread-${agentId}`)}`);
+      setSelectedThreadKey(threadKey);
+      void navigate(`/thread/${encodeURIComponent(encodeThreadRouteId({ agentId, threadKey }))}`);
     },
     [navigate]
   );
 
+  /**
+   * A fresh key is minted client-side rather than asking the server to create a
+   * row: an empty thread that the user abandons should leave nothing behind, and
+   * the conversation is created lazily by the first turn.
+   */
+  const startNewThread = useCallback(
+    (agentId: string) => {
+      selectAgent(agentId, crypto.randomUUID());
+    },
+    [selectAgent]
+  );
+
   const selectThreadById = useCallback(
     (threadId: string) => {
+      // The url is authoritative: it carries both the agent and the thread, so a
+      // deep link resolves without waiting for the thread list to load.
+      const route = decodeThreadRouteId(threadId);
+      if (route) {
+        setSelectedAgentId(route.agentId);
+        setSelectedThreadKey(route.threadKey);
+        return;
+      }
+
       const thread = threads.find((candidate) => candidate.id === threadId);
       const agentId = thread ? getThreadAgentId(thread) : undefined;
-      if (agentId) setSelectedAgentId(agentId);
+      if (agentId) {
+        setSelectedAgentId(agentId);
+        setSelectedThreadKey(undefined);
+      }
     },
     [threads]
   );
@@ -267,6 +338,8 @@ export function HomeShellLayout() {
       const agentId = getThreadAgentId(thread);
       if (!primary || !agentId) return;
 
+      const threadKey = getMetadataString(thread.metadata, 'threadKey');
+
       const rect = event.currentTarget.getBoundingClientRect();
       setAnimatingCard({
         x: rect.left,
@@ -276,6 +349,7 @@ export function HomeShellLayout() {
         name: primary.name,
       });
       setSelectedAgentId(agentId);
+      setSelectedThreadKey(threadKey);
       void navigate(`/thread/${encodeURIComponent(thread.id)}`);
       setThreadDockOpen(false);
       window.setTimeout(() => setAnimatingCard(null), 350);
@@ -311,11 +385,22 @@ export function HomeShellLayout() {
   const shellContext = useMemo<HomeShellContextValue>(
     () => ({
       selectedAgentId,
+      selectedThreadKey,
       selectAgent,
       selectThreadById,
       openDiscussionComposer,
+      startNewThread,
+      onThreadActivity: () => void refreshChatThreads(),
     }),
-    [openDiscussionComposer, selectAgent, selectThreadById, selectedAgentId]
+    [
+      openDiscussionComposer,
+      refreshChatThreads,
+      selectAgent,
+      selectThreadById,
+      selectedAgentId,
+      selectedThreadKey,
+      startNewThread,
+    ]
   );
 
   return (
@@ -335,7 +420,10 @@ export function HomeShellLayout() {
           <ThreadDock
             threads={threads}
             selectedAgentId={selectedAgentId}
+            selectedThreadKey={selectedThreadKey}
             onSelectThread={handleSelectThread}
+            onRenameThread={renameChatThread}
+            onArchiveThread={archiveChatThread}
             className="hidden lg:flex"
           />
 
@@ -355,7 +443,10 @@ export function HomeShellLayout() {
             <ThreadDock
               threads={threads}
               selectedAgentId={selectedAgentId}
+              selectedThreadKey={selectedThreadKey}
               onSelectThread={handleSelectThread}
+              onRenameThread={renameChatThread}
+              onArchiveThread={archiveChatThread}
               onClose={() => setThreadDockOpen(false)}
               className="fixed bottom-0 left-0 top-12 z-50 w-[min(20rem,88vw)] shadow-2xl lg:hidden"
             />

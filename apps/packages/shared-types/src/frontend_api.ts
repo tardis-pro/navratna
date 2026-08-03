@@ -1,5 +1,6 @@
 import type { RiskLevel } from './security.js';
 import type { AgentAnalysis } from './agent.js';
+import type { AgentChatThreadSummary } from './agent_chat.js';
 import type { Question, QuestionPack, Assumption, Contradiction } from './knowledge_graph.js';
 import type { NormalizedBrief as QFNormalizedBrief } from './questionforge.js';
 
@@ -269,6 +270,22 @@ export interface AgentChatRequest {
    * the user's own provider, resolved server-side.
    */
   model?: string;
+  /**
+   * Which of the user's threads this turn belongs to. Omit to keep resolving to
+   * the pre-threads conversation, which the server derives from the agent id.
+   */
+  threadKey?: string;
+}
+
+export interface AgentChatThreadListResponse {
+  threads: AgentChatThreadSummary[];
+}
+
+export interface AgentChatThreadPatch {
+  title?: string;
+  /** Null clears the override so the thread falls back to the agent's model. */
+  model?: string | null;
+  archived?: boolean;
 }
 
 export interface AgentChatResponse {
