@@ -8,4 +8,6 @@ export type {
   ProjectMember,
   ProjectFile,
   ProjectListOptions,
+  GitHubRepo,
+  LinkGitHubRepoData as LinkGitHubRepoRequest,
 } from '@uaip/types';

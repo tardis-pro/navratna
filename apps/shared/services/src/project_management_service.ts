@@ -9,6 +9,7 @@ import {
   ProjectRole,
   MemberStatus,
   ProjectType,
+  type LinkGitHubRepoData,
 } from '@uaip/types';
 
 type JsonPrimitive = string | number | boolean | null;
@@ -109,6 +110,10 @@ export class ProjectManagementService {
         visibility: data.visibility ?? ProjectVisibility.PRIVATE,
         slug,
         tags: data.tags,
+        githubRepo: data.githubRepo,
+        githubRepoId: data.githubRepoId,
+        githubRepoFullName: data.githubRepoFullName,
+        githubCloneUrl: data.githubCloneUrl,
         settings: {
           allowedTools:
             isRecord(data.settings) && Array.isArray(data.settings.allowedTools)
@@ -261,6 +266,29 @@ export class ProjectManagementService {
       logger.error('Failed to update project', { error, id, updates });
       throw error;
     }
+  }
+
+  async linkGitHubRepo(
+    projectId: string,
+    userId: string,
+    data: LinkGitHubRepoData
+  ): Promise<ProjectEntity> {
+    const project = await this.getProject(projectId, userId);
+    if (!project) {
+      throw new Error(`Project ${projectId} not found or access denied`);
+    }
+
+    return this.updateProject(projectId, {
+      githubRepo: data.repoFullName,
+      githubRepoId: data.repoId,
+      githubRepoFullName: data.repoFullName,
+      githubCloneUrl: data.cloneUrl,
+      metadata: {
+        ...(project.metadata ?? {}),
+        githubLinkedAt: new Date().toISOString(),
+        githubLinkedBy: userId,
+      },
+    });
   }
 
   async deleteProject(id: string): Promise<void> {

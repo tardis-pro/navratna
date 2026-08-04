@@ -13,6 +13,8 @@ import type {
   ProjectMember,
   ProjectFile,
   ProjectListOptions,
+  GitHubRepo,
+  LinkGitHubRepoRequest,
 } from '@uaip/contracts/api';
 import type { ProjectMetrics } from '@uaip/types';
 
@@ -30,6 +32,8 @@ export type {
   ProjectMember,
   ProjectFile,
   ProjectListOptions,
+  GitHubRepo,
+  LinkGitHubRepoRequest,
 };
 
 const projects = gatewayClient.api.v1.projects;
@@ -163,6 +167,20 @@ export const projectsAPI = {
 
   async archive(projectId: string): Promise<Project> {
     return edenWithCSRFRetry(() => projects[projectId].archive.post());
+  },
+
+  // GitHub linking
+  async listGitHubRepos(projectId: string): Promise<GitHubRepo[]> {
+    return edenRequest<GitHubRepo[]>(`/api/v1/projects/${projectId}/github/repos`, {
+      method: 'GET',
+    });
+  },
+
+  async linkGitHubRepo(projectId: string, request: LinkGitHubRepoRequest): Promise<Project> {
+    return edenRequest<Project>(`/api/v1/projects/${projectId}/link-github`, {
+      method: 'POST',
+      body: request,
+    });
   },
 
   async unarchive(projectId: string): Promise<Project> {

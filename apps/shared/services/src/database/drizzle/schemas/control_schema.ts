@@ -1051,6 +1051,10 @@ export const projects = pgTable('projects', {
     .notNull()
     .references(() => users.id, { onDelete: 'restrict' }),
   organizationId: uuid('organization_id'),
+  githubRepo: varchar('github_repo', { length: 255 }),
+  githubRepoId: varchar('github_repo_id', { length: 50 }),
+  githubRepoFullName: varchar('github_repo_full_name', { length: 255 }),
+  githubCloneUrl: varchar('github_clone_url', { length: 500 }),
   settings: jsonb('settings').$type<Record<string, unknown>>(),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
   archivedAt: timestamp('archived_at'),

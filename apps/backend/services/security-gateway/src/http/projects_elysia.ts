@@ -1,11 +1,15 @@
 import { Elysia } from 'elysia';
 import { z } from 'zod';
-import { logger } from '@uaip/utils';
+import { logger, ApiError } from '@uaip/utils';
 import { ProjectManagementService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { withOptionalAuth } from '@uaip/middleware';
-import { ProjectRole, ProjectStatus } from '@uaip/types';
+import { OAuthService } from '@uaip/shared-services';
+import { ProjectRole, ProjectStatus, OAuthProviderType, type GitHubRepo } from '@uaip/types';
+import { GitHubIntegrationService } from '../services/github_integration_service.js';
+import { AuditService } from '../services/audit_service.js';
+import { OAuthProviderService } from '../services/oauth_provider_service.js';
 
 /**
  * Winston serializes a bare Error to `{}` (its fields are non-enumerable), so
@@ -19,6 +23,19 @@ function describeError(error: unknown): Record<string, unknown> {
 }
 
 let projectService: ProjectManagementService | null = null;
+let gitHubIntegrationService: GitHubIntegrationService | null = null;
+
+async function getGitHubIntegrationService(): Promise<GitHubIntegrationService> {
+  if (!gitHubIntegrationService) {
+    const auditService = new AuditService();
+    const oauthProviderService = new OAuthProviderService(auditService);
+    gitHubIntegrationService = new GitHubIntegrationService(
+      oauthProviderService,
+      OAuthService.getInstance()
+    );
+  }
+  return gitHubIntegrationService;
+}
 
 async function getProjectService(): Promise<ProjectManagementService> {
   if (!projectService) {
@@ -113,6 +130,10 @@ const projectMemberRoleSchema = z.object({
 
 const projectToolsSchema = z.object({
   toolIds: z.array(z.string().min(1)).min(1),
+});
+
+const linkGitHubRepoSchema = z.object({
+  repoFullName: z.string().min(1),
 });
 
 export function registerProjectRoutes() {
@@ -398,6 +419,60 @@ export function registerProjectRoutes() {
         logger.error('Failed to get project analytics', { error: describeError(error), projectId: params.projectId });
         set.status = 500;
         return { success: false, error: 'Failed to get project analytics' };
+      }
+    })
+
+    // List accessible GitHub repositories for the current user
+    .get('/:projectId/github/repos', async ({ params, set, user }) => {
+      try {
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
+        const service = await getGitHubIntegrationService();
+        const repos = await service.listUserRepos(user!.id);
+        return { success: true, data: repos };
+      } catch (error) {
+        logger.error('Failed to list GitHub repos', { error: describeError(error), projectId: params.projectId });
+        if (error instanceof ApiError) {
+          set.status = error.statusCode;
+          return { success: false, error: error.message, code: error.code };
+        }
+        set.status = 500;
+        return { success: false, error: 'Failed to list GitHub repositories' };
+      }
+    })
+
+    // Link a GitHub repository to the project
+    .post('/:projectId/link-github', async ({ params, body, set, user }) => {
+      try {
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
+
+        const parsed = linkGitHubRepoSchema.safeParse(body);
+        if (!parsed.success) {
+          set.status = 400;
+          return { success: false, error: 'Validation Error', details: parsed.error.flatten() };
+        }
+
+        const gitHubService = await getGitHubIntegrationService();
+        const repo = await gitHubService.getUserRepo(user!.id, parsed.data.repoFullName);
+
+        const projectService = await getProjectService();
+        const updated = await projectService.linkGitHubRepo(params.projectId, user!.id, {
+          projectId: params.projectId,
+          repoFullName: repo.full_name,
+          repoId: String(repo.id),
+          cloneUrl: repo.clone_url,
+        });
+
+        return { success: true, data: updated };
+      } catch (error) {
+        logger.error('Failed to link GitHub repo', { error: describeError(error), projectId: params.projectId });
+        if (error instanceof ApiError) {
+          set.status = error.statusCode;
+          return { success: false, error: error.message, code: error.code };
+        }
+        set.status = 500;
+        return { success: false, error: 'Failed to link GitHub repository' };
       }
     })
   );

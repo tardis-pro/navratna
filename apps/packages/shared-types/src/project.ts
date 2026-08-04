@@ -82,6 +82,8 @@ export interface Project {
   organizationId?: string;
   recommendedAgents?: string[];
   githubRepo?: string;
+  githubRepoId?: string;
+  githubRepoFullName?: string;
   githubCloneUrl?: string;
   workspaceId?: string;
   isCodeProject?: boolean;
@@ -105,6 +107,10 @@ export interface ProjectEntity {
   fileCount?: number;
   artifactCount?: number;
   totalSizeBytes?: number;
+  githubRepo?: string;
+  githubRepoId?: string;
+  githubRepoFullName?: string;
+  githubCloneUrl?: string;
   archivedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -188,8 +194,35 @@ export interface CreateProjectData {
   startDate?: Date;
   endDate?: Date;
   budget?: number;
+  githubRepo?: string;
+  githubRepoId?: string;
+  githubRepoFullName?: string;
+  githubCloneUrl?: string;
   settings?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+}
+
+export interface LinkGitHubRepoData {
+  projectId: string;
+  repoFullName: string;
+  repoId: string;
+  cloneUrl: string;
+}
+
+export interface GitHubRepo {
+  id: number;
+  node_id: string;
+  name: string;
+  full_name: string;
+  private: boolean;
+  html_url: string;
+  clone_url: string;
+  ssh_url: string;
+  description: string | null;
+  owner: {
+    login: string;
+    id: number;
+  };
 }
 
 export interface CreateTaskData {
