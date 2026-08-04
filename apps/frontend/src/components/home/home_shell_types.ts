@@ -43,6 +43,7 @@ export interface ShellHeaderProps {
   onNewDiscussion: () => void;
   onToggleWhisper: () => void;
   whisperOpen: boolean;
+  onOpenSearch?: () => void;
 }
 
 export interface WhisperRailProps {

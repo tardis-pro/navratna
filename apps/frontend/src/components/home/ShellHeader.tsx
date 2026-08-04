@@ -1,5 +1,5 @@
 import { Home, LogOut, Menu, MessageSquarePlus, Search, Sparkles } from 'lucide-react';
-import { NavLink } from 'react-router';
+import { NavLink, useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -27,8 +27,10 @@ export function ShellHeader({
   onNewDiscussion,
   onToggleWhisper,
   whisperOpen,
+  onOpenSearch,
 }: ShellHeaderProps) {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const displayName =
     [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || user?.email || 'Account';
 
@@ -64,8 +66,9 @@ export function ShellHeader({
         </NavLink>
       </nav>
 
-      <NavLink
-        to="/explore"
+      <button
+        type="button"
+        onClick={() => onOpenSearch?.()}
         className="mx-auto flex h-11 min-w-0 max-w-md flex-1 items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-2.5 text-xs text-muted-foreground transition-colors hover:border-border hover:bg-muted/60 hover:text-foreground sm:h-8 sm:px-3"
         aria-label="Find anything"
       >
@@ -74,7 +77,7 @@ export function ShellHeader({
         <kbd className="ml-auto hidden rounded border border-border/60 bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground md:inline">
           ⌘K
         </kbd>
-      </NavLink>
+      </button>
 
       <div className="flex shrink-0 items-center gap-1">
         <button

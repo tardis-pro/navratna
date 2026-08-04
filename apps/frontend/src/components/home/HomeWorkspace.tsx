@@ -29,8 +29,6 @@ export function HomeWorkspace() {
 
   return (
     <section className="relative flex h-full flex-1 flex-col items-center justify-center p-8">
-      <div className="pointer-events-none absolute left-1/2 top-1/4 h-96 w-96 -translate-x-1/2 -translate-y-1/2 animate-pulse-glow rounded-full bg-primary/5 blur-3xl" />
-
       <div className="z-10 max-w-md space-y-6 text-center">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">

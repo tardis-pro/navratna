@@ -5,6 +5,8 @@ import { Bot } from 'lucide-react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import type { Discussion, DiscussionMessage, Thread, ThreadParticipant } from '@uaip/types';
 import { ThreadPresence, ThreadState } from '@uaip/types';
+import { IntentField } from '@/components/IntentField/IntentField';
+import type { IntentOption } from '@/components/IntentField/intent_field_types';
 import { useAgents } from '@/contexts/AgentContext';
 import { DiscussionConfigModal } from '@/components/DiscussionConfigModal';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -80,6 +82,7 @@ export function HomeShellLayout() {
   const [threadDockOpen, setThreadDockOpen] = useState(false);
   const [animatingCard, setAnimatingCard] = useState<AnimatingThreadRect | null>(null);
   const [discussionModalOpen, setDiscussionModalOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const {
     threads: chatThreadSummaries,
@@ -382,6 +385,18 @@ export function HomeShellLayout() {
     [navigate, selectAgent]
   );
 
+  const handleIntentSelect = useCallback(
+    (option: IntentOption) => {
+      setSearchOpen(false);
+      if (option.type === 'agent') {
+        selectAgent(option.id);
+        return;
+      }
+      void navigate(`/explore/${encodeURIComponent(option.id)}`);
+    },
+    [navigate, selectAgent]
+  );
+
   const shellContext = useMemo<HomeShellContextValue>(
     () => ({
       selectedAgentId,
@@ -414,6 +429,7 @@ export function HomeShellLayout() {
           onNewDiscussion={openDiscussionComposer}
           onToggleWhisper={() => setWhisperOpen((open) => !open)}
           whisperOpen={whisperOpen}
+          onOpenSearch={() => setSearchOpen(true)}
         />
 
         <div className="relative flex min-h-0 flex-1 overflow-hidden">
@@ -513,6 +529,14 @@ export function HomeShellLayout() {
           isOpen={discussionModalOpen}
           onClose={() => setDiscussionModalOpen(false)}
           onDiscussionStarted={handleDiscussionStarted}
+        />
+
+        <IntentField
+          open={searchOpen}
+          onOpenChange={setSearchOpen}
+          onSelect={handleIntentSelect}
+          placeholder="Search agents, portals, knowledge..."
+          showTrigger={false}
         />
       </div>
     </ExploreSurfaceProvider>

@@ -17,12 +17,9 @@ import {
 import { MaterializableBlock } from '@/components/MaterializableBlock';
 import { renderPortalContent } from './portal-escape-hatches';
 import { cn } from '@/lib/utils';
-import { IntentField } from '@/components/IntentField/IntentField';
-import type { IntentOption } from '@/components/IntentField/intent_field_types';
 import { AttentionBudget } from '@/components/AttentionBudget/AttentionBudget';
 import { CrystallizationEffect } from '@/components/PredictiveIntent/CrystallizationEffect';
 import { MorningFog } from '@/components/AmbientIntelligence/MorningFog';
-import { BreathCycle } from '@/components/AmbientIntelligence/BreathCycle';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -381,7 +378,6 @@ export interface TelescopeFocusTarget {
 export interface TelescopeSurfaceProps {
   blocks: MaterializableBlockData[];
   onBlockSelect?: (id: string) => void;
-  onIntentSelect?: (option: IntentOption) => void;
   maxVisibleBlocks?: number;
   className?: string;
   /**
@@ -396,13 +392,12 @@ export interface TelescopeSurfaceProps {
 export function TelescopeSurface({
   blocks,
   onBlockSelect,
-  onIntentSelect,
   maxVisibleBlocks = DEFAULT_MAX_VISIBLE_BLOCKS,
   className,
   focusTarget,
   focusedPortalId,
   onFocusedPortalChange,
-}: TelescopeSurfaceProps) {
+}: Omit<TelescopeSurfaceProps, 'onIntentSelect'>) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const processedBlocks = useMemo(() => {
@@ -417,7 +412,6 @@ export function TelescopeSurface({
   );
 
   const [crystallizedIds, setCrystallizedIds] = useState<Set<string>>(new Set());
-  const [fogActive, setFogActive] = useState(true);
   // A rich portal, when opened, takes over the surface in a focused view instead
   // of ballooning inline in the ambient grid. null = the constellation is showing.
   const [internalFocusedPortalId, setInternalFocusedPortalId] = useState<string | null>(null);
@@ -479,12 +473,6 @@ export function TelescopeSurface({
     return () => timers.forEach(clearTimeout);
   }, [visibleBlocks, crystallizedIds]);
 
-  useEffect(() => {
-    if (visibleBlocks.length === 0) return;
-    const allCrystallized = visibleBlocks.every((b) => crystallizedIds.has(b.id));
-    if (allCrystallized) setFogActive(false);
-  }, [visibleBlocks, crystallizedIds]);
-
   const fogItems = useMemo(
     () =>
       visibleBlocks.map((b) => ({
@@ -493,11 +481,6 @@ export function TelescopeSurface({
         loaded: crystallizedIds.has(b.id),
       })),
     [visibleBlocks, crystallizedIds]
-  );
-
-  const systemLoad = useMemo(
-    () => Math.min(visibleBlocks.length / Math.max(maxVisibleBlocks, 1), 1),
-    [visibleBlocks.length, maxVisibleBlocks]
   );
 
   return (
@@ -526,18 +509,9 @@ export function TelescopeSurface({
       />
 
       <div className="relative z-10 max-w-[1600px] mx-auto">
-        <div className="mb-6">
-          <IntentField
-            onSelect={onIntentSelect}
-            placeholder="Search agents, portals, knowledge..."
-            showTrigger={true}
-          />
-        </div>
+        <MorningFog items={fogItems} isActive={false} />
 
-        <MorningFog items={fogItems} isActive={fogActive} onCleared={() => setFogActive(false)} />
-
-        <BreathCycle systemLoad={systemLoad} isActive={true}>
-          <div className="grid gap-6 auto-rows-min grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-6 auto-rows-min grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <AnimatePresence mode="popLayout">
               {visibleBlocks.map((block, index) => {
                 return (
@@ -581,7 +555,6 @@ export function TelescopeSurface({
               })}
             </AnimatePresence>
           </div>
-        </BreathCycle>
       </div>
 
       {/* Focused portal view — a rich portal takes over the surface, with a way back. */}
@@ -629,17 +602,8 @@ export function TelescopeSurface({
       </AnimatePresence>
 
       {visibleBlocks.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10"
-        >
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
           <div className="relative">
-            <motion.div 
-              className="absolute inset-0 bg-[var(--color-llama1)] rounded-full blur-3xl opacity-20"
-              animate={{ scale: [1, 1.5, 1], opacity: [0.1, 0.3, 0.1] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            />
             <div className="w-24 h-24 rounded-full bg-background/50 backdrop-blur-xl border border-border/50 flex items-center justify-center shadow-2xl relative">
               <Telescope className="w-10 h-10 text-muted-foreground" />
             </div>
@@ -648,7 +612,7 @@ export function TelescopeSurface({
           <p className="mt-2 text-sm text-muted-foreground max-w-md text-center leading-relaxed">
             Agents and artifacts will surface here automatically as they become relevant to your current context.
           </p>
-        </motion.div>
+        </div>
       )}
 
     </div>
