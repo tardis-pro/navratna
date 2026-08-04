@@ -265,9 +265,41 @@ export const knowledgeAPI = {
   },
 
   async findSimilar(id: string, limit: number = 10): Promise<KnowledgeSearchResult[]> {
-    return edenWithCSRFRetry(() =>
+    const raw = await edenWithCSRFRetry(() =>
       knowledge[id].similar.get({ query: { limit: limit.toString() } })
     );
+
+    // Backend returns { success: true, data: [...], message: ... }
+    const response: Record<string, unknown> = isRecord(raw) ? raw : {};
+    const rawItems: unknown[] =
+      response['success'] && Array.isArray(response['data'])
+        ? response['data']
+        : Array.isArray(raw)
+          ? raw
+          : [];
+
+    return rawItems.map((rawItem: unknown) => {
+      const item: Record<string, unknown> = isRecord(rawItem) ? rawItem : {};
+      const rawTags = item['tags'];
+      const tags: string[] = Array.isArray(rawTags) ? rawTags.filter((t): t is string => typeof t === 'string') : [];
+      return {
+        item: {
+          id: typeof item['id'] === 'string' ? item['id'] : '',
+          title: typeof item['content'] === 'string'
+            ? item['content'].substring(0, 100) + '...'
+            : 'Untitled',
+          content: typeof item['content'] === 'string' ? item['content'] : '',
+          type: 'document' as const,
+          tags,
+          createdAt: typeof item['createdAt'] === 'string' ? item['createdAt'] : '',
+          updatedAt: typeof item['updatedAt'] === 'string' ? item['updatedAt'] : '',
+          metadata: isRecord(item['metadata']) ? item['metadata'] : undefined,
+        },
+        score: typeof item['confidence'] === 'number' ? item['confidence'] : 0.8,
+        highlights: new Array<string>(),
+        relatedItems: new Array<string>(),
+      };
+    });
   },
 
   async getCategories(): Promise<Array<{ name: string; count: number }>> {

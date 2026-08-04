@@ -1182,6 +1182,16 @@ export const uaipAPI = {
       }
     },
 
+    async getRelations(itemId: string): Promise<import('@uaip/types').KnowledgeRelation[]> {
+      try {
+        const client = getAPIClient();
+        return await client.knowledge.getRelations(itemId);
+      } catch (error) {
+        logger.warn('Failed to fetch knowledge relations:', error);
+        return [];
+      }
+    },
+
     async getAllKnowledge(options?: { limit?: number; offset?: number }): Promise<KnowledgeItem[]> {
       try {
         const client = getAPIClient();
