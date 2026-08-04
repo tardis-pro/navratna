@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import React, { useState, useEffect as _useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -31,6 +32,7 @@ import {
 import { useAuth } from '../../../contexts/AuthContext';
 import { projectsAPI, type ProjectCreate } from '../../../api/projects_api';
 import { toolsAPI } from '../../../api/tools_api';
+import { GitHubRepoLinkModal } from './GitHubRepoLinkModal';
 import { logger } from '@/utils/browser_logger';
 
 interface ProjectTemplate {
@@ -234,6 +236,19 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
     Record<string, 'pending' | 'in_progress' | 'completed' | 'error'>
   >({});
 
+  const [pendingGitHubRepo, setPendingGitHubRepo] = useState<{
+    repoFullName: string;
+    repoId: string;
+    cloneUrl: string;
+  } | null>(null);
+  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
+  const [showGitHubPicker, setShowGitHubPicker] = useState(false);
+
+  const finalizeOnboarding = useCallback(() => {
+    resetOnboardingState();
+    onClose();
+  }, []);
+
   const resetOnboardingState = () => {
     setCurrentStep(0);
     setSelectedTemplate(null);
@@ -249,6 +264,8 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
     setToolConfigurations({});
     setIsSetupInProgress(false);
     setSetupProgress({});
+    setCreatedProjectId(null);
+    setShowGitHubPicker(false);
   };
 
   const handleClose = () => {
@@ -731,9 +748,22 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
   };
 
   const handleToolToggle = (toolId: string) => {
-    setSelectedTools((prev) =>
-      prev.includes(toolId) ? prev.filter((id) => id !== toolId) : [...prev, toolId]
-    );
+    setSelectedTools((prev) => {
+      const next = prev.includes(toolId) ? prev.filter((id) => id !== toolId) : [...prev, toolId];
+      if (!next.includes('github')) {
+        setPendingGitHubRepo(null);
+      }
+      return next;
+    });
+  };
+
+  const handlePickGitHubRepo = (repo: {
+    repoFullName: string;
+    repoId: string;
+    cloneUrl: string;
+  }) => {
+    setPendingGitHubRepo(repo);
+    setShowGitHubPicker(false);
   };
 
   const handleSetupTools = async () => {
@@ -804,6 +834,16 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
 
       // Create project via API
       const createdProject = await projectsAPI.create(projectCreateData);
+      setCreatedProjectId(createdProject.id);
+
+      // Link pending GitHub repo if user picked one during onboarding
+      if (pendingGitHubRepo) {
+        try {
+          await projectsAPI.linkGitHubRepo(createdProject.id, pendingGitHubRepo);
+        } catch (ghError) {
+          logger.error('Failed to link GitHub repo during onboarding:', ghError);
+        }
+      }
 
       // Assign tools to the project if any were selected
       if (selectedTools.length > 0) {
@@ -812,8 +852,12 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
 
       // Call the parent callback with the created project
       onProjectCreate(createdProject);
-      resetOnboardingState();
-      onClose();
+      // Show GitHub picker if GitHub was selected but no repo was picked yet
+      if (selectedTools.includes('github') && !pendingGitHubRepo) {
+        setShowGitHubPicker(true);
+        return;
+      }
+      finalizeOnboarding();
     } catch (error) {
       logger.error('Failed to create project:', error);
       // You could add error state here to show user feedback
@@ -1021,5 +1065,30 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
     </div>
   );
 
-  return ReactDOM.createPortal(modalContent, document.body);
+  return (
+    <>
+      {ReactDOM.createPortal(modalContent, document.body)}
+      <GitHubRepoLinkModal
+        isOpen={showGitHubPicker}
+        onClose={() => {
+          setShowGitHubPicker(false);
+          finalizeOnboarding();
+        }}
+        projectId={createdProjectId ?? ''}
+        onLink={async (_projectId, repoFullName) => {
+          const repos = await projectsAPI.listGitHubRepos(createdProjectId ?? '');
+          const repo = repos.find((r) => r.full_name === repoFullName);
+          if (!repo) {
+            throw new Error(`Repository ${repoFullName} not found`);
+          }
+          await projectsAPI.linkGitHubRepo(createdProjectId ?? '', {
+            repoFullName: repo.full_name,
+            repoId: String(repo.id),
+            cloneUrl: repo.clone_url,
+          });
+          finalizeOnboarding();
+        }}
+      />
+    </>
+  );
 };

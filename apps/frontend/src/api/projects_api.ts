@@ -4,7 +4,7 @@
  */
 
 import { gatewayClient, edenWithCSRFRetry, edenRequest } from './eden';
-import { ProjectRole } from '@uaip/types';
+import { GitHubRepo, LinkGitHubRepoRequest, ProjectRole } from '@uaip/types';
 import type { ProjectStatus, ProjectMemberRole } from '@uaip/contracts/api';
 import type {
   Project,

@@ -20,7 +20,7 @@ import {
   PlayCircle,
   PauseCircle,
   Settings as _Settings,
-  GitBranch as _GitBranch,
+  GitBranch,
   Upload as _Upload,
   Download as _Download,
   Share2 as _Share2,
@@ -30,8 +30,17 @@ import {
   Image as _Image,
   Database as _Database,
   RefreshCw,
+  Github,
+  Link2,
+  Unlink,
+  Loader2,
+  ExternalLink,
+  X,
+  Check,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { GitHubRepoLinkModal } from './GitHubRepoLinkModal';
 import { ProjectOnboardingFlow } from './ProjectOnboardingFlow';
 import { projectsAPI, type Project as _APIProject } from '../../../api/projects_api';
 import { ProjectIntegrationsPanel } from '@/components/integrations';
@@ -77,6 +86,9 @@ interface Project {
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
+  githubRepoFullName?: string;
+  githubCloneUrl?: string;
+  githubRepoId?: string;
 }
 
 interface TeamMember {
@@ -431,6 +443,8 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
   const [statusFilter, setStatusFilter] = useState<Project['status'] | 'all'>('all');
   const [_viewMode, _setViewMode] = useState<'grid' | 'list'>('grid');
 
+  const [showGitHubLinkModal, setShowGitHubLinkModal] = useState(false);
+
   // Responsive helpers
   const isMobile = viewport?.isMobile ?? false;
   const isTablet = viewport?.isTablet ?? false;
@@ -464,6 +478,12 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
           createdBy: apiProject.ownerId,
           createdAt: new Date(apiProject.createdAt),
           updatedAt: new Date(apiProject.updatedAt),
+          githubRepoFullName:
+            typeof apiProject.githubRepoFullName === 'string' ? apiProject.githubRepoFullName : undefined,
+          githubCloneUrl:
+            typeof apiProject.githubCloneUrl === 'string' ? apiProject.githubCloneUrl : undefined,
+          githubRepoId:
+            typeof apiProject.githubRepoId === 'string' ? apiProject.githubRepoId : undefined,
         };
       });
       setProjects(convertedProjects);
@@ -518,6 +538,12 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
           createdBy: projectData.ownerId,
           createdAt: typeof projectData.createdAt === 'string' ? new Date(projectData.createdAt) : new Date(),
           updatedAt: typeof projectData.updatedAt === 'string' ? new Date(projectData.updatedAt) : new Date(),
+          githubRepoFullName:
+            typeof projectData.githubRepoFullName === 'string' ? projectData.githubRepoFullName : undefined,
+          githubCloneUrl:
+            typeof projectData.githubCloneUrl === 'string' ? projectData.githubCloneUrl : undefined,
+          githubRepoId:
+            typeof projectData.githubRepoId === 'string' ? projectData.githubRepoId : undefined,
         };
         setProjects((prev) => [convertedProject, ...prev]);
 
@@ -587,6 +613,64 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
       } catch (error) {
         logger.error('Failed to delete project:', error);
       }
+    }
+  };
+
+  const handleLinkGitHubRepo = async (projectId: string, repoFullName: string) => {
+    try {
+      const repos = await projectsAPI.listGitHubRepos(projectId);
+      const repo = repos.find((r) => r.full_name === repoFullName);
+      if (!repo) {
+        throw new Error(`Repository ${repoFullName} not found in your GitHub account`);
+      }
+      await projectsAPI.linkGitHubRepo(projectId, {
+        repoFullName: repo.full_name,
+        repoId: String(repo.id),
+        cloneUrl: repo.clone_url,
+      });
+      await refreshProjects();
+      if (selectedProject?.id === projectId) {
+        setSelectedProject((prev) =>
+          prev
+            ? {
+                ...prev,
+                githubRepoFullName: repo.full_name,
+                githubCloneUrl: repo.clone_url,
+                githubRepoId: String(repo.id),
+              }
+            : null
+        );
+      }
+      setShowGitHubLinkModal(false);
+    } catch (error) {
+      logger.error('Failed to link GitHub repo:', error);
+      throw error;
+    }
+  };
+
+  const handleUnlinkGitHubRepo = async (projectId: string) => {
+    try {
+      await projectsAPI.update(projectId, {
+        githubRepo: null,
+        githubRepoId: null,
+        githubRepoFullName: null,
+        githubCloneUrl: null,
+      });
+      await refreshProjects();
+      if (selectedProject?.id === projectId) {
+        setSelectedProject((prev) =>
+          prev
+            ? {
+                ...prev,
+                githubRepoFullName: undefined,
+                githubCloneUrl: undefined,
+                githubRepoId: undefined,
+              }
+            : null
+        );
+      }
+    } catch (error) {
+      logger.error('Failed to unlink GitHub repo:', error);
     }
   };
 
@@ -664,6 +748,53 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
                   />
                 </div>
               </div>
+            </div>
+
+            <div className="bg-slate-800/50 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-white">GitHub Repository</h3>
+                {selectedProject.githubRepoFullName ? (
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={`https://github.com/${selectedProject.githubRepoFullName}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400 hover:text-white"
+                      title="Open repository"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                    <button
+                      onClick={() => void handleUnlinkGitHubRepo(selectedProject.id)}
+                      className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400 hover:text-red-400"
+                      title="Unlink repository"
+                    >
+                      <Unlink className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowGitHubLinkModal(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    <Link2 className="w-4 h-4" />
+                    Link Repo
+                  </button>
+                )}
+              </div>
+              {selectedProject.githubRepoFullName ? (
+                <a
+                  href={`https://github.com/${selectedProject.githubRepoFullName}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-slate-300 hover:text-blue-400 transition-colors"
+                >
+                  <Github className="w-4 h-4" />
+                  {selectedProject.githubRepoFullName}
+                </a>
+              ) : (
+                <p className="text-sm text-slate-500">No GitHub repository linked yet.</p>
+              )}
             </div>
 
             <div className="bg-slate-800/50 rounded-xl p-4">
@@ -841,6 +972,13 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
         isOpen={showOnboardingFlow}
         onClose={() => setShowOnboardingFlow(false)}
         onProjectCreate={handleCreateProject}
+      />
+
+      <GitHubRepoLinkModal
+        isOpen={showGitHubLinkModal}
+        onClose={() => setShowGitHubLinkModal(false)}
+        projectId={selectedProject?.id ?? ''}
+        onLink={handleLinkGitHubRepo}
       />
     </div>
   );
