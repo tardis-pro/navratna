@@ -899,79 +899,33 @@ type AttachedTool = {
             <Bot className="w-5 h-5 text-white" />
           </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h3
-                className="font-semibold text-white truncate max-w-[140px]"
-                title={agentState.name}
-              >
-                {agentState.name}
-              </h3>
-              <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded capitalize flex-shrink-0">
-                {agentState.role}
-              </span>
-            </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3
+                      className="font-medium text-slate-200 whitespace-normal break-words text-sm"
+                      title={agentState.name}
+                    >
+                      {agentState.name || 'Unnamed Agent'}
+                    </h3>
+                  </div>
 
-            <div
-              className="text-xs text-slate-400 truncate"
-              title={getPersonaDisplayName(agentState)}
-            >
-              👤 {getPersonaDisplayName(agentState)}
-            </div>
+                  {/* Added Persona Name */}
+                  {agentState.persona?.name && (
+                    <div className="text-xs text-slate-400 mb-1 truncate">
+                      {agentState.persona.name}
+                    </div>
+                  )}
 
-            <div
-              className="text-xs text-slate-500 truncate"
-              title={`Model: ${getModelDisplayName(agentState.modelId)}`}
-            >
-              Model: {getModelDisplayName(agentState.modelId)}
-            </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded capitalize flex-shrink-0">
+                      {agentState.role}
+                    </span>
+                  </div>
+                </div>
 
-            {agentState.createdBy && (
-              <div className="text-xs text-slate-600 truncate mt-0.5">
-                Owner: {agentState.createdBy.slice(0, 8)}
-              </div>
-            )}
-          </div>
-
-          {/* Chat Action Buttons */}
+            {/* Chat Action Button */}
           <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const chatEvent = new CustomEvent('openNewAgentChat', {
-                  detail: {
-                    agentId: agentState.id,
-                    agentName: agentState.name,
-                    forceNew: true,
-                  },
-                });
-                window.dispatchEvent(chatEvent);
-              }}
-              className="p-2 bg-green-500/20 text-green-400 hover:bg-green-500/30 rounded-lg transition-colors"
-              title="Start New Chat"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-
-            {/* New Chat Button */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const chatEvent = new CustomEvent('openNewAgentChat', {
-                  detail: {
-                    agentId: agentState.id,
-                    agentName: agentState.name,
-                  },
-                });
-                window.dispatchEvent(chatEvent);
-              }}
-              className="p-2 bg-green-500/20 text-green-400 hover:bg-green-500/30 rounded-lg transition-colors"
-              title="Start New Chat"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-
-            {/* Resume Chat / History Button */}
+            {/* Start Chat Button */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -991,10 +945,12 @@ type AttachedTool = {
           </div>
         </div>
 
-        {/* Persona Traits Tooltip on Hover */}
+      {/* Persona Traits Tooltip on Hover */}
         <div className="absolute bottom-full left-0 right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-20">
           <div className="bg-slate-900/95 backdrop-blur-md border border-slate-600/50 rounded-lg p-3 shadow-xl">
-            <div className="text-xs font-semibold text-slate-200 mb-2">Persona Traits</div>
+            <div className="text-xs font-semibold text-slate-200 mb-2">
+              {agentState.persona?.name || 'Persona'}
+            </div>
             {agentState.persona?.traits && agentState.persona.traits.length > 0 ? (
               <div className="space-y-1">
                 {agentState.persona.traits.slice(0, 3).map((trait) => (
