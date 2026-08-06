@@ -268,6 +268,95 @@ const chatImportJobs = new Map<
   }
 >();
 
+// Every JSON chat export we've seen names its per-message array and
+// sender/text fields differently (ChatGPT: messages[]/mapping{} + author.role
+// + content.parts[]; Claude Desktop: chat_messages[] + sender + text/content
+// blocks; generic bots: turns[]/msgs[] + role/from + message/body). Rather
+// than hardcoding one more shape per export tool, scan a small set of known
+// key aliases for each field.
+const MESSAGE_ARRAY_KEYS = ['messages', 'chat_messages', 'turns', 'msgs'];
+const SENDER_KEYS = ['sender', 'role', 'author', 'from', 'speaker'];
+const TEXT_KEYS = ['text', 'content', 'message', 'body', 'value'];
+
+function extractSender(msg: Record<string, unknown>): string {
+  for (const key of SENDER_KEYS) {
+    const v = msg[key];
+    if (typeof v === 'string' && v.trim()) return v.trim();
+    // ChatGPT nests it as author: { role: 'user' }
+    if (isRecord(v) && typeof v.role === 'string' && v.role.trim()) return v.role.trim();
+  }
+  return '';
+}
+
+/** Recursively resolve a message body from a string, block array, or {parts:[]}/{text:''} node. */
+function extractTextValue(value: unknown, depth = 0): string {
+  if (depth > 6) return '';
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) {
+    return value.map((v) => extractTextValue(v, depth + 1)).filter(Boolean).join('\n');
+  }
+  if (isRecord(value)) {
+    if (Array.isArray(value.parts)) return extractTextValue(value.parts, depth + 1); // ChatGPT
+    if (typeof value.text === 'string') return value.text; // Claude content block { type, text }
+  }
+  return '';
+}
+
+function extractMessageBody(msg: Record<string, unknown>): string {
+  for (const key of TEXT_KEYS) {
+    if (key in msg) {
+      const body = extractTextValue(msg[key]).trim();
+      if (body) return body;
+    }
+  }
+  return '';
+}
+
+function findMessageArray(conv: Record<string, unknown>): unknown[] {
+  for (const key of MESSAGE_ARRAY_KEYS) {
+    if (Array.isArray(conv[key])) return conv[key];
+  }
+  // ChatGPT tree export: { mapping: { nodeId: { message: {...} } } }
+  return isRecord(conv.mapping) ? Object.values(conv.mapping) : [];
+}
+
+function conversationToItem(
+  conv: Record<string, unknown>
+): { content: string; title: string; tags: string[] } | null {
+  const title = getStringValue(conv.title) ?? getStringValue(conv.name) ?? 'Untitled conversation';
+  let text = '';
+  for (const m of findMessageArray(conv)) {
+    const mRec = isRecord(m) ? m : {};
+    // ChatGPT mapping nodes wrap the actual message under .message.
+    const msg = isRecord(mRec.message) ? mRec.message : mRec;
+    const sender = extractSender(msg);
+    const body = extractMessageBody(msg);
+    if (body) text += `${sender ? sender + ': ' : ''}${body}\n\n`;
+  }
+  return text.trim() ? { content: text.trim(), title, tags: ['chat-import', 'conversation'] } : null;
+}
+
+/**
+ * Last-resort recovery for a JSON shape that matches none of the known
+ * conversation layouts: recursively harvest every string leaf so the import
+ * never silently yields zero items just because a field was renamed.
+ */
+function harvestJsonText(value: unknown, depth = 0): string {
+  if (depth > 12) return '';
+  if (typeof value === 'string') return value.trim();
+  if (Array.isArray(value)) {
+    return value.map((v) => harvestJsonText(v, depth + 1)).filter(Boolean).join('\n\n');
+  }
+  if (isRecord(value)) {
+    return Object.entries(value)
+      .filter(([key]) => !/^(id|uuid|_id|created_at|updated_at|timestamp|url|href)$/i.test(key))
+      .map(([, v]) => harvestJsonText(v, depth + 1))
+      .filter(Boolean)
+      .join('\n\n');
+  }
+  return '';
+}
+
 /** Extract knowledge items from common chat export formats. */
 function parseChatFile(
   fileName: string,
@@ -278,34 +367,34 @@ function parseChatFile(
 
   if (ext === 'json') {
     try {
-      const data = JSON.parse(content);
-      const convs = Array.isArray(data) ? data : (data.conversations ?? data.data ?? []);
+      const data: unknown = JSON.parse(content);
+      const convs: unknown[] = Array.isArray(data)
+        ? data
+        : isRecord(data) && Array.isArray(data.conversations)
+          ? data.conversations
+          : isRecord(data) && Array.isArray(data.data)
+            ? data.data
+            : isRecord(data)
+              ? [data]
+              : [];
+
       for (const conv of convs) {
-        const title = conv.title ?? conv.name ?? 'Untitled conversation';
-        let text = '';
-        const msgs: unknown[] = Array.isArray(conv.messages)
-          ? conv.messages
-          : conv.mapping && typeof conv.mapping === 'object' && conv.mapping !== null
-            ? Object.values(conv.mapping)
-            : [];
-        for (const m of msgs) {
-          const mRec = isRecord(m) ? m : {};
-          const msg = isRecord(mRec.message) ? mRec.message : mRec;
-          const role = isRecord(msg.author) && typeof msg.author.role === 'string'
-            ? msg.author.role
-            : typeof msg.role === 'string' ? msg.role : '';
-          const contentParts = isRecord(msg.content) && Array.isArray(msg.content.parts)
-            ? msg.content.parts
-            : msg.content !== undefined ? [msg.content] : [];
-          const parts: unknown[] = contentParts;
-          const body = parts
-            .map((p) => (typeof p === 'string' ? p : ''))
-            .join('')
-            .trim();
-          if (body) text += `${role ? role + ': ' : ''}${body}\n\n`;
-        }
-        if (text.trim()) {
-          items.push({ content: text.trim(), title, tags: ['chat-import', 'conversation'] });
+        if (!isRecord(conv)) continue;
+        const item = conversationToItem(conv);
+        if (item) items.push(item);
+      }
+
+      // None of the known shapes matched (renamed fields, unfamiliar export
+      // tool) — recover the content instead of importing nothing.
+      if (items.length === 0) {
+        const harvested = harvestJsonText(data);
+        if (harvested.trim()) {
+          for (const chunk of chunkDocument(harvested, `${fileName} — chat-import`, [
+            'chat-import',
+            'unstructured',
+          ])) {
+            items.push(chunk);
+          }
         }
       }
     } catch {
