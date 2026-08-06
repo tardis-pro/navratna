@@ -47,17 +47,20 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
 
   // Refs for managing connections and timeouts
   const socketRef = useRef<Socket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
+  const reconnectAttemptsRef = useRef(0);
 
   // Helper to update state
   const updateState = useCallback((updates: Partial<WebSocketState>) => {
+    if (!isMountedRef.current) return;
     setState((prev) => ({ ...prev, ...updates }));
   }, []);
 
   // Socket.IO connection function
   const connectSocketIO = useCallback(async (): Promise<boolean> => {
     const queueReconnect = () => {
-      if (state.reconnectAttempts >= maxReconnectAttempts) {
+      if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
         updateState({
           error: `Max reconnection attempts (${maxReconnectAttempts}) reached`,
           isReconnecting: false,
@@ -65,14 +68,15 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
         return;
       }
 
-      const delay = Math.min(1000 * Math.pow(2, state.reconnectAttempts), 30000);
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+      reconnectAttemptsRef.current += 1;
       updateState({
         isReconnecting: true,
-        reconnectAttempts: state.reconnectAttempts + 1,
+        reconnectAttempts: reconnectAttemptsRef.current,
       });
 
       logger.info(
-        `[Socket.IO] Reconnecting in ${delay}ms (attempt ${state.reconnectAttempts + 1}/${maxReconnectAttempts})`
+        `[Socket.IO] Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`
       );
 
       reconnectTimeoutRef.current = setTimeout(() => {
@@ -108,6 +112,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
 
       // Connection successful
       socket.on('connect', () => {
+        reconnectAttemptsRef.current = 0;
         updateState({
           isConnected: true,
           connectionType: 'socket.io',
@@ -206,7 +211,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
       });
       return false;
     }
-  }, [url, maxReconnectAttempts, state.reconnectAttempts, updateState]);
+  }, [url, maxReconnectAttempts, updateState]);
 
   // Main connect function
   const connect = useCallback(async () => {
@@ -266,9 +271,11 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
   );
 
   useEffect(() => {
+    isMountedRef.current = true;
     connect();
 
     return () => {
+      isMountedRef.current = false;
       disconnect();
     };
   }, [connect, disconnect, url]);
