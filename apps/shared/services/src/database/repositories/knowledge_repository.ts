@@ -1,7 +1,7 @@
 import type { KnowledgeIngestRequest, KnowledgeRelationship, KnowledgeType } from '@uaip/types';
 import { getIntelligenceDb } from '../drizzle/clients/index';
 import { knowledgeItems, knowledgeRelationships } from '../drizzle/schemas/intelligence_schema';
-import { eq, and, inArray, desc, sql, gte } from 'drizzle-orm';
+import { eq, and, inArray, desc, sql, gte, arrayOverlaps } from 'drizzle-orm';
 
 export type KnowledgeRow = typeof knowledgeItems.$inferSelect;
 export type RelationshipRow = typeof knowledgeRelationships.$inferSelect;
@@ -112,10 +112,14 @@ export class KnowledgeRepository {
 
   async findByTags(tags: string[], limit = 20): Promise<KnowledgeRow[]> {
     if (tags.length === 0) return [];
+    // NOTE: raw `sql\`${col} && ${jsArray}\`` interpolates a JS array as a
+    // Postgres row constructor `($1, $2, ...)`, not an array literal — that
+    // throws "operator does not exist: text[] && record" at runtime. Use the
+    // typed `arrayOverlaps` helper, which parameterizes it correctly.
     return this.db
       .select()
       .from(knowledgeItems)
-      .where(sql`${knowledgeItems.tags} && ${tags}`)
+      .where(arrayOverlaps(knowledgeItems.tags, tags))
       .orderBy(desc(knowledgeItems.createdAt))
       .limit(limit);
   }
