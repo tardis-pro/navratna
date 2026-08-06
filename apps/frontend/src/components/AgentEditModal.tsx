@@ -37,6 +37,8 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
+import { PersonaSelector } from './PersonaSelector';
+import type { PersonaDisplay } from '../types/frontend_extensions';
 
 import { Sparkles, Link2 } from 'lucide-react';
 import { OAuthConnectionsManager } from '@/components/security/OAuthConnectionsManager';
@@ -163,6 +165,7 @@ function toAgentUpdatePayload(formData: AgentEditFormData): AgentUpdate {
 
 const tabs: TabConfig[] = [
   { id: 'basic', label: 'Basic', icon: User, gradient: 'from-blue-500 to-cyan-500' },
+  { id: 'identity', label: 'Identity', icon: Bot, gradient: 'from-purple-500 to-pink-500' },
   { id: 'advanced', label: 'Advanced', icon: Settings, gradient: 'from-purple-500 to-pink-500' },
   {
     id: 'llm-preferences',
@@ -918,7 +921,9 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
   onSave,
 }) => {
   const { refreshAgents, agents } = useAgents();
+  const agent = agents?.[agentId];
   const [activeTab, setActiveTab] = useState('basic');
+  const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<AgentEditFormData>({});
@@ -928,7 +933,60 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
   const [userLLMModelsLoading, setUserLLMModelsLoading] = useState(false);
   const [userLLMModelsError, setUserLLMModelsError] = useState<string | null>(null);
 
-  const agent = agents?.[agentId];
+  // Load persona into form on open
+  useEffect(() => {
+    if (agent && isOpen) {
+      if (agent.persona) {
+        setSelectedPersona({
+          id: agent.persona.id || '',
+          name: agent.persona.name || '',
+          role: agent.persona.role || '',
+          description: agent.persona.description || '',
+          tags: agent.persona.tags || [],
+        });
+      }
+    }
+  }, [agent, isOpen]);
+
+  const handlePersonaSelect = async (persona: PersonaDisplay): Promise<void> => {
+    setSelectedPersona(persona);
+    updateFormData('personaId', persona.id);
+  };
+
+  const renderIdentityTab = () => (
+    <div className="space-y-6">
+      <div className="border border-slate-700/50 rounded-lg p-4 bg-slate-800/30">
+        <label className="block text-sm font-medium text-slate-300 mb-4">Assign New Persona</label>
+        <PersonaSelector
+          onSelectPersona={handlePersonaSelect}
+          disabled={false}
+        />
+
+        {selectedPersona && (
+          <div className="mt-4 border border-slate-700/50 rounded-lg p-4 bg-slate-800/30">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium text-slate-300">Currently Assigned</h4>
+              <button
+                onClick={() => { setSelectedPersona(null); updateFormData('personaId', ''); }}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-white">{selectedPersona.name}</span>
+                <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full">
+                  {selectedPersona.role}
+                </span>
+              </div>
+              <p className="text-sm text-slate-400">{selectedPersona.description}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   useEffect(() => {
     if (agent && isOpen) {
@@ -1055,7 +1113,10 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
     setSaving(true);
     try {
       // Update agent data
-      const updatedAgent = await uaipAPI.agents.update(agentId, toAgentUpdatePayload(formData));
+      const updatedAgent = await uaipAPI.agents.update(agentId, {
+        ...toAgentUpdatePayload(formData),
+        personaId: selectedPersona?.id || formData.personaId
+      });
 
       // If we have LLM preferences, save them separately when the backend endpoint exists.
       if (llmPreferences.length > 0) {
@@ -1714,6 +1775,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
                 ) : (
                   <>
                     {activeTab === 'basic' && renderBasicTab()}
+                    {activeTab === 'identity' && renderIdentityTab()}
                     {activeTab === 'advanced' && renderAdvancedTab()}
                     {activeTab === 'llm-preferences' && renderLLMPreferencesTab()}
                     {activeTab === 'tools' && renderToolsTab()}
