@@ -72,6 +72,9 @@
     },
     {
       "path": "./apps/shared/discussion"
+    },
+    {
+      "path": "./apps/backend/services/oie"
     }
   ],
   "compilerOptions": {
