@@ -112,10 +112,15 @@ function stripSuccessEnvelope<T>(data: unknown): T {
   return data as T
 }
 
-async function buildHeaders(headers?: HeadersInit): Promise<Headers> {
+async function buildHeaders(headers?: HeadersInit, isFormData = false): Promise<Headers> {
   const resolved = new Headers(headers)
 
-  if (!resolved.has('Content-Type')) {
+  // FormData must NOT get an explicit Content-Type: the browser computes
+  // `multipart/form-data; boundary=...` itself when the header is absent.
+  // Setting it here strips the boundary, so the backend receives a body it
+  // can't parse as multipart (it silently reads Content-Type as JSON,
+  // fails, and callers see a bare {"error":"Not Found"}).
+  if (!isFormData && !resolved.has('Content-Type')) {
     resolved.set('Content-Type', 'application/json')
   }
 
@@ -131,7 +136,7 @@ async function buildHeaders(headers?: HeadersInit): Promise<Headers> {
 }
 
 async function performBinaryRequest(path: string, config: EdenRequestConfig): Promise<Blob | string> {
-  const headers = await buildHeaders(config.headers)
+  const headers = await buildHeaders(config.headers, config.body instanceof FormData)
   const response = await fetch(`${baseUrl}${path}`, {
     method: config.method,
     body: config.body instanceof FormData || typeof config.body === 'string'
@@ -162,7 +167,7 @@ export async function edenRequest<T>(path: string, config: EdenRequestConfig = {
     return await performBinaryRequest(path, config) as T
   }
 
-  const requestHeaders = await buildHeaders(config.headers)
+  const requestHeaders = await buildHeaders(config.headers, config.body instanceof FormData)
   const requestBody = config.body instanceof FormData || typeof config.body === 'string'
     ? config.body
     : config.body
