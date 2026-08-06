@@ -88,15 +88,6 @@ interface DiscussionContextType {
 }
 
 const DiscussionContext = createContext<DiscussionContextType | null>(null);
-const TITLE_PREFIX = 'Discussion: ';
-const MAX_TITLE_LENGTH = 255;
-const MAX_TOPIC_LENGTH = 1000;
-
-const truncateText = (value: string, maxLength: number): string => {
-  if (value.length <= maxLength) return value;
-  if (maxLength <= 3) return value.slice(0, maxLength);
-  return `${value.slice(0, maxLength - 3)}...`;
-};
 
 export const useDiscussion = (): DiscussionContextType => {
   const context = useContext(DiscussionContext);
@@ -105,6 +96,23 @@ export const useDiscussion = (): DiscussionContextType => {
   }
   return context;
 };
+
+const MAX_RETAINED_MESSAGES = 500;
+
+function mergeMessages(existing: Message[], incoming: Message[]): Message[] {
+  const seen = new Set(existing.map((m) => m.id));
+  const merged = [...existing];
+  for (const msg of incoming) {
+    if (!seen.has(msg.id)) {
+      merged.push(msg);
+      seen.add(msg.id);
+    }
+  }
+  if (merged.length > MAX_RETAINED_MESSAGES) {
+    return merged.slice(merged.length - MAX_RETAINED_MESSAGES);
+  }
+  return merged;
+}
 
 export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   _topic,
@@ -172,9 +180,8 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
               confidence: messageData.metadata?.confidence,
               metadata: messageData.metadata,
             };
-            // Add to both real-time messages and history for immediate display
-            setMessages((prev) => [...prev, newMessage]);
-            setHistory((prev) => [...prev, newMessage]);
+            // Add to a single deduplicated message list to avoid double memory retention
+            setMessages((prev) => mergeMessages(prev, [newMessage]));
           }
           break;
 
@@ -481,7 +488,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
         metadata: msg.metadata,
       }));
 
-      setHistory(transformedHistory);
+      setHistory((prev) => mergeMessages(prev, transformedHistory));
     } catch (error) {
       logger.error('Failed to load discussion history:', error);
       logger.error('Error details:', {

@@ -115,11 +115,16 @@ const knowledgeReducer = (
     case 'SET_ACTIVE_ITEM':
       return { ...state, activeItemId: action.payload };
     case 'ADD_KNOWLEDGE_ITEMS': {
-      const newItems = { ...state.items };
+      const keepIds = new Set(state.searchResults.map((item) => item.id));
+      const updated = { ...state.items };
       action.payload.forEach((item) => {
-        newItems[item.id] = item;
+        updated[item.id] = item;
+        keepIds.add(item.id);
       });
-      return { ...state, items: newItems };
+      return {
+        ...state,
+        items: pruneItemsRecord(updated, keepIds),
+      };
     }
     case 'UPDATE_KNOWLEDGE_ITEM':
       return {
