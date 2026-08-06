@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useAgents } from './AgentContext';
 import { useAuth } from './AuthContext';
 import uaipAPI from '@/utils/uaip_api';
@@ -197,13 +197,24 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
     filters: {},
     preferences: {
       theme: 'auto',
-      refreshInterval: 30000,
+      refreshInterval: 120_000,
       notificationsEnabled: true,
       compactMode: false,
     },
   });
 
   const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
+  const [isTabVisible, setIsTabVisible] = useState(true);
+  const isTabVisibleRef = useRef(isTabVisible);
+  isTabVisibleRef.current = isTabVisible;
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      setIsTabVisible(!document.hidden);
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
 
   // Transform agents from context
   useEffect(() => {
@@ -411,7 +422,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
       : Math.max(uiState.preferences.refreshInterval * 2, 30000); // Min 30s when offline
 
     const interval = setInterval(() => {
-      if (user && !hasErrors) {
+      if (user && !hasErrors && isTabVisibleRef.current) {
         // Only refresh if not currently loading to prevent overlapping requests
         if (!capabilities.isLoading && !approvals.isLoading) {
           loadCapabilities();

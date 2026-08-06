@@ -345,7 +345,7 @@ export function useSystemMetrics() {
 
   const fetchMetrics = useCallback(async () => {
     const stats = await uaipAPI.client.security.getStats();
-    const metrics = {
+    const nextMetrics = {
       timestamp: new Date(),
       performance: {
         cpu: 0,
@@ -371,11 +371,12 @@ export function useSystemMetrics() {
         threatLevel: 'low',
       },
     } satisfies SystemMetrics;
-    setMetrics(metrics);
-    return metrics;
+    setMetrics(nextMetrics);
+    return nextMetrics;
   }, []);
 
   const metricsState = useAsyncData(fetchMetrics);
+  const isVisibleRef = useRef(true);
 
   // Update local state when data changes
   useEffect(() => {
@@ -384,11 +385,22 @@ export function useSystemMetrics() {
     }
   }, [metricsState.data]);
 
-  // Auto-refresh metrics every 30 seconds
+  // Visibility tracking
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      isVisibleRef.current = !document.hidden;
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
+
+  // Auto-refresh metrics every 120 seconds only while tab is visible
   useEffect(() => {
     const interval = setInterval(() => {
-      metricsState.refetch?.();
-    }, 30000);
+      if (isVisibleRef.current) {
+        metricsState.refetch?.();
+      }
+    }, 120_000);
     return () => clearInterval(interval);
   }, [metricsState]);
 

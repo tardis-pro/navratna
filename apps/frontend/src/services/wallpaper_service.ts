@@ -37,9 +37,32 @@ class WallpaperService {
   private currentTheme: WallpaperTheme | null = null;
   private listeners: Set<(image: WallpaperImage) => void> = new Set();
 
+  private slideshowEnabled: boolean = false;
+  private isVisible: boolean = true;
+
   private constructor() {
     this.preferences = this.loadPreferences();
     this.initializeTheme();
+    this.bindVisibility();
+  }
+
+  private bindVisibility(): void {
+    if (typeof document === 'undefined') return;
+    const onChange = () => {
+      this.isVisible = !document.hidden;
+      if (this.isVisible) {
+        if (this.slideshowEnabled && this.currentTheme?.slideshow) {
+          this.startSlideshow();
+        }
+      } else {
+        this.stopSlideshow();
+      }
+    };
+    document.addEventListener('visibilitychange', onChange);
+  }
+
+  getIsVisible(): boolean {
+    return this.isVisible;
   }
 
   static getInstance(): WallpaperService {
@@ -364,7 +387,7 @@ class WallpaperService {
 
     this.notifyListeners();
 
-    if (this.preferences.slideshowEnabled && theme.slideshow) {
+    if (this.preferences.slideshowEnabled && theme.slideshow && this.isVisible) {
       this.startSlideshow();
     }
   }
@@ -381,9 +404,10 @@ class WallpaperService {
 
   toggleSlideshow(): void {
     this.preferences.slideshowEnabled = !this.preferences.slideshowEnabled;
+    this.slideshowEnabled = this.preferences.slideshowEnabled;
     this.savePreferences();
 
-    if (this.preferences.slideshowEnabled && this.currentTheme?.slideshow) {
+    if (this.preferences.slideshowEnabled && this.currentTheme?.slideshow && this.isVisible) {
       this.startSlideshow();
     } else {
       this.stopSlideshow();
@@ -400,6 +424,9 @@ class WallpaperService {
   }
 
   private startSlideshow(): void {
+    this.slideshowEnabled = true;
+    if (!this.isVisible) return;
+
     if (this.slideshowTimer) {
       clearInterval(this.slideshowTimer);
     }
