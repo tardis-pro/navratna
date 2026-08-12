@@ -136,9 +136,24 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           SLUG=$(python3 -c "import json; print(json.load(open('.tardis/project.json'))['slug'])")
+          # --volumes-from because the checkout lives on a Docker VOLUME at
+          # /workspace that the daemon cannot bind by host path ($PWD does not
+          # exist in the daemon's view), and the CA import because the scanner
+          # image's JVM does not trust the homelab CA. Both fail silently —
+          # this step is non-blocking by design.
           docker run --rm \
+            --volumes-from "$(cat /etc/hostname)" \
             -e SONAR_HOST_URL="${{ secrets.SONAR_HOST_URL }}" \
             -e SONAR_TOKEN="$SONAR_TOKEN" \
-            -v "$PWD:/usr/src" \
-            sonarsource/sonar-scanner-cli:11 \
-            -Dsonar.projectKey=tardis-$SLUG || echo "sonar analysis failed (non-blocking)"
+            -e SONAR_SCANNER_OPTS="-Djavax.net.ssl.trustStore=/tmp/tardis-truststore.p12 -Djavax.net.ssl.trustStorePassword=changeit -Djavax.net.ssl.trustStoreType=PKCS12" \
+            -v /etc/ssl/tardis/ca.crt:/tmp/tardis-ca.crt:ro \
+            -w "$PWD" \
+            --entrypoint sh \
+            sonarsource/sonar-scanner-cli:11 -c '
+              keytool -importcert -noprompt -trustcacerts \
+                -alias tardis -file /tmp/tardis-ca.crt \
+                -keystore /tmp/tardis-truststore.p12 -storetype PKCS12 -storepass changeit >/dev/null &&
+              sonar-scanner "$@"
+            ' sh -Dsonar.projectKey=tardis-$SLUG -Dsonar.projectBaseDir="$PWD" \
+                 -Dsonar.working.directory=/tmp/scannerwork \
+            || echo "sonar analysis failed (non-blocking)"
