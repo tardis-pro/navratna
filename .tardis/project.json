@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "projectId": "973e2b58c3522c5a",
+  "slug": "navratna",
+  "api": "https://navratna-dev.tardis.local",
+  "repository": "https://git.tardis.local/bot-navratna/navratna",
+  "remote": "tardis"
+}

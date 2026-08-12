@@ -1,0 +1,194 @@
+# tardis stack — the deployment contract for this project.
+#
+#   scope: shared   deployed once per project; every branch uses it.
+#   scope: release  deployed per branch. Suffixed on previews.
+#
+# Previews are intentionally OFF for all services: the router reaches core and
+# gateway by their compose DNS names and the SPA bakes its API origin at build
+# time, both of which would point a preview at the wrong instances.
+#
+# Topology mirrors the Fly production layout, minus the CF worker:
+#   router (nginx-unprivileged) serves the built SPA and path-splits /api/v1/*
+#   between navratna-core and navratna-gateway, validating the JWT once via
+#   auth_request and forwarding identity as X-User-* + X-Edge-Auth.
+#
+# Deliberately NOT deployed here (platform provides or local-only):
+#   prometheus / grafana / postgres-exporter  → platform observability
+#   basebench-meta / questionforge            → built from a local-only base image
+#   api-gateway (nginx) + dev frontend        → folded into `router`
+#
+# Secrets below are homelab-only literals, freshly generated for this stack —
+# they are NOT the Fly production secrets.
+
+volumes:
+  - id: postgres-data
+    size: 5
+  - id: neo4j-data
+    size: 5
+  - id: neo4j-logs
+    size: 2
+  - id: neo4j-import
+    size: 2
+  - id: neo4j-plugins
+    size: 2
+  - id: redis-data
+    size: 2
+  - id: qdrant-data
+    size: 5
+
+services:
+  - id: postgres
+    image: postgres:18-alpine
+    profile: postgres
+    scope: shared
+    port: 5432
+    memory: 512
+    cpu: 200
+    env:
+      POSTGRES_DB: "uaip"
+      POSTGRES_USER: "uaip_user"
+      POSTGRES_PASSWORD: "768fe72364e34688a524512f1ffa9c26f8bdc5adca42a3ef"
+    mounts:
+      - volume: postgres-data
+        path: /var/lib/postgresql   # postgres:18 PGDATA lives under /var/lib/postgresql/18/...
+    probe: { type: tcp, port: 5432 }
+
+  - id: neo4j
+    image: neo4j:2025.04.0-community-bullseye
+    profile: generic
+    scope: shared
+    port: 7687
+    memory: 1536
+    cpu: 250
+    env:
+      NEO4J_AUTH: "neo4j/7b51bf8cf6acd79f47f8e6ebb9ce66dd7b789fd15ac7bd7a"
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_apoc_export_file_enabled: "true"
+      NEO4J_apoc_import_file_enabled: "true"
+      NEO4J_apoc_import_file_use__neo4j__config: "true"
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
+      NEO4J_dbms_memory_heap_initial__size: "256m"
+      NEO4J_dbms_memory_heap_max__size: "768m"
+      NEO4J_dbms_memory_pagecache_size: "256m"
+    mounts:
+      - volume: neo4j-data
+        path: /data
+      - volume: neo4j-logs
+        path: /logs
+      - volume: neo4j-import
+        path: /var/lib/neo4j/import
+      - volume: neo4j-plugins
+        path: /plugins
+    probe: { type: tcp, port: 7687 }
+
+  - id: redis
+    image: redis:8-alpine
+    profile: redis
+    scope: shared
+    port: 6379
+    memory: 256
+    cpu: 100
+    args: ['redis-server', '--protected-mode', 'yes', '--bind', '0.0.0.0', '--requirepass', '0c2c3900623342900e8aab30a659a3098671f7d74b2cf6e3']
+    mounts:
+      - volume: redis-data
+        path: /data
+    probe: { type: tcp, port: 6379 }
+
+  - id: qdrant
+    image: qdrant/qdrant:v1.14.1
+    profile: generic
+    scope: shared
+    port: 6333
+    memory: 512
+    cpu: 150
+    env:
+      QDRANT__SERVICE__HTTP_PORT: "6333"
+      QDRANT__SERVICE__GRPC_PORT: "6334"
+    mounts:
+      - volume: qdrant-data
+        path: /qdrant/storage
+    probe: { type: tcp, port: 6333 }
+
+  - id: navratna-core
+    build: { context: ., dockerfile: deploy/fly/Dockerfile.core }
+    profile: generic
+    scope: release
+    port: 8080
+    memory: 1024          # 512 OOMs under load (same finding as Fly)
+    cpu: 250
+    dependsOn: [postgres, neo4j, redis, qdrant]
+    # First boot on an empty database: sync the Drizzle schema (no-op when the
+    # DB already matches), then start the service. Seeders run in-app at boot.
+    args:
+      - sh
+      - -c
+      - "cd /app/apps/shared/services && bun node_modules/drizzle-kit/bin.cjs push --force && cd /app && exec bun apps/backend/services/navratna-core/dist/navratna-core/src/index.js"
+    env:
+      NODE_ENV: "production"
+      NAVRATNA_CORE_PORT: "8080"
+      LOG_LEVEL: "info"
+      POSTGRES_URL: "postgresql://uaip_user:768fe72364e34688a524512f1ffa9c26f8bdc5adca42a3ef@postgres:5432/uaip"
+      NEO4J_URL: "bolt://neo4j:7687"
+      NEO4J_USER: "neo4j"
+      NEO4J_PASSWORD: "7b51bf8cf6acd79f47f8e6ebb9ce66dd7b789fd15ac7bd7a"
+      REDIS_URL: "redis://:0c2c3900623342900e8aab30a659a3098671f7d74b2cf6e3@redis:6379"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "0c2c3900623342900e8aab30a659a3098671f7d74b2cf6e3"
+      QDRANT_URL: "http://qdrant:6333"
+      WEBSOCKET_ENABLED: "true"
+      JWT_SECRET: "ac06a3e2ec35b813cb4eb1ec6ae153675e2dfdcc9748ee4c"
+      JWT_REFRESH_SECRET: "e257007b17030b49f292885f0e92aab4961932cdc5beb99a"
+      DELETION_HASH_SALT: "f2a9c1d47e83b06512c4e9a8d7f3b5c1"
+      EDGE_AUTH_SECRET: "c84946937277d3a29209f2e3a49d9e7a"
+      LLM_PROVIDER_ENCRYPTION_KEY: "9d4b7e2f81c356a0d8e14f72b9a3c6e5"
+      ENTERPRISE_MODE: "false"
+      ZERO_TRUST_MODE: "disabled"
+    probe: { type: tcp, port: 8080 }
+
+  - id: navratna-gateway
+    build: { context: ., dockerfile: deploy/fly/Dockerfile.gateway }
+    profile: generic
+    scope: release
+    port: 8080
+    memory: 768
+    cpu: 250
+    dependsOn: [postgres, neo4j, redis, qdrant]
+    env:
+      NODE_ENV: "production"
+      NAVRATNA_GATEWAY_PORT: "8080"
+      LOG_LEVEL: "info"
+      POSTGRES_URL: "postgresql://uaip_user:768fe72364e34688a524512f1ffa9c26f8bdc5adca42a3ef@postgres:5432/uaip"
+      NEO4J_URL: "bolt://neo4j:7687"
+      NEO4J_USER: "neo4j"
+      NEO4J_PASSWORD: "7b51bf8cf6acd79f47f8e6ebb9ce66dd7b789fd15ac7bd7a"
+      REDIS_URL: "redis://:0c2c3900623342900e8aab30a659a3098671f7d74b2cf6e3@redis:6379"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "0c2c3900623342900e8aab30a659a3098671f7d74b2cf6e3"
+      QDRANT_URL: "http://qdrant:6333"
+      JWT_SECRET: "ac06a3e2ec35b813cb4eb1ec6ae153675e2dfdcc9748ee4c"
+      JWT_REFRESH_SECRET: "e257007b17030b49f292885f0e92aab4961932cdc5beb99a"
+      DELETION_HASH_SALT: "f2a9c1d47e83b06512c4e9a8d7f3b5c1"
+      EDGE_AUTH_SECRET: "c84946937277d3a29209f2e3a49d9e7a"
+      LLM_PROVIDER_ENCRYPTION_KEY: "9d4b7e2f81c356a0d8e14f72b9a3c6e5"
+      OAUTH_CALLBACK_URL: "https://navratna.tardis.local/api/v1/oauth/callback"
+      ENTERPRISE_MODE: "false"
+      ZERO_TRUST_MODE: "disabled"
+    probe: { type: tcp, port: 8080 }
+
+  - id: router
+    build: { context: ., dockerfile: deploy/tardis/router/Dockerfile }
+    profile: generic
+    scope: release
+    port: 8080
+    memory: 128
+    cpu: 100
+    dependsOn: [navratna-core, navratna-gateway]
+    env:
+      EDGE_AUTH_SECRET: "c84946937277d3a29209f2e3a49d9e7a"
+    probe: { type: tcp, port: 8080 }
+
+# Which service answers which URL path. Longest prefix wins.
+routes:
+  - { path: /, service: router }

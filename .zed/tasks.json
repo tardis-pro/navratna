@@ -1,0 +1,9 @@
+[
+  { "label": "tardis: dashboard", "command": "tardis", "args": ["dashboard"], "reveal": "always" },
+  { "label": "tardis: status", "command": "tardis", "args": ["status"], "reveal": "always" },
+  { "label": "tardis: deploy (push)", "command": "tardis", "args": ["deploy"], "reveal": "always" },
+  { "label": "tardis: logs (follow errors)", "command": "tardis", "args": ["logs", "-g", "error", "-s", "30m"] },
+  { "label": "tardis: debug", "command": "tardis", "args": ["debug"] },
+  { "label": "tardis: anomalies", "command": "tardis", "args": ["anomalies"] },
+  { "label": "tardis: restart app", "command": "tardis", "args": ["restart"] }
+]

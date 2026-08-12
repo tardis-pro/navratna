@@ -1,0 +1,289 @@
+{
+  "schemaVersion": 1,
+  "stackSha256": "9f6f094c5754e58b2243ed7ece64ff58e7f2bab2de4cc543d76f4d5abaf37e7b",
+  "services": [
+    {
+      "id": "postgres",
+      "profile": "postgres",
+      "scope": "shared",
+      "preview": false,
+      "cpu": 200,
+      "memory": 512,
+      "port": 5432,
+      "env": {
+        "POSTGRES_DB": "uaip",
+        "POSTGRES_USER": "uaip_user",
+        "POSTGRES_PASSWORD": "768fe72364e34688a524512f1ffa9c26f8bdc5adca42a3ef"
+      },
+      "mounts": [
+        {
+          "volume": "postgres-data",
+          "path": "/var/lib/postgresql"
+        }
+      ],
+      "probe": {
+        "type": "tcp",
+        "port": 5432
+      },
+      "build": null,
+      "image": "postgres:18-alpine"
+    },
+    {
+      "id": "neo4j",
+      "profile": "generic",
+      "scope": "shared",
+      "preview": false,
+      "cpu": 250,
+      "memory": 1536,
+      "port": 7687,
+      "env": {
+        "NEO4J_AUTH": "neo4j/7b51bf8cf6acd79f47f8e6ebb9ce66dd7b789fd15ac7bd7a",
+        "NEO4J_PLUGINS": "[\"apoc\"]",
+        "NEO4J_apoc_export_file_enabled": "true",
+        "NEO4J_apoc_import_file_enabled": "true",
+        "NEO4J_apoc_import_file_use__neo4j__config": "true",
+        "NEO4J_dbms_security_procedures_unrestricted": "apoc.*",
+        "NEO4J_dbms_memory_heap_initial__size": "256m",
+        "NEO4J_dbms_memory_heap_max__size": "768m",
+        "NEO4J_dbms_memory_pagecache_size": "256m"
+      },
+      "mounts": [
+        {
+          "volume": "neo4j-data",
+          "path": "/data"
+        },
+        {
+          "volume": "neo4j-logs",
+          "path": "/logs"
+        },
+        {
+          "volume": "neo4j-import",
+          "path": "/var/lib/neo4j/import"
+        },
+        {
+          "volume": "neo4j-plugins",
+          "path": "/plugins"
+        }
+      ],
+      "probe": {
+        "type": "tcp",
+        "port": 7687
+      },
+      "build": null,
+      "image": "neo4j:2025.04.0-community-bullseye"
+    },
+    {
+      "id": "redis",
+      "profile": "redis",
+      "scope": "shared",
+      "preview": false,
+      "cpu": 100,
+      "memory": 256,
+      "port": 6379,
+      "args": [
+        "redis-server",
+        "--protected-mode",
+        "yes",
+        "--bind",
+        "0.0.0.0",
+        "--requirepass",
+        "0c2c3900623342900e8aab30a659a3098671f7d74b2cf6e3"
+      ],
+      "mounts": [
+        {
+          "volume": "redis-data",
+          "path": "/data"
+        }
+      ],
+      "probe": {
+        "type": "tcp",
+        "port": 6379
+      },
+      "build": null,
+      "image": "redis:8-alpine"
+    },
+    {
+      "id": "qdrant",
+      "profile": "generic",
+      "scope": "shared",
+      "preview": false,
+      "cpu": 150,
+      "memory": 512,
+      "port": 6333,
+      "env": {
+        "QDRANT__SERVICE__HTTP_PORT": "6333",
+        "QDRANT__SERVICE__GRPC_PORT": "6334"
+      },
+      "mounts": [
+        {
+          "volume": "qdrant-data",
+          "path": "/qdrant/storage"
+        }
+      ],
+      "probe": {
+        "type": "tcp",
+        "port": 6333
+      },
+      "build": null,
+      "image": "qdrant/qdrant:v1.14.1"
+    },
+    {
+      "id": "navratna-core",
+      "profile": "generic",
+      "scope": "release",
+      "preview": false,
+      "cpu": 250,
+      "memory": 1024,
+      "port": 8080,
+      "args": [
+        "sh",
+        "-c",
+        "cd /app/apps/shared/services && bun node_modules/drizzle-kit/bin.cjs push --force && cd /app && exec bun apps/backend/services/navratna-core/dist/navratna-core/src/index.js"
+      ],
+      "dependsOn": [
+        "postgres",
+        "neo4j",
+        "redis",
+        "qdrant"
+      ],
+      "env": {
+        "NODE_ENV": "production",
+        "NAVRATNA_CORE_PORT": "8080",
+        "LOG_LEVEL": "info",
+        "POSTGRES_URL": "postgresql://uaip_user:768fe72364e34688a524512f1ffa9c26f8bdc5adca42a3ef@postgres:5432/uaip",
+        "NEO4J_URL": "bolt://neo4j:7687",
+        "NEO4J_USER": "neo4j",
+        "NEO4J_PASSWORD": "7b51bf8cf6acd79f47f8e6ebb9ce66dd7b789fd15ac7bd7a",
+        "REDIS_URL": "redis://:0c2c3900623342900e8aab30a659a3098671f7d74b2cf6e3@redis:6379",
+        "REDIS_HOST": "redis",
+        "REDIS_PORT": "6379",
+        "REDIS_PASSWORD": "0c2c3900623342900e8aab30a659a3098671f7d74b2cf6e3",
+        "QDRANT_URL": "http://qdrant:6333",
+        "WEBSOCKET_ENABLED": "true",
+        "JWT_SECRET": "ac06a3e2ec35b813cb4eb1ec6ae153675e2dfdcc9748ee4c",
+        "JWT_REFRESH_SECRET": "e257007b17030b49f292885f0e92aab4961932cdc5beb99a",
+        "DELETION_HASH_SALT": "f2a9c1d47e83b06512c4e9a8d7f3b5c1",
+        "EDGE_AUTH_SECRET": "c84946937277d3a29209f2e3a49d9e7a",
+        "LLM_PROVIDER_ENCRYPTION_KEY": "9d4b7e2f81c356a0d8e14f72b9a3c6e5",
+        "ENTERPRISE_MODE": "false",
+        "ZERO_TRUST_MODE": "disabled"
+      },
+      "probe": {
+        "type": "tcp",
+        "port": 8080
+      },
+      "build": {
+        "context": ".",
+        "dockerfile": "deploy/fly/Dockerfile.core"
+      },
+      "image": null
+    },
+    {
+      "id": "navratna-gateway",
+      "profile": "generic",
+      "scope": "release",
+      "preview": false,
+      "cpu": 250,
+      "memory": 768,
+      "port": 8080,
+      "dependsOn": [
+        "postgres",
+        "neo4j",
+        "redis",
+        "qdrant"
+      ],
+      "env": {
+        "NODE_ENV": "production",
+        "NAVRATNA_GATEWAY_PORT": "8080",
+        "LOG_LEVEL": "info",
+        "POSTGRES_URL": "postgresql://uaip_user:768fe72364e34688a524512f1ffa9c26f8bdc5adca42a3ef@postgres:5432/uaip",
+        "NEO4J_URL": "bolt://neo4j:7687",
+        "NEO4J_USER": "neo4j",
+        "NEO4J_PASSWORD": "7b51bf8cf6acd79f47f8e6ebb9ce66dd7b789fd15ac7bd7a",
+        "REDIS_URL": "redis://:0c2c3900623342900e8aab30a659a3098671f7d74b2cf6e3@redis:6379",
+        "REDIS_HOST": "redis",
+        "REDIS_PORT": "6379",
+        "REDIS_PASSWORD": "0c2c3900623342900e8aab30a659a3098671f7d74b2cf6e3",
+        "QDRANT_URL": "http://qdrant:6333",
+        "JWT_SECRET": "ac06a3e2ec35b813cb4eb1ec6ae153675e2dfdcc9748ee4c",
+        "JWT_REFRESH_SECRET": "e257007b17030b49f292885f0e92aab4961932cdc5beb99a",
+        "DELETION_HASH_SALT": "f2a9c1d47e83b06512c4e9a8d7f3b5c1",
+        "EDGE_AUTH_SECRET": "c84946937277d3a29209f2e3a49d9e7a",
+        "LLM_PROVIDER_ENCRYPTION_KEY": "9d4b7e2f81c356a0d8e14f72b9a3c6e5",
+        "OAUTH_CALLBACK_URL": "https://navratna.tardis.local/api/v1/oauth/callback",
+        "ENTERPRISE_MODE": "false",
+        "ZERO_TRUST_MODE": "disabled"
+      },
+      "probe": {
+        "type": "tcp",
+        "port": 8080
+      },
+      "build": {
+        "context": ".",
+        "dockerfile": "deploy/fly/Dockerfile.gateway"
+      },
+      "image": null
+    },
+    {
+      "id": "router",
+      "profile": "generic",
+      "scope": "release",
+      "preview": false,
+      "cpu": 100,
+      "memory": 128,
+      "port": 8080,
+      "dependsOn": [
+        "navratna-core",
+        "navratna-gateway"
+      ],
+      "env": {
+        "EDGE_AUTH_SECRET": "c84946937277d3a29209f2e3a49d9e7a"
+      },
+      "probe": {
+        "type": "tcp",
+        "port": 8080
+      },
+      "build": {
+        "context": ".",
+        "dockerfile": "deploy/tardis/router/Dockerfile"
+      },
+      "image": null
+    }
+  ],
+  "volumes": [
+    {
+      "id": "postgres-data",
+      "size": 5
+    },
+    {
+      "id": "neo4j-data",
+      "size": 5
+    },
+    {
+      "id": "neo4j-logs",
+      "size": 2
+    },
+    {
+      "id": "neo4j-import",
+      "size": 2
+    },
+    {
+      "id": "neo4j-plugins",
+      "size": 2
+    },
+    {
+      "id": "redis-data",
+      "size": 2
+    },
+    {
+      "id": "qdrant-data",
+      "size": 5
+    }
+  ],
+  "routes": [
+    {
+      "path": "/",
+      "service": "router"
+    }
+  ]
+}

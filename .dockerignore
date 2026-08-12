@@ -13,6 +13,7 @@ deploy
 !deploy/cf-containers/egress_probe.mjs
 !deploy/cf-containers/stage_probe.mjs
 !deploy/cf-containers/entrypoint-core.ts
+!deploy/tardis
 database
 scripts
 .env

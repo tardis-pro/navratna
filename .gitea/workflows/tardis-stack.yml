@@ -1,0 +1,144 @@
+# tardis dev — stacked CI (multi-service projects).
+#
+# Builds every service in .tardis/stack.lock.json, mirrors third-party images
+# into THIS project's registry path, then sends the agent a deployment intent
+# containing digests only. No Kubernetes object is constructed here and this
+# workflow holds no cluster credentials.
+#
+# The lock file is produced by `tardis stack plan` and is plain JSON, so CI needs
+# only the Python standard library — no pip install, no network dependency.
+name: tardis-stack
+on:
+  push:
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: verify the plan matches stack.yml
+        run: |
+          set -euo pipefail
+          if [ ! -f .tardis/stack.lock.json ]; then
+            echo "::error::.tardis/stack.lock.json is missing — run 'tardis stack plan' and commit it"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import hashlib, json, sys
+          lock = json.load(open('.tardis/stack.lock.json'))
+          actual = hashlib.sha256(open('.tardis/stack.yml','rb').read()).hexdigest()
+          if lock.get('stackSha256') != actual:
+              sys.exit("::error::stack.yml changed since the last 'tardis stack plan' — "
+                       "re-run it and commit stack.lock.json, so what deploys is what was reviewed")
+          print(f"plan verified: {len(lock['services'])} services")
+          PY
+
+      - name: build and mirror images
+        env:
+          REGISTRY: 192.168.29.114:5000
+        run: |
+          set -euo pipefail
+          SLUG=$(python3 -c "import json; print(json.load(open('.tardis/project.json'))['slug'])")
+
+          python3 -c "
+          import json
+          for s in json.load(open('.tardis/stack.lock.json'))['services']:
+              b = s.get('build') or {}
+              if b:
+                  ctx = b.get('context', '.') if isinstance(b, dict) else str(b)
+                  df  = b.get('dockerfile', 'Dockerfile') if isinstance(b, dict) else 'Dockerfile'
+                  print(f\"{s['id']}\tbuild\t{ctx}\t{df}\")
+              else:
+                  print(f\"{s['id']}\tmirror\t{s.get('image','')}\t\")
+          " > /tmp/services.txt
+
+          : > /tmp/digests.txt
+          while IFS=$'\t' read -r id kind a b; do
+            target="$REGISTRY/tardis/$SLUG/$id"
+            if [ "$kind" = build ]; then
+              echo "::group::build $id"
+              docker build -t "$target:git-$GITHUB_SHA" -f "$a/$b" "$a"
+              echo "::endgroup::"
+            else
+              echo "::group::mirror $id ($a)"
+              # --platform is explicit: pulling a multi-arch image without it
+              # silently selects the runner's architecture, and re-pushing then
+              # collapses the manifest list to that one arch. This node is amd64.
+              docker pull --platform linux/amd64 "$a"
+              docker tag "$a" "$target:git-$GITHUB_SHA"
+              echo "::endgroup::"
+            fi
+            docker push "$target:git-$GITHUB_SHA"
+            # Read the digest back from the REGISTRY, not from `docker inspect`.
+            # A mirrored image carries its upstream RepoDigest (docker.io/...)
+            # alongside the local one, and their order is not defined — taking
+            # index 0 yields the upstream digest often enough to break the pull
+            # with a digest that does not exist in this registry.
+            DIGEST=$(curl -sS -I \
+              -H 'Accept: application/vnd.docker.distribution.manifest.v2+json' \
+              -H 'Accept: application/vnd.oci.image.manifest.v1+json' \
+              -H 'Accept: application/vnd.docker.distribution.manifest.list.v2+json' \
+              -H 'Accept: application/vnd.oci.image.index.v1+json' \
+              "http://$REGISTRY/v2/tardis/$SLUG/$id/manifests/git-$GITHUB_SHA" \
+              | tr -d '\r' | awk -F': ' 'tolower($1)=="docker-content-digest"{print $2}' | sed 's/^sha256://')
+            if [ -z "$DIGEST" ]; then
+              echo "::error::could not resolve pushed digest for $id from $REGISTRY"; exit 1
+            fi
+            printf '%s\t%s\n' "$id" "$DIGEST" >> /tmp/digests.txt
+          done < /tmp/services.txt
+          echo "resolved $(wc -l < /tmp/digests.txt) digests"
+
+      - name: compile deployment intent
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # Only bounded application intent crosses the wire: ids, digests,
+          # ports, literal env, volume ids, paths. The agent constructs every
+          # registry path, object name, host and selector itself.
+          python3 - <<'PY' > /tmp/intent.json
+          import json, os
+          lock = json.load(open('.tardis/stack.lock.json'))
+          digests = dict(l.rstrip('\n').split('\t') for l in open('/tmp/digests.txt') if l.strip())
+          services = []
+          for s in lock['services']:
+              out = {k: v for k, v in s.items() if k not in ('build', 'image') and v is not None}
+              out['digest'] = digests[s['id']]
+              services.append(out)
+          print(json.dumps({
+              'branch': os.environ['BRANCH'],
+              'sha': os.environ['GITHUB_SHA'],
+              'services': services,
+              'volumes': lock['volumes'],
+              'routes': lock['routes'],
+          }))
+          PY
+          python3 -c "import json;d=json.load(open('/tmp/intent.json'));print('intent:',len(d['services']),'services,',len(d['routes']),'routes')"
+
+      - name: deploy stack via project agent
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if curl -sS --fail-with-body -X POST "${{ secrets.TARDIS_AGENT_URL }}/api/stack/deploy" \
+                 -H "Authorization: Bearer ${{ secrets.TARDIS_CAPABILITY }}" \
+                 -H 'Content-Type: application/json' \
+                 --data-binary @/tmp/intent.json -k; then
+              echo; echo "deployed on attempt $attempt"; exit 0
+            fi
+            echo "attempt $attempt failed; retrying in 10s"; sleep 10
+          done
+          echo "stack deploy failed after 5 attempts"; exit 1
+
+      - name: sonarqube analysis (main only)
+        if: github.ref_name == 'main' && env.SONAR_TOKEN != ''
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          SLUG=$(python3 -c "import json; print(json.load(open('.tardis/project.json'))['slug'])")
+          docker run --rm \
+            -e SONAR_HOST_URL="${{ secrets.SONAR_HOST_URL }}" \
+            -e SONAR_TOKEN="$SONAR_TOKEN" \
+            -v "$PWD:/usr/src" \
+            sonarsource/sonar-scanner-cli:11 \
+            -Dsonar.projectKey=tardis-$SLUG || echo "sonar analysis failed (non-blocking)"

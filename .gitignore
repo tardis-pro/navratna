@@ -56,3 +56,4 @@ tmp/
 .debug-journal*.md
 apps/frontend/.debug-journal.md
 apps/frontend/.cortexkit/
+.tardis/credentials
