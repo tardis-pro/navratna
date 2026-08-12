@@ -101,7 +101,9 @@ export class PersonaService {
                 description: request.description,
                 traits: request.traits || [],
                 expertise: this.extractExpertiseNames(request.expertise || []),
-                background: request.background,
+                // personas.background is NOT NULL in the schema but optional on the
+                // request, so an omitted background failed the insert outright.
+                background: request.background ?? request.description ?? '',
                 systemPrompt: request.systemPrompt,
                 conversationalStyle: request.conversationalStyle,
                 status: request.status || PersonaStatus.ACTIVE,
