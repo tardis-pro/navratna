@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "stackSha256": "09cb7ca407fd22977423ef64538f0ad6852f981944aa6dde4af03da4060165e7",
+  "stackSha256": "95d1784bdc6b5ae6c5148b5084d1857ae9790c9f972b4c5cc70f47cec941565d",
   "services": [
     {
       "id": "postgres",
@@ -177,6 +177,7 @@
         "type": "tcp",
         "port": 8080
       },
+      "metrics": true,
       "build": {
         "context": ".",
         "dockerfile": "deploy/fly/Dockerfile.core"
@@ -226,6 +227,7 @@
         "type": "tcp",
         "port": 8080
       },
+      "metrics": true,
       "build": {
         "context": ".",
         "dockerfile": "deploy/fly/Dockerfile.gateway"

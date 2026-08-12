@@ -122,6 +122,10 @@ services:
     build: { context: ., dockerfile: deploy/fly/Dockerfile.core }
     profile: generic
     scope: release
+    # Opt into Prometheus scraping. BaseService already serves
+    # prom-client counters + a latency histogram on /metrics; without
+    # this the series were emitted every request and thrown away.
+    metrics: true
     port: 8080
     memory: 1024          # 512 OOMs under load (same finding as Fly)
     cpu: 250
@@ -168,6 +172,10 @@ services:
     build: { context: ., dockerfile: deploy/fly/Dockerfile.gateway }
     profile: generic
     scope: release
+    # Opt into Prometheus scraping. BaseService already serves
+    # prom-client counters + a latency histogram on /metrics; without
+    # this the series were emitted every request and thrown away.
+    metrics: true
     port: 8080
     memory: 768
     cpu: 250

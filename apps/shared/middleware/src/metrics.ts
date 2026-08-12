@@ -134,6 +134,30 @@ const circuitBreakerState = getOrCreateGauge({
   labelNames: ['server'],
 });
 
+// Prometheus label values must be BOUNDED. A raw pathname is not: every UUID,
+// slug or numeric id mints a brand-new time series, so a handful of endpoints
+// can produce millions of series and eventually take Prometheus down. Collapse
+// the variable segments back into the route template they came from, so
+// /api/v1/agents/2b96e509-.../chat becomes /api/v1/agents/:id/chat.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const HEX_RE = /^[0-9a-f]{16,}$/i;
+const NUM_RE = /^\d+$/;
+
+export function normalizeRoute(pathname: string): string {
+  const parts = pathname.split('/');
+  for (let i = 0; i < parts.length; i++) {
+    const seg = parts[i];
+    if (!seg) continue;
+    if (UUID_RE.test(seg) || HEX_RE.test(seg) || NUM_RE.test(seg)) {
+      parts[i] = ':id';
+    }
+  }
+  // A pathological caller can still walk deep paths; cap the depth so the
+  // label set stays finite no matter what arrives.
+  if (parts.length > 12) return parts.slice(0, 12).join('/') + '/*';
+  return parts.join('/') || '/';
+}
+
 // Elysia metrics middleware plugin
 export function metricsMiddleware(app: Elysia): Elysia {
   if (!config.monitoring.metricsEnabled) {
@@ -146,7 +170,7 @@ export function metricsMiddleware(app: Elysia): Elysia {
     })
     .onAfterResponse(({ request, set }) => {
       const url = new URL(request.url);
-      const route = url.pathname;
+      const route = normalizeRoute(url.pathname);
       const statusCode = typeof set.status === 'number' ? set.status : 200;
 
       httpRequestsTotal.inc({
@@ -167,7 +191,7 @@ export function metricsMiddleware(app: Elysia): Elysia {
       if (metricsStartTime) {
         const duration = (Date.now() - metricsStartTime) / 1000;
         const url = new URL(request.url);
-        const route = url.pathname;
+        const route = normalizeRoute(url.pathname);
         const statusCode = typeof set.status === 'number' ? set.status : 200;
 
         httpRequestDuration.observe(
