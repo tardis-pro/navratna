@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "stackSha256": "c0181e145599edc82dc3ea3a83bf379cfaae1b2dfe2fcd87faad782038d88eac",
+  "stackSha256": "977791a209cd43caebbc142b5540602bf48b2657405f85f999170b454a2382f8",
   "services": [
     {
       "id": "postgres",
@@ -152,6 +152,7 @@
         "NODE_ENV": "production",
         "NAVRATNA_CORE_PORT": "8080",
         "LOG_LEVEL": "info",
+        "DB_SSL": "false",
         "POSTGRES_URL": "postgresql://uaip_user:768fe72364e34688a524512f1ffa9c26f8bdc5adca42a3ef@postgres:5432/uaip",
         "NEO4J_URL": "bolt://graph-db:7687",
         "NEO4J_USER": "neo4j",
@@ -198,6 +199,7 @@
         "NODE_ENV": "production",
         "NAVRATNA_GATEWAY_PORT": "8080",
         "LOG_LEVEL": "info",
+        "DB_SSL": "false",
         "POSTGRES_URL": "postgresql://uaip_user:768fe72364e34688a524512f1ffa9c26f8bdc5adca42a3ef@postgres:5432/uaip",
         "NEO4J_URL": "bolt://graph-db:7687",
         "NEO4J_USER": "neo4j",
