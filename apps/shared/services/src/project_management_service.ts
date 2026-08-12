@@ -101,7 +101,7 @@ export class ProjectManagementService {
     try {
       const slug = await generateUniqueSlug(this.projectRepository);
 
-      const project = this.projectRepository.create({
+      const savedProject = await this.projectRepository.save({
         name: data.name,
         description: data.description,
         ownerId: data.ownerId,
@@ -133,8 +133,6 @@ export class ProjectManagementService {
         artifactCount: 0,
         totalSizeBytes: 0,
       });
-
-      const savedProject = await this.projectRepository.save(project);
 
       // Add project owner as owner member
       await this.addProjectMember(savedProject.id, data.ownerId, ProjectRole.OWNER);
@@ -328,7 +326,7 @@ export class ProjectManagementService {
         return existing;
       }
 
-      const member = this.memberRepository.create({
+      const saved = await this.memberRepository.save({
         projectId,
         userId,
         role,
@@ -336,8 +334,6 @@ export class ProjectManagementService {
         permissions: this.getDefaultPermissions(role),
         joinedAt: new Date(),
       });
-
-      const saved = await this.memberRepository.save(member);
 
       if (this.eventBusService) {
         await this.eventBusService.publish('project.member.added', {

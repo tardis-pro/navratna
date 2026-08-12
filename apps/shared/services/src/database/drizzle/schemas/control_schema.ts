@@ -1045,18 +1045,24 @@ export const projects = pgTable('projects', {
   ...base,
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description'),
+  slug: varchar('slug', { length: 32 }).notNull(),
   status: varchar('status', { length: 50 }).notNull().default('active'),
+  visibility: varchar('visibility', { length: 50 }).notNull().default('private'),
   type: varchar('type', { length: 100 }),
   ownerId: uuid('owner_id')
     .notNull()
     .references(() => users.id, { onDelete: 'restrict' }),
   organizationId: uuid('organization_id'),
+  tags: jsonb('tags').$type<string[]>(),
   githubRepo: varchar('github_repo', { length: 255 }),
   githubRepoId: varchar('github_repo_id', { length: 50 }),
   githubRepoFullName: varchar('github_repo_full_name', { length: 255 }),
   githubCloneUrl: varchar('github_clone_url', { length: 500 }),
   settings: jsonb('settings').$type<Record<string, unknown>>(),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  fileCount: integer('file_count').notNull().default(0),
+  artifactCount: integer('artifact_count').notNull().default(0),
+  totalSizeBytes: integer('total_size_bytes').notNull().default(0),
   archivedAt: timestamp('archived_at'),
 });
 
