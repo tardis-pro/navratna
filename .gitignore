@@ -32,6 +32,9 @@ sprint/
 *.js.map
 *.d.ts
 *.d.ts.map
+# hand-written ambient declarations (not build output) — must be tracked
+!apps/backend/services/security-gateway/src/pdf-parse.d.ts
+!apps/frontend/src/vite-env.d.ts
 **/**/*.tsbuildinfo
 
 .nx/polygraph
