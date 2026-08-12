@@ -70,8 +70,11 @@ export const createLogger = (config: LoggerConfig) => {
       })
     );
 
-    // File transports for production
-    if (config.environment === 'production') {
+    // File transports are opt-in: production runs on Fly, where the disk is
+    // ephemeral and `fly logs` already captures stdout — the file streams only
+    // produced "write after end" errors when transports closed during
+    // shutdown/restart while late log calls were still in flight.
+    if (config.environment === 'production' && process.env.LOG_TO_FILE === 'true') {
       // Error log file
       transports.push(
         new winston.transports.File({
@@ -110,7 +113,7 @@ export const createLogger = (config: LoggerConfig) => {
   });
 
   // Handle uncaught exceptions and unhandled rejections
-  if (config.environment === 'production') {
+  if (config.environment === 'production' && process.env.LOG_TO_FILE === 'true') {
     logger.exceptions.handle(
       new winston.transports.File({
         filename: `logs/${config.serviceName}-exceptions.log`,

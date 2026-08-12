@@ -7,6 +7,14 @@ const hasReactComponentStack = (value: unknown): boolean =>
   'componentStack' in value &&
   typeof value.componentStack === 'string';
 
+// An API 401 is an expected state (session expired, user not logged in) that
+// the app already handles via the `auth:unauthorized` event — reporting it to
+// Sentry buries real errors under one event per expired-cookie visitor.
+// Duck-typed on statusCode rather than importing EdenClientError: eden.ts
+// reaches this module through c_s_r_f_service, so the import would be a cycle.
+const isExpectedAuthError = (value: unknown): boolean =>
+  value instanceof Error && 'statusCode' in value && value.statusCode === 401;
+
 export interface Logger {
   info(message: string, ...args: unknown[]): void;
   warn(message: string, ...args: unknown[]): void;
@@ -32,6 +40,7 @@ class BrowserLogger implements Logger {
   error(message: string, ...args: unknown[]): void {
     console.error(`[ERROR] ${message}`, ...args);
     if (args.some(hasReactComponentStack)) return;
+    if (args.some(isExpectedAuthError)) return;
 
     const error = args.find((arg): arg is Error => arg instanceof Error) ?? new Error(message);
     captureFrontendException(
