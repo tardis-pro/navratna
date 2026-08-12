@@ -644,7 +644,11 @@ export class LLMService {
       const cachedModels = await this.cacheService.get<AvailableModel[]>(
         LLMService.MODELS_CACHE_KEY
       );
-      if (cachedModels) {
+      // An empty array is never a legitimate catalog — it only happens when a
+      // fetch failed (bad credentials, provider down). Treating it as a hit
+      // pins the model list to empty for the whole TTL even after the provider
+      // is fixed, so re-fetch instead.
+      if (cachedModels && cachedModels.length > 0) {
         logger.debug('Returning cached models', { modelCount: cachedModels.length });
         return cachedModels;
       }
@@ -709,12 +713,17 @@ export class LLMService {
       return [];
     }
 
-    // Cache the results for 1 hour
-    try {
-      await this.cacheService.set(LLMService.MODELS_CACHE_KEY, allModels, LLMService.CACHE_TTL);
-      logger.debug('Cached models successfully', { modelCount: allModels.length });
-    } catch (error) {
-      logger.warn('Failed to cache models', { error });
+    // Cache the results for 1 hour. Never cache an empty catalog: it would
+    // mask a recovered provider until the TTL expired.
+    if (allModels.length > 0) {
+      try {
+        await this.cacheService.set(LLMService.MODELS_CACHE_KEY, allModels, LLMService.CACHE_TTL);
+        logger.debug('Cached models successfully', { modelCount: allModels.length });
+      } catch (error) {
+        logger.warn('Failed to cache models', { error });
+      }
+    } else {
+      logger.warn('Model catalog resolved empty; not caching so the next call retries');
     }
 
     logger.info(`Total models available: ${allModels.length}`);
@@ -743,7 +752,8 @@ export class LLMService {
     // Check cache first
     try {
       const cachedModels = await this.cacheService.get<ProviderModel[]>(cacheKey);
-      if (cachedModels) {
+      // See getAvailableModels: an empty catalog is a failed fetch, not a result.
+      if (cachedModels && cachedModels.length > 0) {
         logger.debug(`Returning cached models for provider ${providerType}`, {
           modelCount: cachedModels.length,
         });
@@ -768,12 +778,14 @@ export class LLMService {
     try {
       const models = await provider.getAvailableModels();
 
-      // Cache the results for 1 hour
-      try {
-        await this.cacheService.set(cacheKey, models, LLMService.CACHE_TTL);
-        logger.debug(`Cached models for provider ${providerType}`, { modelCount: models.length });
-      } catch (cacheError) {
-        logger.warn(`Failed to cache models for provider ${providerType}`, { error: cacheError });
+      // Cache the results for 1 hour, unless empty (see getAvailableModels).
+      if (models.length > 0) {
+        try {
+          await this.cacheService.set(cacheKey, models, LLMService.CACHE_TTL);
+          logger.debug(`Cached models for provider ${providerType}`, { modelCount: models.length });
+        } catch (cacheError) {
+          logger.warn(`Failed to cache models for provider ${providerType}`, { error: cacheError });
+        }
       }
 
       return models;
