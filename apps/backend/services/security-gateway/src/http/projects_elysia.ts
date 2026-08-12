@@ -497,6 +497,7 @@ export function registerProjectRoutes() {
 
         const projectService = await getProjectService();
         const updated = await projectService.linkGitRepo(params.projectId, user!.id, {
+          projectId: params.projectId,
           provider: parsed.data.provider,
           repoFullName: parsed.data.repoFullName,
           repoId: parsed.data.repoId,

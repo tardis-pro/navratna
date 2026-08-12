@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { getControlDb } from '@uaip/shared-services';
 import { and, eq, sql } from '@uaip/shared-services/drizzle/clients';
 import { projects, tasks, users } from '@uaip/shared-services/drizzle/control';
@@ -185,6 +186,7 @@ export class InternalBoardAdapter implements BoardProvider {
         .insert(projects)
         .values({
           name,
+          slug: randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase(),
           description: config?.description,
           status: config?.status ?? 'backlog',
           ownerId,

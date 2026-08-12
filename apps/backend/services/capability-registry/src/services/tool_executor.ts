@@ -2,7 +2,6 @@
 // Handles tool execution with PostgreSQL logging and Neo4j usage pattern tracking
 // Part of capability-registry microservice
 
-import { randomUUID } from 'node:crypto';
 import { ToolDefinition, ToolExecution, ToolExecutionStatus } from '@uaip/types';
 
 function isRecord(v: unknown): v is Record<string, unknown> {

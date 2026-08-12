@@ -5,6 +5,19 @@ import type { InferInsertModel } from 'drizzle-orm';
 
 type ProjectInsert = InferInsertModel<typeof projects>;
 
+/**
+ * Deterministic 8-char slug from the project name, so re-running the seeder
+ * produces the same slug and `onConflictDoNothing` stays idempotent.
+ */
+function slugFromName(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash << 5) - hash + name.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36).toUpperCase().padStart(8, '0').slice(0, 8);
+}
+
 export class ProjectSeed extends BaseSeed {
   private db = getControlDb();
   private users: { id: string }[] = [];
@@ -20,14 +33,14 @@ export class ProjectSeed extends BaseSeed {
     for (const project of seedData) {
       await this.db
         .insert(projects)
-        .values(project)
+        .values({ ...project, slug: slugFromName(project.name) })
         .onConflictDoNothing();
     }
 
     return await this.db.select().from(projects);
   }
 
-  async getSeedData(): Promise<ProjectInsert[]> {
+  async getSeedData(): Promise<Omit<ProjectInsert, 'slug'>[]> {
     return [
       {
         name: 'E-commerce Platform Redesign',
