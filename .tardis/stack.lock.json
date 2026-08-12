@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "stackSha256": "ee4274b8ac3baa11667580909decabf6ea8f20dbbd185cc25783c4863259713e",
+  "stackSha256": "4ac7f79d5c992d8149571fd03dcdb07424204a7b75c7f4a07c082204cacda589",
   "services": [
     {
       "id": "postgres",
@@ -29,7 +29,7 @@
       "image": "postgres:18-alpine"
     },
     {
-      "id": "neo4j",
+      "id": "graph-db",
       "profile": "generic",
       "scope": "shared",
       "preview": false,
@@ -105,7 +105,9 @@
       "port": 6333,
       "env": {
         "QDRANT__SERVICE__HTTP_PORT": "6333",
-        "QDRANT__SERVICE__GRPC_PORT": "6334"
+        "QDRANT__SERVICE__GRPC_PORT": "6334",
+        "QDRANT__STORAGE__SNAPSHOTS_PATH": "/qdrant/storage/snapshots",
+        "QDRANT__TELEMETRY_DISABLED": "true"
       },
       "mounts": [
         {
@@ -135,7 +137,7 @@
       ],
       "dependsOn": [
         "postgres",
-        "neo4j",
+        "graph-db",
         "redis",
         "qdrant"
       ],
@@ -144,7 +146,7 @@
         "NAVRATNA_CORE_PORT": "8080",
         "LOG_LEVEL": "info",
         "POSTGRES_URL": "postgresql://uaip_user:768fe72364e34688a524512f1ffa9c26f8bdc5adca42a3ef@postgres:5432/uaip",
-        "NEO4J_URL": "bolt://neo4j:7687",
+        "NEO4J_URL": "bolt://graph-db:7687",
         "NEO4J_USER": "neo4j",
         "NEO4J_PASSWORD": "7b51bf8cf6acd79f47f8e6ebb9ce66dd7b789fd15ac7bd7a",
         "REDIS_URL": "redis://:0c2c3900623342900e8aab30a659a3098671f7d74b2cf6e3@redis:6379",
@@ -181,7 +183,7 @@
       "port": 8080,
       "dependsOn": [
         "postgres",
-        "neo4j",
+        "graph-db",
         "redis",
         "qdrant"
       ],
@@ -190,7 +192,7 @@
         "NAVRATNA_GATEWAY_PORT": "8080",
         "LOG_LEVEL": "info",
         "POSTGRES_URL": "postgresql://uaip_user:768fe72364e34688a524512f1ffa9c26f8bdc5adca42a3ef@postgres:5432/uaip",
-        "NEO4J_URL": "bolt://neo4j:7687",
+        "NEO4J_URL": "bolt://graph-db:7687",
         "NEO4J_USER": "neo4j",
         "NEO4J_PASSWORD": "7b51bf8cf6acd79f47f8e6ebb9ce66dd7b789fd15ac7bd7a",
         "REDIS_URL": "redis://:0c2c3900623342900e8aab30a659a3098671f7d74b2cf6e3@redis:6379",
