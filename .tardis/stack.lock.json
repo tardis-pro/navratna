@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "stackSha256": "9f6f094c5754e58b2243ed7ece64ff58e7f2bab2de4cc543d76f4d5abaf37e7b",
+  "stackSha256": "ee4274b8ac3baa11667580909decabf6ea8f20dbbd185cc25783c4863259713e",
   "services": [
     {
       "id": "postgres",
@@ -38,14 +38,7 @@
       "port": 7687,
       "env": {
         "NEO4J_AUTH": "neo4j/7b51bf8cf6acd79f47f8e6ebb9ce66dd7b789fd15ac7bd7a",
-        "NEO4J_PLUGINS": "[\"apoc\"]",
-        "NEO4J_apoc_export_file_enabled": "true",
-        "NEO4J_apoc_import_file_enabled": "true",
-        "NEO4J_apoc_import_file_use__neo4j__config": "true",
-        "NEO4J_dbms_security_procedures_unrestricted": "apoc.*",
-        "NEO4J_dbms_memory_heap_initial__size": "256m",
-        "NEO4J_dbms_memory_heap_max__size": "768m",
-        "NEO4J_dbms_memory_pagecache_size": "256m"
+        "NEO4J_PLUGINS": "[\"apoc\"]"
       },
       "mounts": [
         {
