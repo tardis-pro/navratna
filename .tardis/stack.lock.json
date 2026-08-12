@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "stackSha256": "95d1784bdc6b5ae6c5148b5084d1857ae9790c9f972b4c5cc70f47cec941565d",
+  "stackSha256": "df3a7f38da1acc3b6a79299bb158fa5b7c605b984c7a495d49deda16b6005965",
   "services": [
     {
       "id": "postgres",
@@ -169,7 +169,16 @@
         "JWT_REFRESH_SECRET": "e257007b17030b49f292885f0e92aab4961932cdc5beb99a",
         "DELETION_HASH_SALT": "f2a9c1d47e83b06512c4e9a8d7f3b5c1",
         "EDGE_AUTH_SECRET": "c84946937277d3a29209f2e3a49d9e7a",
-        "LLM_PROVIDER_ENCRYPTION_KEY": "9d4b7e2f81c356a0d8e14f72b9a3c6e5",
+        "LLM_PROVIDER_ENCRYPTION_KEY": "1deae090f180e05266037660b8c507afbfa1180369239f5fe789d15bbb71366c",
+        "EMBEDDINGS_URL": "https://ai.tardis.digital/v1/embeddings",
+        "EMBEDDINGS_MODEL": "jina/jina-embeddings-v5-text-small",
+        "EMBEDDINGS_API_KEY": "sk-3909fbf385e370bc-c3b924-cfbfde2c",
+        "EMBEDDINGS_DIM": "1024",
+        "QDRANT_VECTOR_DIM": "1024",
+        "RERANKING_URL": "https://ai.tardis.digital/v1/rerank",
+        "RERANKING_MODEL": "jina/jina-reranker-v3",
+        "OPENAI_API_KEY": "sk-3909fbf385e370bc-c3b924-cfbfde2c",
+        "GITEA_URL": "https://git.tardis.local",
         "ENTERPRISE_MODE": "false",
         "ZERO_TRUST_MODE": "disabled"
       },
@@ -218,7 +227,16 @@
         "JWT_REFRESH_SECRET": "e257007b17030b49f292885f0e92aab4961932cdc5beb99a",
         "DELETION_HASH_SALT": "f2a9c1d47e83b06512c4e9a8d7f3b5c1",
         "EDGE_AUTH_SECRET": "c84946937277d3a29209f2e3a49d9e7a",
-        "LLM_PROVIDER_ENCRYPTION_KEY": "9d4b7e2f81c356a0d8e14f72b9a3c6e5",
+        "LLM_PROVIDER_ENCRYPTION_KEY": "1deae090f180e05266037660b8c507afbfa1180369239f5fe789d15bbb71366c",
+        "EMBEDDINGS_URL": "https://ai.tardis.digital/v1/embeddings",
+        "EMBEDDINGS_MODEL": "jina/jina-embeddings-v5-text-small",
+        "EMBEDDINGS_API_KEY": "sk-3909fbf385e370bc-c3b924-cfbfde2c",
+        "EMBEDDINGS_DIM": "1024",
+        "QDRANT_VECTOR_DIM": "1024",
+        "RERANKING_URL": "https://ai.tardis.digital/v1/rerank",
+        "RERANKING_MODEL": "jina/jina-reranker-v3",
+        "OPENAI_API_KEY": "sk-3909fbf385e370bc-c3b924-cfbfde2c",
+        "GITEA_URL": "https://git.tardis.local",
         "OAUTH_CALLBACK_URL": "https://navratna.tardis.local/api/v1/oauth/callback",
         "ENTERPRISE_MODE": "false",
         "ZERO_TRUST_MODE": "disabled"
