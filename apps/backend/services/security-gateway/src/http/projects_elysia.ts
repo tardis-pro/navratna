@@ -136,6 +136,13 @@ const linkGitHubRepoSchema = z.object({
   repoFullName: z.string().min(1),
 });
 
+const linkGitRepoSchema = z.object({
+  provider: z.enum(['github', 'gitea']),
+  repoFullName: z.string().min(1),
+  repoId: z.string().min(1),
+  cloneUrl: z.string().url(),
+});
+
 export function registerProjectRoutes() {
   return new Elysia().group('/api/v1/projects', (app) => withOptionalAuth(app)
     // List projects
@@ -473,6 +480,38 @@ export function registerProjectRoutes() {
         }
         set.status = 500;
         return { success: false, error: 'Failed to link GitHub repository' };
+      }
+    })
+
+    // Link any git repository (GitHub, Gitea, etc.) to the project
+    .post('/:projectId/link-git', async ({ params, body, set, user }) => {
+      try {
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
+
+        const parsed = linkGitRepoSchema.safeParse(body);
+        if (!parsed.success) {
+          set.status = 400;
+          return { success: false, error: 'Validation Error', details: parsed.error.flatten() };
+        }
+
+        const projectService = await getProjectService();
+        const updated = await projectService.linkGitRepo(params.projectId, user!.id, {
+          provider: parsed.data.provider,
+          repoFullName: parsed.data.repoFullName,
+          repoId: parsed.data.repoId,
+          cloneUrl: parsed.data.cloneUrl,
+        });
+
+        return { success: true, data: updated };
+      } catch (error) {
+        logger.error('Failed to link git repo', { error: describeError(error), projectId: params.projectId });
+        if (error instanceof ApiError) {
+          set.status = error.statusCode;
+          return { success: false, error: error.message, code: error.code };
+        }
+        set.status = 500;
+        return { success: false, error: 'Failed to link git repository' };
       }
     })
   );
