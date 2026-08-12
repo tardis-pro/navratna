@@ -40,6 +40,13 @@ export const INTEGRATION_CATALOG: IntegrationCatalogEntry[] = [
     oauthProviderName: 'GitHub',
   },
   {
+    key: 'gitea',
+    displayName: 'Gitea',
+    description: 'Gitea repositories, issues and pull requests via the Gitea API',
+    mcpUrl: '', // Gitea MCP URL is instance-specific; set via GITEA_URL env
+    credentialMode: 'server_connection',
+  },
+  {
     key: 'slack',
     displayName: 'Slack',
     description: 'Slack channels, messages and users via the official MCP server',

@@ -10,6 +10,7 @@ import {
   MemberStatus,
   ProjectType,
   type LinkGitHubRepoData,
+  type LinkGitRepoData,
 } from '@uaip/types';
 
 type JsonPrimitive = string | number | boolean | null;
@@ -110,6 +111,7 @@ export class ProjectManagementService {
         visibility: data.visibility ?? ProjectVisibility.PRIVATE,
         slug,
         tags: data.tags,
+        gitProvider: data.gitProvider ?? (data.githubRepo ? 'github' : null),
         githubRepo: data.githubRepo,
         githubRepoId: data.githubRepoId,
         githubRepoFullName: data.githubRepoFullName,
@@ -271,20 +273,30 @@ export class ProjectManagementService {
     userId: string,
     data: LinkGitHubRepoData
   ): Promise<ProjectEntity> {
+    return this.linkGitRepo(projectId, userId, { ...data, provider: 'github' });
+  }
+
+  async linkGitRepo(
+    projectId: string,
+    userId: string,
+    data: LinkGitRepoData
+  ): Promise<ProjectEntity> {
     const project = await this.getProject(projectId, userId);
     if (!project) {
       throw new Error(`Project ${projectId} not found or access denied`);
     }
 
     return this.updateProject(projectId, {
+      gitProvider: data.provider,
       githubRepo: data.repoFullName,
       githubRepoId: data.repoId,
       githubRepoFullName: data.repoFullName,
       githubCloneUrl: data.cloneUrl,
       metadata: {
         ...(project.metadata ?? {}),
-        githubLinkedAt: new Date().toISOString(),
-        githubLinkedBy: userId,
+        gitLinkedAt: new Date().toISOString(),
+        gitLinkedBy: userId,
+        gitProvider: data.provider,
       },
     });
   }

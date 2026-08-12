@@ -1049,6 +1049,7 @@ export const projects = pgTable('projects', {
   status: varchar('status', { length: 50 }).notNull().default('active'),
   visibility: varchar('visibility', { length: 50 }).notNull().default('private'),
   type: varchar('type', { length: 100 }),
+  gitProvider: varchar('git_provider', { length: 50 }),
   ownerId: uuid('owner_id')
     .notNull()
     .references(() => users.id, { onDelete: 'restrict' }),

@@ -2,6 +2,7 @@
 
 export enum IntegrationProvider {
   GITHUB = 'github',
+  GITEA = 'gitea',
   JIRA = 'jira',
   LINEAR = 'linear',
   NOTION = 'notion',
@@ -9,6 +10,9 @@ export enum IntegrationProvider {
   SLACK = 'slack',
   CONFLUENCE = 'confluence',
 }
+
+/** Git hosting providers supported for project repo linking. */
+export type GitProvider = 'github' | 'gitea';
 
 export enum IntegrationConnectionStatus {
   ACTIVE = 'active',

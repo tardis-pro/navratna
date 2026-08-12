@@ -107,6 +107,7 @@ export interface ProjectEntity {
   fileCount?: number;
   artifactCount?: number;
   totalSizeBytes?: number;
+  gitProvider?: 'github' | 'gitea' | null;
   githubRepo?: string;
   githubRepoId?: string;
   githubRepoFullName?: string;
@@ -194,6 +195,7 @@ export interface CreateProjectData {
   startDate?: Date;
   endDate?: Date;
   budget?: number;
+  gitProvider?: 'github' | 'gitea' | null;
   githubRepo?: string;
   githubRepoId?: string;
   githubRepoFullName?: string;
@@ -202,12 +204,16 @@ export interface CreateProjectData {
   metadata?: Record<string, unknown>;
 }
 
-export interface LinkGitHubRepoData {
+export interface LinkGitRepoData {
   projectId: string;
+  provider: 'github' | 'gitea';
   repoFullName: string;
   repoId: string;
   cloneUrl: string;
 }
+
+/** @deprecated Use LinkGitRepoData */
+export type LinkGitHubRepoData = Omit<LinkGitRepoData, 'provider'>;
 
 export interface GitHubRepo {
   id: number;

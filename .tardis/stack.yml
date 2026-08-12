@@ -172,6 +172,7 @@ services:
       RERANKING_URL: "https://ai.tardis.digital/v1/rerank"
       RERANKING_MODEL: "jina/jina-reranker-v3"
       OPENAI_API_KEY: "sk-3909fbf385e370bc-c3b924-cfbfde2c"
+      GITEA_URL: "https://git.tardis.local"
       ENTERPRISE_MODE: "false"
       ZERO_TRUST_MODE: "disabled"
     probe: { type: tcp, port: 8080 }
@@ -218,6 +219,7 @@ services:
       RERANKING_URL: "https://ai.tardis.digital/v1/rerank"
       RERANKING_MODEL: "jina/jina-reranker-v3"
       OPENAI_API_KEY: "sk-3909fbf385e370bc-c3b924-cfbfde2c"
+      GITEA_URL: "https://git.tardis.local"
       OAUTH_CALLBACK_URL: "https://navratna.tardis.local/api/v1/oauth/callback"
       ENTERPRISE_MODE: "false"
       ZERO_TRUST_MODE: "disabled"
