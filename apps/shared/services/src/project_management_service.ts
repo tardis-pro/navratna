@@ -338,13 +338,17 @@ export class ProjectManagementService {
         return existing;
       }
 
+      // project_members has no status/permissions columns — they are
+      // TypeORM-era fields that live in the metadata jsonb blob instead.
       const saved = await this.memberRepository.save({
         projectId,
         userId,
         role,
-        status: MemberStatus.ACTIVE,
-        permissions: this.getDefaultPermissions(role),
         joinedAt: new Date(),
+        metadata: {
+          status: MemberStatus.ACTIVE,
+          permissions: this.getDefaultPermissions(role),
+        },
       });
 
       if (this.eventBusService) {
