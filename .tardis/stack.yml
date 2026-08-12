@@ -136,6 +136,14 @@ services:
       NODE_ENV: "production"
       NAVRATNA_CORE_PORT: "8080"
       LOG_LEVEL: "info"
+      # Hour-0 error tracking. BaseService.initializeObservability() already
+      # calls initSentry(), so the SDK only ever needed a DSN — each app gets
+      # its OWN GlitchTip project so an error is attributable to a service
+      # rather than to "navratna". The DSN is a write-only ingest key.
+      # TLS to sentry.tardis.local works because the platform mounts the
+      # homelab CA and sets NODE_EXTRA_CA_CERTS on every workload.
+      SENTRY_DSN: "https://94327d1a3c8c4d3e88e673a2d77f2011@sentry.tardis.local/14"
+      SENTRY_ENVIRONMENT: "tardis-local"
       DB_SSL: "false"
       POSTGRES_URL: "postgresql://uaip_user:768fe72364e34688a524512f1ffa9c26f8bdc5adca42a3ef@postgres:5432/uaip"
       NEO4J_URL: "bolt://graph-db:7687"
@@ -168,6 +176,9 @@ services:
       NODE_ENV: "production"
       NAVRATNA_GATEWAY_PORT: "8080"
       LOG_LEVEL: "info"
+      # See navratna-core: separate GlitchTip project, separate DSN.
+      SENTRY_DSN: "https://9c156f82a30e4f27b13f31ef9997e165@sentry.tardis.local/15"
+      SENTRY_ENVIRONMENT: "tardis-local"
       DB_SSL: "false"
       POSTGRES_URL: "postgresql://uaip_user:768fe72364e34688a524512f1ffa9c26f8bdc5adca42a3ef@postgres:5432/uaip"
       NEO4J_URL: "bolt://graph-db:7687"

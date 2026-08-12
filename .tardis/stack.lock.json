@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "stackSha256": "977791a209cd43caebbc142b5540602bf48b2657405f85f999170b454a2382f8",
+  "stackSha256": "09cb7ca407fd22977423ef64538f0ad6852f981944aa6dde4af03da4060165e7",
   "services": [
     {
       "id": "postgres",
@@ -152,6 +152,8 @@
         "NODE_ENV": "production",
         "NAVRATNA_CORE_PORT": "8080",
         "LOG_LEVEL": "info",
+        "SENTRY_DSN": "https://94327d1a3c8c4d3e88e673a2d77f2011@sentry.tardis.local/14",
+        "SENTRY_ENVIRONMENT": "tardis-local",
         "DB_SSL": "false",
         "POSTGRES_URL": "postgresql://uaip_user:768fe72364e34688a524512f1ffa9c26f8bdc5adca42a3ef@postgres:5432/uaip",
         "NEO4J_URL": "bolt://graph-db:7687",
@@ -199,6 +201,8 @@
         "NODE_ENV": "production",
         "NAVRATNA_GATEWAY_PORT": "8080",
         "LOG_LEVEL": "info",
+        "SENTRY_DSN": "https://9c156f82a30e4f27b13f31ef9997e165@sentry.tardis.local/15",
+        "SENTRY_ENVIRONMENT": "tardis-local",
         "DB_SSL": "false",
         "POSTGRES_URL": "postgresql://uaip_user:768fe72364e34688a524512f1ffa9c26f8bdc5adca42a3ef@postgres:5432/uaip",
         "NEO4J_URL": "bolt://graph-db:7687",

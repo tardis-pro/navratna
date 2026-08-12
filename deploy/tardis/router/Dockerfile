@@ -25,6 +25,15 @@ RUN pnpm install --frozen-lockfile
 # Same-origin API: the router serves both the SPA and /api/v1 on this host.
 ENV VITE_API_BASE_URL=https://navratna.tardis.local
 ENV NODE_ENV=production
+# Frontend error tracking. Unlike the backends — which read SENTRY_DSN from the
+# environment at run time — a SPA has no server-side env, so Vite inlines
+# VITE_* at BUILD time and the DSN has to be present here. It is a write-only
+# ingest key and is public in the bundle by design (any browser can read it);
+# GlitchTip accepts events with it but grants no read access.
+ARG VITE_SENTRY_DSN=https://8ee8dada44d04747877df1af97ead037@sentry.tardis.local/16
+ARG VITE_SENTRY_ENVIRONMENT=tardis-local
+ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
+ENV VITE_SENTRY_ENVIRONMENT=$VITE_SENTRY_ENVIRONMENT
 RUN pnpm nx run-many -t build --projects=@uaip/types,@uaip/contracts \
  && pnpm nx run @council/frontend:build
 
