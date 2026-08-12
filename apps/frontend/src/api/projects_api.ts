@@ -4,8 +4,12 @@
  */
 
 import { gatewayClient, edenWithCSRFRetry, edenRequest } from './eden';
-import { GitHubRepo, LinkGitHubRepoRequest, ProjectRole } from '@uaip/types';
-import type { ProjectStatus, ProjectMemberRole } from '@uaip/contracts/api';
+import { GitHubRepo, LinkGitRepoData, ProjectRole } from '@uaip/types';
+import type {
+  ProjectStatus,
+  ProjectMemberRole,
+  LinkGitHubRepoRequest as LinkGitHubRepoRequestType,
+} from '@uaip/contracts/api';
 import type {
   Project,
   ProjectCreate,
@@ -13,8 +17,6 @@ import type {
   ProjectMember,
   ProjectFile,
   ProjectListOptions,
-  GitHubRepo,
-  LinkGitHubRepoRequest,
 } from '@uaip/contracts/api';
 import type { ProjectMetrics } from '@uaip/types';
 
@@ -33,7 +35,8 @@ export type {
   ProjectFile,
   ProjectListOptions,
   GitHubRepo,
-  LinkGitHubRepoRequest,
+  LinkGitRepoData,
+  LinkGitHubRepoRequestType as LinkGitHubRepoRequest,
 };
 
 const projects = gatewayClient.api.v1.projects;
@@ -176,10 +179,17 @@ export const projectsAPI = {
     });
   },
 
-  async linkGitHubRepo(projectId: string, request: LinkGitHubRepoRequest): Promise<Project> {
+  async linkGitHubRepo(projectId: string, request: Omit<LinkGitHubRepoRequestType, 'projectId'>): Promise<Project> {
     return edenRequest<Project>(`/api/v1/projects/${projectId}/link-github`, {
       method: 'POST',
       body: request,
+    });
+  },
+
+  async linkGitRepo(projectId: string, data: Omit<LinkGitRepoData, 'projectId'>): Promise<Project> {
+    return edenRequest<Project>(`/api/v1/projects/${projectId}/link-git`, {
+      method: 'POST',
+      body: data,
     });
   },
 

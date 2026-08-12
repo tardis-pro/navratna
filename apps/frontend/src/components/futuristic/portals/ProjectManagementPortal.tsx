@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { GitHubRepoLinkModal } from './GitHubRepoLinkModal';
+import { GiteaRepoLinkModal } from './GiteaRepoLinkModal';
 import { ProjectOnboardingFlow } from './ProjectOnboardingFlow';
 import { projectsAPI, type Project as _APIProject } from '../../../api/projects_api';
 import { ProjectIntegrationsPanel } from '@/components/integrations';
@@ -89,6 +90,7 @@ interface Project {
   githubRepoFullName?: string;
   githubCloneUrl?: string;
   githubRepoId?: string;
+  gitProvider?: 'github' | 'gitea' | null;
 }
 
 interface TeamMember {
@@ -444,6 +446,8 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
   const [_viewMode, _setViewMode] = useState<'grid' | 'list'>('grid');
 
   const [showGitHubLinkModal, setShowGitHubLinkModal] = useState(false);
+  const [showGiteaLinkModal, setShowGiteaLinkModal] = useState(false);
+  const [showProviderMenu, setShowProviderMenu] = useState(false);
 
   // Responsive helpers
   const isMobile = viewport?.isMobile ?? false;
@@ -484,6 +488,10 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
             typeof apiProject.githubCloneUrl === 'string' ? apiProject.githubCloneUrl : undefined,
           githubRepoId:
             typeof apiProject.githubRepoId === 'string' ? apiProject.githubRepoId : undefined,
+          gitProvider:
+            (apiProject as Record<string, unknown>).gitProvider === 'github' || (apiProject as Record<string, unknown>).gitProvider === 'gitea'
+              ? (apiProject as Record<string, unknown>).gitProvider as 'github' | 'gitea'
+              : (typeof apiProject.githubRepoFullName === 'string' ? 'github' : null),
         };
       });
       setProjects(convertedProjects);
@@ -655,7 +663,8 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
         githubRepoId: null,
         githubRepoFullName: null,
         githubCloneUrl: null,
-      });
+        gitProvider: null,
+      } as Record<string, unknown>);
       await refreshProjects();
       if (selectedProject?.id === projectId) {
         setSelectedProject((prev) =>
@@ -665,12 +674,48 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
                 githubRepoFullName: undefined,
                 githubCloneUrl: undefined,
                 githubRepoId: undefined,
+                gitProvider: null,
               }
             : null
         );
       }
     } catch (error) {
-      logger.error('Failed to unlink GitHub repo:', error);
+      logger.error('Failed to unlink git repo:', error);
+    }
+  };
+
+  const handleLinkGiteaRepo = async (projectId: string, data: { repoFullName: string; cloneUrl: string }) => {
+    try {
+      const [owner, ...repoParts] = data.repoFullName.split('/');
+      const repoName = repoParts.join('/');
+      if (!owner || !repoName) {
+        throw new Error('Invalid repository format. Use owner/repo.');
+      }
+      const repoId = `gitea:${data.repoFullName}`;
+      await projectsAPI.linkGitRepo(projectId, {
+        provider: 'gitea',
+        repoFullName: data.repoFullName,
+        repoId,
+        cloneUrl: data.cloneUrl,
+      });
+      await refreshProjects();
+      if (selectedProject?.id === projectId) {
+        setSelectedProject((prev) =>
+          prev
+            ? {
+                ...prev,
+                githubRepoFullName: data.repoFullName,
+                githubCloneUrl: data.cloneUrl,
+                githubRepoId: repoId,
+                gitProvider: 'gitea',
+              }
+            : null
+        );
+      }
+      setShowGiteaLinkModal(false);
+    } catch (error) {
+      logger.error('Failed to link Gitea repo:', error);
+      throw error;
     }
   };
 
@@ -752,11 +797,13 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
 
             <div className="bg-slate-800/50 rounded-xl p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-white">GitHub Repository</h3>
+                <h3 className="font-semibold text-white">Git Repository</h3>
                 {selectedProject.githubRepoFullName ? (
                   <div className="flex items-center gap-2">
                     <a
-                      href={`https://github.com/${selectedProject.githubRepoFullName}`}
+                      href={selectedProject.gitProvider === 'gitea'
+                        ? `https://git.tardis.local/${selectedProject.githubRepoFullName}`
+                        : `https://github.com/${selectedProject.githubRepoFullName}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400 hover:text-white"
@@ -773,27 +820,56 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
                     </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => setShowGitHubLinkModal(true)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 rounded-lg transition-colors text-sm font-medium"
-                  >
-                    <Link2 className="w-4 h-4" />
-                    Link Repo
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowProviderMenu(!showProviderMenu)}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 rounded-lg transition-colors text-sm font-medium"
+                    >
+                      <Link2 className="w-4 h-4" />
+                      Link Repo
+                    </button>
+                    {showProviderMenu && (
+                      <div className="absolute right-0 top-full mt-1 bg-slate-800 border border-slate-700/50 rounded-lg shadow-xl z-10 overflow-hidden">
+                        <button
+                          onClick={() => { setShowProviderMenu(false); setShowGitHubLinkModal(true); }}
+                          className="flex items-center gap-2 w-full px-4 py-2.5 hover:bg-slate-700/50 transition-colors text-sm text-slate-300 hover:text-white"
+                        >
+                          <Github className="w-4 h-4" />
+                          GitHub
+                        </button>
+                        <button
+                          onClick={() => { setShowProviderMenu(false); setShowGiteaLinkModal(true); }}
+                          className="flex items-center gap-2 w-full px-4 py-2.5 hover:bg-slate-700/50 transition-colors text-sm text-slate-300 hover:text-white"
+                        >
+                          <GitBranch className="w-4 h-4" />
+                          Gitea
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
               {selectedProject.githubRepoFullName ? (
                 <a
-                  href={`https://github.com/${selectedProject.githubRepoFullName}`}
+                  href={selectedProject.gitProvider === 'gitea'
+                    ? `https://git.tardis.local/${selectedProject.githubRepoFullName}`
+                    : `https://github.com/${selectedProject.githubRepoFullName}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-slate-300 hover:text-blue-400 transition-colors"
                 >
-                  <Github className="w-4 h-4" />
+                  {selectedProject.gitProvider === 'gitea' ? (
+                    <GitBranch className="w-4 h-4" />
+                  ) : (
+                    <Github className="w-4 h-4" />
+                  )}
                   {selectedProject.githubRepoFullName}
+                  <span className="text-xs text-slate-500 ml-1">
+                    ({selectedProject.gitProvider ?? 'github'})
+                  </span>
                 </a>
               ) : (
-                <p className="text-sm text-slate-500">No GitHub repository linked yet.</p>
+                <p className="text-sm text-slate-500">No git repository linked yet.</p>
               )}
             </div>
 
@@ -979,6 +1055,13 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
         onClose={() => setShowGitHubLinkModal(false)}
         projectId={selectedProject?.id ?? ''}
         onLink={handleLinkGitHubRepo}
+      />
+
+      <GiteaRepoLinkModal
+        isOpen={showGiteaLinkModal}
+        onClose={() => setShowGiteaLinkModal(false)}
+        projectId={selectedProject?.id ?? ''}
+        onLink={handleLinkGiteaRepo}
       />
     </div>
   );
