@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "stackSha256": "4ac7f79d5c992d8149571fd03dcdb07424204a7b75c7f4a07c082204cacda589",
+  "stackSha256": "c0181e145599edc82dc3ea3a83bf379cfaae1b2dfe2fcd87faad782038d88eac",
   "services": [
     {
       "id": "postgres",
@@ -36,6 +36,13 @@
       "cpu": 250,
       "memory": 1536,
       "port": 7687,
+      "command": [
+        "/bin/bash",
+        "-c"
+      ],
+      "args": [
+        "printf 'server.memory.heap.initial_size=512m\\nserver.memory.heap.max_size=768m\\nserver.memory.pagecache.size=256m\\n' >> /var/lib/neo4j/conf/neo4j.conf && exec /startup/docker-entrypoint.sh neo4j"
+      ],
       "env": {
         "NEO4J_AUTH": "neo4j/7b51bf8cf6acd79f47f8e6ebb9ce66dd7b789fd15ac7bd7a",
         "NEO4J_PLUGINS": "[\"apoc\"]"

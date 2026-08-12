@@ -61,9 +61,19 @@ services:
     memory: 1536
     cpu: 250
     # NOTE: the platform validates env names as UPPER_SNAKE only, so Neo4j's
-    # mixed-case setting vars (NEO4J_dbms_*, NEO4J_apoc_*) cannot be passed.
-    # Heap/pagecache auto-size from the container limit; APOC installs via
-    # NEO4J_PLUGINS and its safe core procedures are enough for this app.
+    # mixed-case setting vars (NEO4J_dbms_*, NEO4J_server_*) cannot be passed.
+    # Two consequences, both handled via the command override below:
+    #  - k8s injects <SERVICE>_PORT/PORT vars; the entrypoint translates any
+    #    NEO4J_*-prefixed env into config keys, so the service must NOT be
+    #    named 'neo4j' (renamed graph-db) or startup dies on 'PORT.7687...'.
+    #  - auto-sized heap exceeds the 1.5G container limit, so heap/pagecache
+    #    are pinned by appending to neo4j.conf before exec'ing the entrypoint
+    #    (conf is writable — the APOC install step writes to it already).
+    command: ["/bin/bash", "-c"]
+    args:
+      - >-
+        printf 'server.memory.heap.initial_size=512m\nserver.memory.heap.max_size=768m\nserver.memory.pagecache.size=256m\n' >> /var/lib/neo4j/conf/neo4j.conf
+        && exec /startup/docker-entrypoint.sh neo4j
     env:
       NEO4J_AUTH: "neo4j/7b51bf8cf6acd79f47f8e6ebb9ce66dd7b789fd15ac7bd7a"
       NEO4J_PLUGINS: '["apoc"]'
