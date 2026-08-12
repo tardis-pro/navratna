@@ -2,6 +2,7 @@
 // Handles tool execution with PostgreSQL logging and Neo4j usage pattern tracking
 // Part of capability-registry microservice
 
+import { randomUUID } from 'node:crypto';
 import { ToolDefinition, ToolExecution, ToolExecutionStatus } from '@uaip/types';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -111,7 +112,7 @@ export class ToolExecutor {
 
     // Create execution record
     const execution: ToolExecution = {
-      id: `execution_${Date.now()}_${toolId}_${agentId}`,
+      id: randomUUID(),
       toolId,
       agentId,
       parameters: validatedInput.parameters,
@@ -132,6 +133,7 @@ export class ToolExecutor {
     try {
       // Store initial execution record
       await this.toolService.createToolExecution({
+        id: execution.id,
         toolId: execution.toolId,
         agentId: execution.agentId,
         parameters: execution.parameters,

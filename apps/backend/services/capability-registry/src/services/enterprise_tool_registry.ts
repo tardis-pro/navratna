@@ -730,7 +730,7 @@ export class EnterpriseToolRegistry {
    * Utility methods
    */
   private generateExecutionId(): string {
-    return `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return crypto.randomUUID();
   }
 
   private auditLog(event: string, data: unknown): void {

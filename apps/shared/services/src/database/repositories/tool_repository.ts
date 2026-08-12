@@ -189,6 +189,7 @@ export class ToolExecutionRepository {
   }
 
   async createToolExecution(data: {
+    id?: string;
     toolId: ToolExecutionInsert['toolId'];
     agentId?: ToolExecutionInsert['agentId'];
     userId?: ToolExecutionInsert['userId'];
@@ -204,6 +205,7 @@ export class ToolExecutionRepository {
       const [row] = await this.db
         .insert(toolExecutions)
         .values({
+          ...(data.id ? { id: data.id } : {}),
           toolId: data.toolId,
           agentId: data.agentId ?? null,
           userId: data.userId ?? null,
