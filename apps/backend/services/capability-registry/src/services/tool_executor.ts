@@ -109,10 +109,14 @@ export class ToolExecutor {
       throw new InternalServerError(`Tool ${toolId} is disabled`);
     }
 
-    // Create execution record
+    // Create execution record.
+    //
+    // `toolId` here is whatever the caller addressed the tool by, which may be a
+    // stable name ('http-request'). tool_executions.tool_id is a uuid column, so
+    // the RESOLVED tool.id must be persisted, never the raw argument.
     const execution: ToolExecution = {
       id: randomUUID(),
-      toolId,
+      toolId: tool.id,
       agentId,
       parameters: validatedInput.parameters,
       status: ToolExecutionStatus.PENDING,

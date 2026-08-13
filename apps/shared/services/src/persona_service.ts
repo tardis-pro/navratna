@@ -563,17 +563,33 @@ export class PersonaService {
 
     // ===== PERSONA TEMPLATES =====
 
-    async getPersonaTemplates(category?: string): Promise<PersonaTemplate[]> {
+        async getPersonaTemplates(category?: string): Promise<PersonaTemplate[]> {
         try {
-            let query = `SELECT * FROM "personas"`;
+            // The columns are snake_case in Postgres. An unquoted camelCase
+            // identifier is folded to lowercase, so `ORDER BY totalInteractions`
+            // resolved to a non-existent "totalinteractions" and threw; and a bare
+            // `SELECT *` returns snake_case keys, leaving entity.totalInteractions
+            // undefined. Select the real columns and alias them explicitly, the
+            // same way searchPersonas does.
+            let query = `
+        SELECT
+          id,
+          name,
+          description,
+          traits,
+          expertise,
+          total_interactions AS "totalInteractions"
+        FROM "personas"`;
             const params: QueryParam[] = [];
 
             if (category) {
-                query += ` WHERE tags LIKE $1`;
-                params.push(`%${category}%`);
+                // tags is jsonb, so LIKE cannot be applied to it directly — match
+                // against the array elements instead.
+                query += ` WHERE tags @> $1::jsonb`;
+                params.push(JSON.stringify([category]));
             }
 
-            query += ` ORDER BY totalInteractions DESC`;
+            query += ` ORDER BY total_interactions DESC`;
 
             const entities = await this.databaseService.executeQuery<PersonaRow>(query, params);
 
@@ -591,6 +607,7 @@ export class PersonaService {
             throw error;
         }
     }
+
 
     async createPersonaFromTemplate(
         templateId: string,

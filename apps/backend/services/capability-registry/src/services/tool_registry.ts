@@ -29,6 +29,8 @@ function isToolCategory(v: unknown): v is ToolCategory {
   return toolCategoryValues.has(v);
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export class ToolRegistry {
   private toolService: ToolService;
 
@@ -303,7 +305,15 @@ export class ToolRegistry {
   async getTool(id: string): Promise<ToolDefinition | null> {
     await this.ensureInitialized();
     const validatedId = z.string().parse(id);
-    const entity = await this.toolService.findToolById(validatedId);
+    // Callers address native tools by their stable name ("http-request",
+    // "shell-exec") as well as by the generated UUID — the HTTP route takes the
+    // identifier straight from the URL. findToolById issues a `WHERE id = $1`
+    // against a uuid column, so a name argument raises a Postgres cast error
+    // instead of returning null. Resolve by name in that case, matching
+    // UnifiedToolRegistry.executeTool.
+    const entity = UUID_PATTERN.test(validatedId)
+      ? await this.toolService.findToolById(validatedId)
+      : await this.toolService.findToolByName(validatedId);
     return entity ? this.transformEntityToInterface(entity) : null;
   }
 

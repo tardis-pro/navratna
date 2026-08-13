@@ -10,6 +10,15 @@ const SAFE_ENVS_FOR_DEV = new Set(['development', 'test']);
 interface JWKSKeyPair {
   privateKey: jose.KeyLike;
   publicKey: jose.KeyLike;
+  /**
+   * The exported public JWK, captured at import time.
+   *
+   * Under Bun, a key produced by `jose.importJWK` is non-extractable, so calling
+   * `jose.exportJWK` on it later throws. Every consumer that needs the JWK form
+   * (the kid computation and the /.well-known/jwks.json handler) must read this
+   * cached copy instead of re-exporting `publicKey`.
+   */
+  publicJwk: jose.JWK;
   kid: string;
 }
 
@@ -21,13 +30,12 @@ let initPromise: Promise<JWKSKeyPair> | null = null;
  * Compute a key ID (kid) from the public key's JWK thumbprint,
  * or use the JWT_KEY_ID env var if set.
  */
-async function computeKid(publicKey: jose.KeyLike): Promise<string> {
+function computeKid(jwk: jose.JWK): string {
   const envKid = process.env.JWT_KEY_ID;
   if (envKid) {
     return envKid;
   }
 
-  const jwk = await jose.exportJWK(publicKey);
   if (jwk.n) {
     return createHash('sha256').update(jwk.n).digest('hex').slice(0, 16);
   }
@@ -55,9 +63,11 @@ async function initializeKeyPair(): Promise<JWKSKeyPair> {
 
     if (privatePem) {
       logger.info('JWKS: Loading RSA private key from JWT_PRIVATE_KEY env var');
-      const privateKey = await jose.importPKCS8(privatePem, 'RS256');
+      // `extractable` is required: the public half is derived by exporting the
+      // private key to a JWK and keeping its public components. Without the flag
+      // Bun returns a non-extractable CryptoKey and that export throws.
+      const privateKey = await jose.importPKCS8(privatePem, 'RS256', { extractable: true });
 
-      // Derive public key by exporting to JWK and re-importing public components
       const privateJwk = await jose.exportJWK(privateKey);
       const publicJwk: jose.JWK = {
         kty: privateJwk.kty,
@@ -70,8 +80,8 @@ async function initializeKeyPair(): Promise<JWKSKeyPair> {
         throw new Error('JWKS: Failed to derive public key from private key');
       }
 
-      const kid = await computeKid(publicKey);
-      cachedKeyPair = { privateKey, publicKey, kid };
+      const kid = computeKid(publicJwk);
+      cachedKeyPair = { privateKey, publicKey, publicJwk, kid };
       logger.info('JWKS: RSA key pair loaded from environment', { kid });
       return cachedKeyPair;
     }
@@ -91,10 +101,12 @@ async function initializeKeyPair(): Promise<JWKSKeyPair> {
 
     const { privateKey, publicKey } = await jose.generateKeyPair('RS256', {
       modulusLength: 2048,
+      extractable: true,
     });
 
-    const kid = await computeKid(publicKey);
-    cachedKeyPair = { privateKey, publicKey, kid };
+    const publicJwk = await jose.exportJWK(publicKey);
+    const kid = computeKid(publicJwk);
+    cachedKeyPair = { privateKey, publicKey, publicJwk, kid };
     logger.info('JWKS: RSA key pair generated', { kid });
     return cachedKeyPair;
   })();
@@ -121,11 +133,10 @@ export async function getPrivateKey(): Promise<jose.KeyLike> {
  */
 export async function getPublicJWKS(): Promise<{ keys: jose.JWK[] }> {
   const kp = await initializeKeyPair();
-  const currentJwk = await jose.exportJWK(kp.publicKey);
 
   const keys: jose.JWK[] = [
     {
-      ...currentJwk,
+      ...kp.publicJwk,
       kid: kp.kid,
       alg: 'RS256',
       use: 'sig',
@@ -134,9 +145,8 @@ export async function getPublicJWKS(): Promise<{ keys: jose.JWK[] }> {
 
   // Include the previous key for verification during rotation window
   if (previousKeyPair) {
-    const prevJwk = await jose.exportJWK(previousKeyPair.publicKey);
     keys.push({
-      ...prevJwk,
+      ...previousKeyPair.publicJwk,
       kid: previousKeyPair.kid,
       alg: 'RS256',
       use: 'sig',
@@ -247,12 +257,14 @@ export async function rotateKeyPair(): Promise<void> {
   // Generate new key pair
   const { privateKey, publicKey } = await jose.generateKeyPair('RS256', {
     modulusLength: 2048,
+    extractable: true,
   });
-  const kid = await computeKid(publicKey);
+  const publicJwk = await jose.exportJWK(publicKey);
+  const kid = computeKid(publicJwk);
 
   // Demote current to previous, install new as current
   previousKeyPair = current;
-  cachedKeyPair = { privateKey, publicKey, kid };
+  cachedKeyPair = { privateKey, publicKey, publicJwk, kid };
   initPromise = null;
 
   logger.info('JWKS: Key pair rotated', {
