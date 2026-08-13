@@ -286,7 +286,13 @@ export class ArtifactService implements IArtifactService {
 
     const metadata = artifact.metadata;
     const context = request.context;
-    const sourceMessages = context.messages.map((message) => message.id).filter((id) => id.length > 0);
+    // Message ids are optional on the wire — a caller that posts a bare
+    // {role, content} transcript produced `undefined.length` here, and the
+    // TypeError surfaced to the client as ARTIFACT_PERSISTENCE_REJECTED after the
+    // model had already been paid for. Narrow to strings instead of assuming one.
+    const sourceMessages = context.messages
+      .map((message) => message.id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
     const generator = options?.generator || String(response.metadata?.generationMethod ?? 'artifact-service');
     const validationScore = validation?.score === undefined
       ? undefined

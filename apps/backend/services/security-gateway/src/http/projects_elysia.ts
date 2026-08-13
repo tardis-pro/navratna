@@ -87,9 +87,15 @@ async function assertProjectAccess(
   return null;
 }
 
+// Lengths mirror the DB columns (projects.name is varchar(255)). Without them an
+// oversized value reached Postgres and came back as 22001 'value too long', which
+// the route could only report as a 500 for what is really a client error.
+const PROJECT_NAME_MAX = 255;
+const PROJECT_TEXT_MAX = 10_000;
+
 const createProjectSchema = z.object({
-  name: z.string().min(1, 'Project name is required'),
-  description: z.string().optional(),
+  name: z.string().min(1, 'Project name is required').max(PROJECT_NAME_MAX, `Project name must be at most ${PROJECT_NAME_MAX} characters`),
+  description: z.string().max(PROJECT_TEXT_MAX).optional(),
   category: z.string().optional(),
   tags: z.array(z.string()).optional(),
   priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
@@ -103,8 +109,8 @@ const createProjectSchema = z.object({
 });
 
 const updateProjectSchema = z.object({
-  name: z.string().min(1).optional(),
-  description: z.string().optional(),
+  name: z.string().min(1).max(PROJECT_NAME_MAX).optional(),
+  description: z.string().max(PROJECT_TEXT_MAX).optional(),
   category: z.string().optional(),
   tags: z.array(z.string()).optional(),
   priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),

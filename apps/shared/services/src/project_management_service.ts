@@ -151,7 +151,16 @@ export class ProjectManagementService {
       logger.info('Project created', { projectId: savedProject.id, name: data.name });
       return savedProject;
     } catch (error) {
-      logger.error('Failed to create project', { error, data });
+      // Never log `data` — it is the raw client payload, so an oversized field
+      // (a 100k-char name is enough) writes itself verbatim into the log stream
+      // on every retry, which is a cheap log-flood vector. Log identifying
+      // fields and sizes instead.
+      logger.error('Failed to create project', {
+        error,
+        ownerId: data.ownerId,
+        nameLength: data.name?.length ?? 0,
+        descriptionLength: data.description?.length ?? 0,
+      });
       throw error;
     }
   }
