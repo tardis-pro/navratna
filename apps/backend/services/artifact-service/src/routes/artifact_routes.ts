@@ -2,7 +2,7 @@ import { ArtifactService } from '../artifact_service.js';
 import type { ArtifactConversationContext, ArtifactGenerationRequest, ArtifactType } from '@uaip/types';
 import { logger, isRecord } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
-import { withNginxAuth } from '@uaip/middleware';
+import { withNginxAuth, getNginxUser } from '@uaip/middleware';
 import { ShortLinkService } from '../services/short_link_service.js';
 import { isArtifactType, supportedArtifactTypes } from '../artifact_types.js';
 
@@ -247,7 +247,8 @@ export function registerArtifactRoutes(
     
       .post(
         '/generate',
-        async ({ body, set }) => {
+        async (ctx) => {
+          const { body, set } = ctx;
           try {
             const request = buildArtifactGenerationRequest(body);
     
@@ -284,14 +285,29 @@ export function registerArtifactRoutes(
               };
             }
     
+            // Generation resolves the LLM provider from the authenticated user
+            // (ArtifactService.getArtifactUserId reads context.metadata.userId), so
+            // the route MUST inject it server-side. Without this every HTTP call
+            // failed with 'User identity is required for artifact generation', and a
+            // client-supplied userId would let a caller borrow another user's
+            // provider credentials.
+            const authUser = getNginxUser(ctx);
+            const authoredRequest: ArtifactGenerationRequest = {
+              ...request,
+              context: {
+                ...request.context,
+                metadata: { ...(request.context.metadata ?? {}), userId: authUser.id },
+              },
+            };
+
             logger.info('Artifact generation request received', {
-              type: request.type,
-              agent: request.context.agent.id,
-              persona: request.context.persona.role,
+              type: authoredRequest.type,
+              agent: authoredRequest.context.agent?.id,
+              persona: authoredRequest.context.persona?.role,
             });
-    
-            const response = await artifactService.generateAndPersistArtifact(request, {
-              generatedBy: request.context.agent.id,
+
+            const response = await artifactService.generateAndPersistArtifact(authoredRequest, {
+              generatedBy: authUser.id,
               generator: 'artifact-service-http',
             });
             set.status = response.success ? 200 : 400;
