@@ -373,7 +373,13 @@ export class ProjectManagementService {
   async updateMemberRole(projectId: string, userId: string, role: ProjectRole): Promise<boolean> {
     const member = await this.memberRepository.findOne({ where: { projectId, userId } });
     if (!member) return false;
-    await this.memberRepository.update(member.id, { role, permissions: this.getDefaultPermissions(role) });
+    await this.memberRepository.update(member.id, {
+      role,
+      metadata: {
+        ...(isRecord(member.metadata) ? member.metadata : {}),
+        permissions: this.getDefaultPermissions(role),
+      },
+    });
     return true;
   }
 

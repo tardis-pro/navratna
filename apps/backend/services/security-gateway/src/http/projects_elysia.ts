@@ -6,7 +6,12 @@ import { DatabaseService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { withOptionalAuth } from '@uaip/middleware';
 import { OAuthService } from '@uaip/shared-services';
-import { ProjectRole, ProjectStatus, OAuthProviderType, type GitHubRepo } from '@uaip/types';
+import {
+  ProjectRole,
+  ProjectStatus,
+  ProjectVisibility,
+  type ProjectEntity,
+} from '@uaip/types';
 import { GitHubIntegrationService } from '../services/github_integration_service.js';
 import { AuditService } from '../services/audit_service.js';
 import { OAuthProviderService } from '../services/oauth_provider_service.js';
@@ -111,6 +116,38 @@ const updateProjectSchema = z.object({
   settings: z.record(z.any()).optional(),
   metadata: z.record(z.any()).optional(),
 });
+
+function toProjectUpdates(
+  data: z.infer<typeof updateProjectSchema>,
+  current: ProjectEntity
+): Partial<ProjectEntity> {
+  const updates: Partial<ProjectEntity> = {};
+  if (data.name !== undefined) updates.name = data.name;
+  if (data.description !== undefined) updates.description = data.description;
+  if (data.tags !== undefined) updates.tags = data.tags;
+  if (data.status !== undefined) updates.status = data.status;
+  if (data.settings !== undefined) updates.settings = data.settings;
+  if (data.visibility !== undefined) {
+    updates.visibility = data.visibility === 'team'
+      ? ProjectVisibility.INTERNAL
+      : data.visibility === 'public'
+        ? ProjectVisibility.PUBLIC
+        : ProjectVisibility.PRIVATE;
+  }
+
+  const metadataUpdates = {
+    ...(data.metadata ?? {}),
+    ...(data.category !== undefined ? { category: data.category } : {}),
+    ...(data.priority !== undefined ? { priority: data.priority } : {}),
+    ...(data.startDate !== undefined ? { startDate: data.startDate } : {}),
+    ...(data.endDate !== undefined ? { endDate: data.endDate } : {}),
+    ...(data.budget !== undefined ? { budget: data.budget } : {}),
+  };
+  if (Object.keys(metadataUpdates).length > 0) {
+    updates.metadata = { ...(current.metadata ?? {}), ...metadataUpdates };
+  }
+  return updates;
+}
 
 const projectQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -242,13 +279,15 @@ export function registerProjectRoutes() {
           return { error: 'Validation Error', details: parsed.error.flatten() };
         }
   
-        const project = await service.updateProject(params.projectId, {
-          name: parsed.data.name,
-          description: parsed.data.description,
-          status: parsed.data.status,
-          settings: parsed.data.settings,
-          metadata: parsed.data.metadata,
-        });
+        const current = await service.getProject(params.projectId, user?.id);
+        if (!current) {
+          set.status = 404;
+          return { success: false, error: 'Project not found' };
+        }
+        const project = await service.updateProject(
+          params.projectId,
+          toProjectUpdates(parsed.data, current)
+        );
         return { success: true, data: project };
       } catch (error) {
         logger.error('Failed to update project', { error: describeError(error), projectId: params.projectId });
