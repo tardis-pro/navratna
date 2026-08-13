@@ -421,6 +421,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
       legal
     );
 
+    // The CAS writes straight to the database, so neither cache sees the new
+    // status. Both must be dropped or a subsequent read serves the old one.
+    this.activeDiscussions.delete(discussionId);
+    this.discussionService.invalidateCachedDiscussion(discussionId);
+
     if (!outcome.updated) {
       const current = await this.getDiscussion(discussionId, true);
       return {
@@ -1410,8 +1415,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
         }
       }
 
-      // Fetch from database
-      const discussion = await this.discussionService.getDiscussion(discussionId);
+      // forceRefresh MUST be propagated. DiscussionService keeps its own cache, so
+      // asking it without the flag lets a stale copy answer a call that explicitly
+      // demanded fresh state — which is exactly what every status transition does
+      // before deciding whether the change is legal.
+      const discussion = await this.discussionService.getDiscussion(discussionId, forceRefresh);
 
       if (discussion) {
         // Update cache

@@ -54,11 +54,14 @@ function makeService(discussion: Record<string, unknown> | null = makeDiscussion
   }));
   const removeParticipant = vi.fn(async () => undefined);
   const publish = vi.fn(async () => undefined);
+  const invalidateCachedDiscussion = vi.fn();
+  const getDiscussion = vi.fn(async (_id: string, _forceRefresh?: boolean) => discussion);
 
   const discussionService = testDouble<DiscussionService>({
-    getDiscussion: vi.fn(async () => discussion),
+    getDiscussion,
     updateDiscussion,
     removeParticipant,
+    invalidateCachedDiscussion,
     getDatabaseService: vi.fn(() => testDouble<ReturnType<DiscussionService['getDatabaseService']>>({})),
   });
 
@@ -69,7 +72,14 @@ function makeService(discussion: Record<string, unknown> | null = makeDiscussion
 
   const service = new DiscussionOrchestrationService(discussionService, eventBusService);
   services.push(service);
-  return { service, updateDiscussion, removeParticipant, publish };
+  return {
+    service,
+    updateDiscussion,
+    removeParticipant,
+    publish,
+    invalidateCachedDiscussion,
+    getDiscussion,
+  };
 }
 
 afterEach(async () => {
@@ -422,5 +432,43 @@ describe('archiveDiscussion', () => {
     expect(result.success).toBe(true);
     const [, , target] = casMock.mock.calls.at(-1) ?? [];
     expect(target).toBe(DiscussionStatus.ARCHIVED);
+  });
+});
+
+describe('status-transition cache invalidation', () => {
+  it('drops the DiscussionService cache entry after a CAS status write', async () => {
+    const { service, invalidateCachedDiscussion } = makeService(
+      makeDiscussion({ status: DiscussionStatus.DRAFT })
+    );
+
+    await service.archiveDiscussion('disc-1', 'owner-1');
+
+    // The CAS writes straight to the database, so nothing downstream learns the
+    // status changed. Without this the next read serves the OLD status for two
+    // hours — a discussion archived through the API kept reporting 'draft'.
+    expect(invalidateCachedDiscussion).toHaveBeenCalledWith('disc-1');
+  });
+
+  it('invalidates on a failed transition too', async () => {
+    const { service, invalidateCachedDiscussion } = makeService(
+      makeDiscussion({ status: DiscussionStatus.DRAFT })
+    );
+    casMock.mockResolvedValueOnce({ updated: false });
+
+    await service.archiveDiscussion('disc-1', 'owner-1');
+
+    // A lost race means another writer just changed the row, so the local copy
+    // is stale in that case too.
+    expect(invalidateCachedDiscussion).toHaveBeenCalledWith('disc-1');
+  });
+
+  it('asks DiscussionService for fresh state when forceRefresh is set', async () => {
+    const { service, getDiscussion } = makeService(makeDiscussion());
+
+    await service.getDiscussion('disc-1', true);
+
+    // Dropping the flag here let a stale cached copy answer a call that
+    // explicitly demanded fresh state.
+    expect(getDiscussion).toHaveBeenCalledWith('disc-1', true);
   });
 });

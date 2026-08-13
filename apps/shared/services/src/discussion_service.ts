@@ -146,6 +146,23 @@ export class DiscussionService {
     return this.databaseService;
   }
 
+  /**
+   * Drops a discussion from the in-process read cache.
+   *
+   * Status transitions are conditional UPDATEs issued straight to the database
+   * (compareAndSetDiscussionStatus) so they can be serialized across instances.
+   * That write never passes through updateDiscussion, so nothing here learns the
+   * status changed and a cached copy keeps serving the OLD status until it goes
+   * stale two hours later. Every CAS caller must invalidate.
+   *
+   * This is a same-process cache: it cannot be correct on another instance, so it
+   * is only ever a fast path, never a source of truth.
+   */
+  invalidateCachedDiscussion(id: string): void {
+    this.activeDiscussions.delete(id);
+    this.cacheTimestamps.delete(id);
+  }
+
   // Claims the transition with a conditional UPDATE so a second instance that
   // read the same old status matches no row and aborts before any side effect.
   private async claimTransition(
@@ -163,6 +180,7 @@ export class DiscussionService {
     if (!outcome.updated) {
       throw new ValidationError(conflictMessage);
     }
+    this.invalidateCachedDiscussion(id);
   }
 
   dispose(): void {
@@ -350,9 +368,15 @@ export class DiscussionService {
 
       const discussion = await this.hydrateDiscussionRelations(createdDiscussion)
 
-      // Cache active discussion
-      this.activeDiscussions.set(discussionId, discussion);
-      this.cacheTimestamps.set(discussionId, Date.now());
+      // A new discussion is DRAFT, and every read path caches only ACTIVE rows
+      // (see getDiscussion/updateDiscussion). Caching the draft here made the
+      // cache policy inconsistent: the entry was never refreshed by a status
+      // transition, so a started, archived or cancelled discussion kept reporting
+      // 'draft' for two hours. Cache on the same rule the readers use.
+      if (discussion.status === DiscussionStatus.ACTIVE) {
+        this.activeDiscussions.set(discussionId, discussion);
+        this.cacheTimestamps.set(discussionId, Date.now());
+      }
 
       // Emit creation event
       await this.emitDiscussionEvent(discussionId, DiscussionEventType.STATUS_CHANGED, {
