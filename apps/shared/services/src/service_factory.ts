@@ -11,9 +11,7 @@ import { KnowledgeRepository } from './database/repositories/knowledge_repositor
 import { EmbeddingService } from './knowledge-graph/embedding_service';
 import { TEIEmbeddingService } from './knowledge-graph/tei_embedding_service';
 import { SmartEmbeddingService } from './knowledge-graph/smart_embedding_service';
-import {
-  resolveEmbeddingAndRerankingProviders,
-} from './knowledge-graph/embedding_provider_resolver';
+import { resolveEmbeddingAndRerankingProviders } from './knowledge-graph/embedding_provider_resolver';
 import { EnhancedRAGService } from './knowledge-graph/enhanced_rag_service';
 import { ContentClassifier } from './knowledge-graph/content_classifier_service';
 import { RelationshipDetector } from './knowledge-graph/relationship_detector_service';
@@ -280,7 +278,8 @@ export class ServiceFactory {
         embeddingService,
         classifier,
         relationshipDetector,
-        knowledgeSync
+        knowledgeSync,
+        embeddingService.hasReranker() ? embeddingService : null
       );
     });
   }
@@ -512,7 +511,10 @@ export class ServiceFactory {
           prompt: string,
           providerId?: string
         ): Promise<string> {
-          userLLMFactoryLogger.info('UserLLM generateWithUserProvider called', { userId, providerId });
+          userLLMFactoryLogger.info('UserLLM generateWithUserProvider called', {
+            userId,
+            providerId,
+          });
           return 'Mock user LLM response';
         },
       };

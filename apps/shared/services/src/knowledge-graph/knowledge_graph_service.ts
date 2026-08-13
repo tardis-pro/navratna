@@ -37,6 +37,7 @@ import {
 import { BatchProcessorService, FileData, ProcessingOptions } from './batch_processor_service';
 import { KnowledgeIngestionPort } from './knowledge_ingestion_port';
 import { getKnowledgeSummaryEnrichmentJob } from '../jobs/knowledge_summary_enrichment_job';
+import type { RerankResultItem, RerankingPort } from './provider_reranking';
 import { QAGeneratorService, GeneratedQA, QAGenerationOptions } from './qa_generator_service';
 import {
   WorkflowExtractorService,
@@ -109,7 +110,8 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
     private readonly embeddings: EmbeddingService,
     private readonly classifier: ContentClassifier,
     private readonly relationshipDetector: RelationshipDetector,
-    private readonly knowledgeSync: KnowledgeSyncService
+    private readonly knowledgeSync: KnowledgeSyncService,
+    private readonly reranker?: RerankingPort | null
   ) {
     // Initialize ontology services
     this.conceptExtractor = new ConceptExtractorService(this.classifier, this.embeddings);
@@ -144,6 +146,37 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
     this.learningDetector = new LearningDetectorService(this.classifier, this.embeddings);
   }
 
+  private async rerankVectorResults(
+    query: string,
+    results: VectorSearchResult[],
+    limit: number
+  ): Promise<VectorSearchResult[]> {
+    if (results.length < 2 || !this.reranker) {
+      return results.slice(0, limit);
+    }
+
+    const documents = results.map((result) => result.payload?.content ?? '');
+    if (documents.some((content) => content.length === 0)) {
+      return results.slice(0, limit);
+    }
+
+    try {
+      const reranked: RerankResultItem[] = await this.reranker.rerank(query, documents, limit);
+
+      return reranked
+        .map(({ index, score }) => {
+          const result = results[index];
+          return result ? { ...result, score } : null;
+        })
+        .filter((result): result is VectorSearchResult => result !== null);
+    } catch (error) {
+      logger.warn('Knowledge reranking failed, using vector order', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return results.slice(0, limit);
+    }
+  }
+
   /**
    * Primary search interface - used by all UAIP services
    */
@@ -159,23 +192,45 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
       if (query && query.trim()) {
         try {
           const queryEmbedding = await this.embeddings.generateEmbedding(query);
-          const tenantId = (filters?.organizationId as string | undefined) ?? '00000000-0000-0000-0000-000000000001';
-          this.buildKnowledgeVectorFilters(tenantId, filters, scope);
-
+          const tenantId =
+            (filters?.organizationId as string | undefined) ??
+            '00000000-0000-0000-0000-000000000001';
           vectorResults = await this.searchAcrossCollections(
             queryEmbedding,
             {
-              limit: options?.limit || 20,
+              limit: (options?.limit || 20) * 2,
               threshold: options?.similarityThreshold || 0.7,
+              filters: this.buildKnowledgeVectorFilters(tenantId, filters, scope),
               tenantId,
             },
             filters
           );
-          filteredResults = await this.repository.applyFilters({
-            ...filters,
-            ...scope,
-            limit: options?.limit,
-          });
+          vectorResults = await this.rerankVectorResults(
+            query,
+            vectorResults,
+            options?.limit || 20
+          );
+
+          if (vectorResults.length > 0) {
+            const items = await this.repository.getItems(vectorResults.map((result) => result.id));
+            const itemsById = new Map(items.map((item) => [item.id, item]));
+            const rankedItems = vectorResults.flatMap((result) => {
+              const item = itemsById.get(result.id);
+              return item ? [item] : [];
+            });
+            filteredResults = rankedItems
+              .filter(
+                (item) =>
+                  !filters?.tags?.length || filters.tags.every((tag) => item.tags.includes(tag))
+              )
+              .filter((item) => !filters?.types?.length || filters.types.includes(item.type))
+              .filter(
+                (item) => filters?.confidence === undefined || item.confidence >= filters.confidence
+              )
+              .slice(0, options?.limit || 20);
+          } else {
+            filteredResults = [];
+          }
         } catch (vectorError) {
           logger.warn('Vector search failed, falling back to repository search', {
             error: vectorError instanceof Error ? vectorError.message : String(vectorError),
@@ -218,7 +273,10 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
       };
     } catch (error) {
       console.error('Knowledge search error:', error);
-      throw new Error(`Knowledge search failed: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+      throw new Error(
+        `Knowledge search failed: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      );
     }
   }
 
@@ -581,14 +639,25 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
 
   private async searchAcrossCollections(
     queryEmbedding: number[],
-    options: { limit: number; threshold: number; filters?: Record<string, unknown>; tenantId: string },
+    options: {
+      limit: number;
+      threshold: number;
+      filters?: Record<string, unknown>;
+      tenantId: string;
+    },
     filters?: KnowledgeFilters
   ): Promise<VectorSearchResult[]> {
     const requestedTypes = filters?.types || [];
-    const searchOptions: { limit: number; threshold: number; tenantId: string } = {
+    const searchOptions: {
+      limit: number;
+      threshold: number;
+      tenantId: string;
+      filters?: Record<string, unknown>;
+    } = {
       limit: options.limit,
       threshold: options.threshold,
       tenantId: options.tenantId,
+      filters: options.filters,
     };
 
     if (requestedTypes.length === 1 && requestedTypes[0] === KnowledgeType.EPISODIC) {
@@ -620,13 +689,16 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
   private buildKnowledgeVectorFilters(
     tenantId: string,
     filters?: KnowledgeFilters,
-    _scope?: KnowledgeScope
+    scope?: KnowledgeScope
   ): Record<string, unknown> {
     const additionalFilters: Record<string, string | number | undefined> = {};
 
     if (filters?.sourceTypes?.length) {
       additionalFilters['source_type'] = filters.sourceTypes[0];
     }
+
+    additionalFilters['user_id'] = scope?.userId;
+    additionalFilters['agent_id'] = scope?.agentId;
 
     return buildVectorFilters(tenantId, additionalFilters);
   }
@@ -961,7 +1033,10 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
 
       return await this.qaGenerator.generateFromKnowledge(items, options);
     } catch (error) {
-      logger.error('Failed to generate Q&A from knowledge', { error: error instanceof Error ? error.message : 'Unknown error', domain });
+      logger.error('Failed to generate Q&A from knowledge', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        domain,
+      });
       throw error;
     }
   }
@@ -976,7 +1051,9 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
     try {
       return await this.workflowExtractor.extractWorkflows(conversations, options);
     } catch (error) {
-      logger.error('Failed to extract workflows from chats', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.error('Failed to extract workflows from chats', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       throw error;
     }
   }
@@ -991,7 +1068,9 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
     try {
       return await this.expertiseAnalyzer.analyzeParticipantExpertise(conversations, options);
     } catch (error) {
-      logger.error('Failed to analyze participant expertise', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.error('Failed to analyze participant expertise', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       throw error;
     }
   }
@@ -1008,7 +1087,9 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
       const allMessages = conversations.flatMap((conv) => conv.messages || []);
       return await this.learningDetector.detectLearningMoments(allMessages, options);
     } catch (error) {
-      logger.error('Failed to detect learning moments', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.error('Failed to detect learning moments', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       throw error;
     }
   }
@@ -1023,7 +1104,9 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
     try {
       return await this.qaGenerator.generateFromConversations(conversations, options);
     } catch (error) {
-      logger.error('Failed to generate Q&A from conversations', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.error('Failed to generate Q&A from conversations', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       throw error;
     }
   }
@@ -1035,7 +1118,9 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
     try {
       return await this.qaGenerator.validateQAPairs(pairs);
     } catch (error) {
-      logger.error('Failed to validate Q&A pairs', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.error('Failed to validate Q&A pairs', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       throw error;
     }
   }
@@ -1047,7 +1132,9 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
     try {
       return await this.workflowExtractor.validateWorkflows(workflows);
     } catch (error) {
-      logger.error('Failed to validate workflows', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.error('Failed to validate workflows', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       throw error;
     }
   }
@@ -1068,7 +1155,10 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
 
       return await this.learningDetector.trackLearningProgression(moments, participant);
     } catch (error) {
-      logger.error('Failed to track learning progression', { error: error instanceof Error ? error.message : 'Unknown error', participant });
+      logger.error('Failed to track learning progression', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        participant,
+      });
       throw error;
     }
   }
@@ -1090,7 +1180,9 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
 
       return await this.learningDetector.generateLearningInsights(moments, [], transfers);
     } catch (error) {
-      logger.error('Failed to generate learning insights', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.error('Failed to generate learning insights', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       throw error;
     }
   }
