@@ -77,8 +77,10 @@ COPY apps/backend/services/artifact-service/src/             ./apps/backend/serv
 COPY apps/backend/services/llm-service/src/                  ./apps/backend/services/llm-service/src/
 COPY apps/backend/services/oie/src/                          ./apps/backend/services/oie/src/
 
+# --parallel=2: the Fly remote builder OOM/SIGINT-kills concurrent tsc processes
+# at the repo default of 6 (non-deterministic failures with no compiler output).
 RUN --mount=type=cache,id=nx-cache,target=/app/.nx/cache \
-    pnpm nx run-many -t build --projects=@uaip/agent-intelligence,@uaip/discussion-orchestration,@uaip/artifact-service,@uaip/llm-service-api,@uaip/oie,@uaip/navratna-core
+    pnpm nx run-many -t build --parallel=2 --projects=@uaip/agent-intelligence,@uaip/discussion-orchestration,@uaip/artifact-service,@uaip/llm-service-api,@uaip/oie,@uaip/navratna-core
 
 RUN CORE_DIST=apps/backend/services/navratna-core/dist && \
     mkdir -p "$CORE_DIST/artifact-service/src" "$CORE_DIST/llm-service/src" "$CORE_DIST/oie/src" && \
