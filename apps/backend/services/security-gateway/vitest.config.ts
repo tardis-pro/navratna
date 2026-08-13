@@ -29,6 +29,22 @@ export default mergeConfig(
         '@uaip/config': path.resolve(import.meta.dirname, '../../../shared/config/src'),
         '@uaip/infra': path.resolve(import.meta.dirname, '../../../shared/infra/src'),
         '@uaip/middleware': path.resolve(import.meta.dirname, '../../../shared/middleware/src'),
+        // Subpath aliases MUST precede the package-root alias: Vite matches string
+        // aliases by prefix in order, so a bare '@uaip/shared-services' entry would
+        // rewrite '@uaip/shared-services/drizzle/clients' to a src/drizzle path that
+        // does not exist (the real files live under src/database/drizzle).
+        '@uaip/shared-services/drizzle/clients': path.resolve(
+          import.meta.dirname,
+          '../../../shared/services/src/database/drizzle/clients'
+        ),
+        '@uaip/shared-services/drizzle/control': path.resolve(
+          import.meta.dirname,
+          '../../../shared/services/src/database/drizzle/schemas/control_schema.ts'
+        ),
+        '@uaip/shared-services/drizzle/intelligence': path.resolve(
+          import.meta.dirname,
+          '../../../shared/services/src/database/drizzle/schemas/intelligence_schema.ts'
+        ),
         '@uaip/shared-services': path.resolve(import.meta.dirname, '../../../shared/services/src'),
         '@uaip/llm-service': path.resolve(import.meta.dirname, '../../../shared/llm-service/src'),
       },

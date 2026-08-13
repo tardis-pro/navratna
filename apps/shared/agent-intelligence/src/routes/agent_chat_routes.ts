@@ -507,6 +507,22 @@ export function registerAgentChatRoutes(
 
           const user = getNginxUser(ctx)
           const userId = user.id
+
+          // Existence is not access. Without this the route only proved the agent
+          // was real, so any authenticated user could drive an agent they were
+          // never assigned all the way into LLM generation — billing tokens and
+          // running that agent's system prompt under someone else's identity.
+          // 404, not 403, to match GET /agents/:id and avoid confirming the agent
+          // exists to a caller who cannot reach it.
+          const mayUseAgent = await canAccessAgent(
+            { userId, organizationId: user.organizationId, role: user.role },
+            agent.id
+          )
+          if (!mayUseAgent) {
+            ctx.set.status = 404
+            return { success: false, error: 'Agent not found' }
+          }
+
           const body = isRecord(ctx.body) ? ctx.body : {}
           const currentMessage =
             typeof body.message === 'string' && body.message.trim().length > 0
@@ -900,6 +916,19 @@ export function registerAgentChatRoutes(
           // query parameter — otherwise any caller could read another user's chat
           // by naming their agent.
           const user = getNginxUser(ctx)
+
+          // Same 404-on-unassigned rule as the chat route: history for an agent the
+          // caller cannot reach must be indistinguishable from an agent that does
+          // not exist, rather than an empty-but-successful reply that confirms it.
+          const mayUseAgent = await canAccessAgent(
+            { userId: user.id, organizationId: user.organizationId, role: user.role },
+            ctx.params.agentId
+          )
+          if (!mayUseAgent) {
+            ctx.set.status = 404
+            return { success: false, error: 'Agent not found' }
+          }
+
           const conversationId = await chatPersistence.findOwnedConversation({
             organizationId: user.organizationId,
             userId: user.id,
@@ -933,6 +962,7 @@ export function registerAgentChatRoutes(
         query: t.Object({ limit: t.Optional(t.String()), threadKey: t.Optional(t.String()) }),
         response: {
           200: t.Object({ success: t.Literal(true), data: t.Any() }),
+          404: t.Object({ success: t.Literal(false), error: t.String() }),
           500: t.Object({ success: t.Literal(false), error: t.String() }),
         },
       })
