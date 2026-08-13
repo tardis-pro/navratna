@@ -199,7 +199,11 @@ export class ToolExecutor {
       // Execute the tool logic
       const timeout =
         typeof execution.metadata?.timeout === 'number' ? execution.metadata.timeout : 30000;
-      const result = await this.executeToolLogic(execution.toolId, execution.parameters, timeout);
+      // BaseToolExecutor.execute() and resolveToolDescriptor() both dispatch on
+      // the tool NAME (see tool_definition_seed: name is the lookup key), not the
+      // UUID primary key — passing execution.toolId made every native tool fail
+      // with "Unknown tool: <uuid>".
+      const result = await this.executeToolLogic(tool.name, execution.parameters, timeout);
 
       const executionTime = Date.now() - startTime;
 
