@@ -349,6 +349,16 @@ export class DiscussionOrchestrationService extends EventEmitter {
     [DiscussionStatus.ACTIVE]: [DiscussionStatus.PAUSED],
     [DiscussionStatus.COMPLETED]: [DiscussionStatus.ACTIVE],
     [DiscussionStatus.CANCELLED]: [DiscussionStatus.DRAFT],
+    // Archive is the retire path for a discussion that is no longer running.
+    // ACTIVE is deliberately absent: a live discussion has a turn timer and
+    // participants mid-conversation, so it must be ended or paused first rather
+    // than vanishing underneath them.
+    [DiscussionStatus.ARCHIVED]: [
+      DiscussionStatus.DRAFT,
+      DiscussionStatus.PAUSED,
+      DiscussionStatus.COMPLETED,
+      DiscussionStatus.CANCELLED,
+    ],
   };
 
   // For automatic completion (goal reached, message cap). Still validated and
@@ -580,6 +590,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
           return await this.stopDiscussion(discussionId, requestedBy);
         }
 
+        case DiscussionStatus.ARCHIVED:
+          return await this.archiveDiscussion(discussionId, requestedBy);
+
         default:
           return {
             success: false,
@@ -596,6 +609,59 @@ export class DiscussionOrchestrationService extends EventEmitter {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to change discussion status',
       };
+    }
+  }
+
+  /**
+   * Retires a discussion by moving it to ARCHIVED. This is what DELETE
+   * /discussions/:id resolves to — the row is kept because discussion_messages
+   * and discussion_participants hang off it (ON DELETE CASCADE), so a hard
+   * delete would silently destroy the transcript and every attribution in it.
+   *
+   * The status write is the same conditional UPDATE every other transition uses,
+   * so two machines racing to archive cannot both win.
+   */
+  async archiveDiscussion(
+    discussionId: string,
+    requestedBy: string
+  ): Promise<DiscussionOrchestrationResult> {
+    const release = await this.mutex.acquire(discussionId);
+    try {
+      const current = await this.getDiscussion(discussionId, true);
+      if (!current) {
+        return { success: false, error: 'Discussion not found' };
+      }
+
+      if (current.status === DiscussionStatus.ARCHIVED) {
+        return { success: true, data: { id: discussionId, status: DiscussionStatus.ARCHIVED } };
+      }
+
+      const invalid = await this.transitionStatus(discussionId, DiscussionStatus.ARCHIVED);
+      if (invalid) return invalid;
+
+      // An archived discussion must not keep driving turns or sitting in the
+      // active cache — same cleanup the terminal transitions perform.
+      const timer = this.turnTimers.get(discussionId);
+      if (timer) {
+        clearTimeout(timer);
+        this.turnTimers.delete(discussionId);
+      }
+      this.activeDiscussions.delete(discussionId);
+      this.turnRequestQueues.delete(discussionId);
+
+      logger.info('Discussion archived', { discussionId, requestedBy });
+      return { success: true, data: { id: discussionId, status: DiscussionStatus.ARCHIVED } };
+    } catch (error) {
+      logger.error('Failed to archive discussion', {
+        discussionId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to archive discussion',
+      };
+    } finally {
+      release();
     }
   }
 

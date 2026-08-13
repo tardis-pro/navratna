@@ -421,6 +421,100 @@ export function registerDiscussionRoutes(
         }
       )
 
+      // DELETE archives rather than destroys: discussion_messages and
+      // discussion_participants cascade on delete, so removing the row would take
+      // the whole transcript with it. The frontend has always called this route
+      // (discussionsAPI.delete) and always got a 404 — it was never registered.
+      .delete(
+        '/:id',
+        async (ctx) => {
+          try {
+            const guardFailure = await participantGuard(ctx);
+            if (guardFailure) {
+              return guardFailure;
+            }
+
+            const user = getNginxUser(ctx);
+            const result = await orchestrationService.archiveDiscussion(ctx.params.id, user.id);
+            if (!result.success) {
+              ctx.set.status = result.error === 'Discussion not found' ? 404 : 400;
+              return { success: false, error: result.error ?? 'Failed to delete discussion' };
+            }
+            return { success: true, data: result.data };
+          } catch (error) {
+            logger.error('Failed to delete discussion', { error, id: ctx.params.id });
+            ctx.set.status = 500;
+            return { success: false, error: 'Failed to delete discussion' };
+          }
+        },
+        {
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+            401: t.Object({ success: t.Literal(false), error: t.String() }),
+            403: t.Object({ success: t.Literal(false), error: t.String() }),
+            404: t.Object({ success: t.Literal(false), error: t.String() }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
+        }
+      )
+
+      // Read side of the participant list. POST /:id/participants existed from the
+      // start but the GET never did, so a client that added a participant had no
+      // way to read the roster back and got a bare 404.
+      .get(
+        '/:id/participants',
+        async (ctx) => {
+          try {
+            const guardFailure = await participantGuard(ctx);
+            if (guardFailure) {
+              return guardFailure;
+            }
+
+            const db = getIntelligenceDb();
+            const rows = await db
+              .select({
+                id: discussionParticipants.id,
+                discussionId: discussionParticipants.discussionId,
+                agentId: discussionParticipants.agentId,
+                userId: discussionParticipants.userId,
+                personaId: discussionParticipants.personaId,
+                role: discussionParticipants.role,
+                participantType: discussionParticipants.participantType,
+                joinedAt: discussionParticipants.joinedAt,
+                leftAt: discussionParticipants.leftAt,
+                isActive: discussionParticipants.isActive,
+                turnCount: discussionParticipants.turnCount,
+                messageCount: discussionParticipants.messageCount,
+              })
+              .from(discussionParticipants)
+              .where(eq(discussionParticipants.discussionId, ctx.params.id));
+
+            // Removed participants are kept as rows (isActive=false) for message
+            // attribution, so they are excluded unless explicitly requested.
+            const includeInactive = ctx.query.includeInactive === 'true';
+            const participants = includeInactive ? rows : rows.filter((row) => row.isActive);
+
+            return { success: true, data: participants };
+          } catch (error) {
+            logger.error('Failed to list discussion participants', { error, id: ctx.params.id });
+            ctx.set.status = 500;
+            return { success: false, error: 'Failed to list discussion participants' };
+          }
+        },
+        {
+          query: t.Object({ includeInactive: t.Optional(t.String()) }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Array(t.Any()) }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+            401: t.Object({ success: t.Literal(false), error: t.String() }),
+            403: t.Object({ success: t.Literal(false), error: t.String() }),
+            404: t.Object({ success: t.Literal(false), error: t.String() }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
+        }
+      )
+
       .post(
         '/:id/participants',
         async (ctx) => {

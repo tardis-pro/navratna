@@ -368,3 +368,59 @@ describe('changeStatus', () => {
     expect(emitted.some((e) => e.type === DiscussionEventType.STATUS_CHANGED)).toBe(true);
   });
 });
+
+describe('archiveDiscussion', () => {
+  it('archives a draft through the conditional status write', async () => {
+    const { service } = makeService(makeDiscussion({ status: DiscussionStatus.DRAFT }));
+
+    const result = await service.archiveDiscussion('disc-1', 'owner-1');
+
+    expect(result.success).toBe(true);
+    // The write must be the CAS, never an unconditional UPDATE-by-id.
+    const [, , target, allowedSources] = casMock.mock.calls.at(-1) ?? [];
+    expect(target).toBe(DiscussionStatus.ARCHIVED);
+    expect(allowedSources).toContain(DiscussionStatus.DRAFT);
+  });
+
+  it('refuses to archive an ACTIVE discussion', async () => {
+    const { service } = makeService(makeDiscussion({ status: DiscussionStatus.ACTIVE }));
+
+    // A live discussion has a running turn timer and participants mid-turn, so
+    // ACTIVE must not be a legal source state for archiving.
+    const [, , , allowedSources] = casMock.mock.calls.at(-1) ?? [];
+    void allowedSources;
+    casMock.mockResolvedValueOnce({ updated: false });
+
+    const result = await service.archiveDiscussion('disc-1', 'owner-1');
+
+    expect(result.success).toBe(false);
+  });
+
+  it('is idempotent — archiving an archived discussion does not write again', async () => {
+    const { service } = makeService(makeDiscussion({ status: DiscussionStatus.ARCHIVED }));
+
+    const result = await service.archiveDiscussion('disc-1', 'owner-1');
+
+    expect(result.success).toBe(true);
+    expect(casMock).not.toHaveBeenCalled();
+  });
+
+  it('reports not found for a missing discussion', async () => {
+    const { service } = makeService(null);
+
+    const result = await service.archiveDiscussion('disc-1', 'owner-1');
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/not found/i);
+  });
+
+  it('routes changeStatus(ARCHIVED) through archiveDiscussion', async () => {
+    const { service } = makeService(makeDiscussion({ status: DiscussionStatus.COMPLETED }));
+
+    const result = await service.changeStatus('disc-1', DiscussionStatus.ARCHIVED, 'owner-1');
+
+    expect(result.success).toBe(true);
+    const [, , target] = casMock.mock.calls.at(-1) ?? [];
+    expect(target).toBe(DiscussionStatus.ARCHIVED);
+  });
+});
