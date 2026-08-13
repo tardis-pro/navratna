@@ -1479,6 +1479,35 @@ export class MCPClientService extends EventEmitter {
     return Array.from(this.servers.values());
   }
 
+  async getConfiguredServers(): Promise<MCPServerState[]> {
+    if (!this.mcpRepo) return this.getAllServers();
+
+    const entities = await this.mcpRepo.getAllServers();
+    return entities.map((entity) => {
+      const record = this.asRecord(entity);
+      const name = String(record.name ?? '');
+      const running = this.servers.get(name);
+      if (running) return running;
+
+      const config = this.entityToConfig(entity);
+      return {
+        name,
+        config,
+        transportType: config.transportType ?? 'stdio',
+        httpUrl: config.httpUrl,
+        status: 'stopped',
+        logs: [],
+        stats: {
+          totalRequests: 0,
+          successfulRequests: 0,
+          failedRequests: 0,
+          averageResponseTime: 0,
+          uptime: 0,
+        },
+      };
+    });
+  }
+
   getServerLogs(serverName: string, limit?: number): string[] {
     const server = this.servers.get(serverName);
     if (!server) return [];

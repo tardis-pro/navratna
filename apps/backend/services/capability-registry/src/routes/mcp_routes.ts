@@ -210,7 +210,7 @@ export function registerMCPRoutes() {
 
       // List servers summary — safe fields only, no secrets
       .get('/servers', async () => {
-        const servers = mcpService.getAllServers();
+        const servers = await mcpService.getConfiguredServers();
         return {
           success: true,
           data: servers.map((s) => ({

@@ -71,8 +71,11 @@ export class ToolExecutor {
       retryCount: typeof record.retryCount === 'number' ? record.retryCount : 0,
       maxRetries: typeof record.maxRetries === 'number' ? record.maxRetries : 3,
       metadata: this.asRecord(record.metadata),
-      success: Boolean(record.success),
-      data: record.data,
+      success:
+        record.success === true ||
+        this.asRecord(record.metadata).success === true ||
+        status === ToolExecutionStatus.COMPLETED,
+      data: record.data ?? record.result,
     };
   }
 
@@ -143,6 +146,7 @@ export class ToolExecutor {
         status: execution.status,
         startTime: execution.startTime,
         approvalRequired: execution.approvalRequired,
+        success: execution.success,
         retryCount: execution.retryCount,
         maxRetries: execution.maxRetries,
       });
@@ -218,6 +222,7 @@ export class ToolExecutor {
       execution.endTime = new Date();
       execution.executionTimeMs = executionTime;
       execution.cost = this.calculateCost(tool, executionTime);
+      execution.success = true;
 
       await this.toolService.updateToolExecution(execution.id, {
         status: ToolExecutionStatus.COMPLETED,
@@ -228,6 +233,7 @@ export class ToolExecutor {
           ...this.asRecord(execution.metadata),
           endTime: execution.endTime?.toISOString(),
           executionTimeMs: executionTime,
+          success: execution.success,
         },
       });
 

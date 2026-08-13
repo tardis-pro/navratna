@@ -37,6 +37,14 @@ vi.mock('../../../../capability-registry/src/services/mcp_client_service.js', ()
       getSystemStatus: vi.fn().mockResolvedValue({ servers: [], tools: [] }),
       getAvailableToolsForAgent: vi.fn().mockReturnValue([]),
       getAllServers: vi.fn().mockReturnValue([]),
+      getConfiguredServers: vi.fn().mockResolvedValue([
+        {
+          name: 'configured-server',
+          status: 'stopped',
+          transportType: 'http',
+          tools: [],
+        },
+      ]),
       getServerStatus: vi.fn().mockReturnValue(null),
       getToolsByServer: vi.fn().mockReturnValue([]),
       startServer: vi.fn().mockResolvedValue({}),
@@ -100,6 +108,28 @@ function buildMCPApp() {
 function authHeader() {
   return { Authorization: 'Bearer test-token' };
 }
+
+describe('MCP Routes', () => {
+  it('lists configured servers even when they are stopped', async () => {
+    const app = buildMCPApp();
+    const res = await app.handle(
+      new Request('http://localhost/api/v1/mcp/servers', { headers: authHeader() })
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      success: true,
+      data: [
+        {
+          name: 'configured-server',
+          status: 'stopped',
+          transportType: 'http',
+          toolCount: 0,
+        },
+      ],
+    });
+  });
+});
 
 describe('Capability Routes', () => {
   beforeEach(() => {
