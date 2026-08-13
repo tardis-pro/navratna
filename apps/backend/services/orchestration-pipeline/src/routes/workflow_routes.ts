@@ -17,6 +17,9 @@ import { logger } from '@uaip/utils';
 import { WorkflowEngineService } from '../services/workflow_engine_service.js';
 import { WorkflowExecutorService } from '../services/workflow_executor_service.js';
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 type WorkflowTrigger = WorkflowDefinition['trigger'];
 type WorkflowSteps = WorkflowDefinition['steps'];
 type WorkflowDelivery = WorkflowDefinition['delivery'];
@@ -199,6 +202,16 @@ function parsePage(queryValue: unknown, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function validateWorkflowRouteIds(
+  ctx: { params: Record<string, string>; set: { status?: number | string } },
+  parameterNames: readonly string[]
+) {
+  if (parameterNames.every((name) => UUID_PATTERN.test(ctx.params[name] ?? ''))) return;
+
+  ctx.set.status = 400;
+  return { success: false as const, error: 'Invalid workflow identifier' };
+}
+
 const WorkflowExecutionSchema = t.Object({
   id: t.String(),
   workflowId: t.String(),
@@ -330,8 +343,10 @@ export function registerWorkflowRoutes(
         return { success: false, error: 'Failed to get workflow' };
       }
     }, {
+      beforeHandle: (ctx) => validateWorkflowRouteIds(ctx, ['id']),
       response: {
         200: t.Object({ success: t.Literal(true), data: WorkflowSchema }),
+        400: WorkflowErrorSchema,
         404: WorkflowErrorSchema,
         500: WorkflowErrorSchema,
       },
@@ -367,9 +382,11 @@ export function registerWorkflowRoutes(
         return { success: false, error: 'Failed to list workflow executions' };
       }
     }, {
+      beforeHandle: (ctx) => validateWorkflowRouteIds(ctx, ['id']),
       query: t.Object({ page: t.Optional(t.String()), limit: t.Optional(t.String()) }),
       response: {
         200: t.Object({ success: t.Literal(true), data: t.Array(WorkflowExecutionSchema) }),
+        400: WorkflowErrorSchema,
         500: WorkflowErrorSchema,
       },
     })
@@ -402,8 +419,10 @@ export function registerWorkflowRoutes(
         return { success: false, error: 'Failed to get workflow execution' };
       }
     }, {
+      beforeHandle: (ctx) => validateWorkflowRouteIds(ctx, ['id', 'executionId']),
       response: {
         200: t.Object({ success: t.Literal(true), data: WorkflowExecutionSchema }),
+        400: WorkflowErrorSchema,
         404: WorkflowErrorSchema,
         500: WorkflowErrorSchema,
       },
@@ -494,6 +513,7 @@ export function registerWorkflowRoutes(
         return { success: false, error: 'Failed to update workflow' };
       }
     }, {
+      beforeHandle: (ctx) => validateWorkflowRouteIds(ctx, ['id']),
       body: t.Object({
         name: t.Optional(t.String()),
         description: t.Optional(t.Union([t.String(), t.Null()])),
@@ -535,8 +555,10 @@ export function registerWorkflowRoutes(
         return { success: false, error: 'Failed to delete workflow' };
       }
     }, {
+      beforeHandle: (ctx) => validateWorkflowRouteIds(ctx, ['id']),
       response: {
         200: t.Object({ success: t.Literal(true), data: WorkflowSchema }),
+        400: WorkflowErrorSchema,
         403: GuardErrorSchema,
         404: WorkflowErrorSchema,
         500: WorkflowErrorSchema,
@@ -571,9 +593,11 @@ export function registerWorkflowRoutes(
         return { success: false, error: 'Failed to execute workflow' };
       }
     }, {
+      beforeHandle: (ctx) => validateWorkflowRouteIds(ctx, ['id']),
       body: t.Optional(t.Object({ input: t.Optional(t.Any()) })),
       response: {
         200: t.Object({ success: t.Literal(true), data: WorkflowExecutionSchema }),
+        400: WorkflowErrorSchema,
         403: GuardErrorSchema,
         404: WorkflowErrorSchema,
         500: WorkflowErrorSchema,

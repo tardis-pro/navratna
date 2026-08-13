@@ -132,9 +132,13 @@ describe('workflow routes contract', () => {
         steps: [{ type: 'bash', command: 'id' }],
       },
     },
-    { method: 'PUT', path: '/api/v1/workflows/wf-1', body: { enabled: true } },
-    { method: 'DELETE', path: '/api/v1/workflows/wf-1' },
-    { method: 'POST', path: '/api/v1/workflows/wf-1/execute' },
+    {
+      method: 'PUT',
+      path: '/api/v1/workflows/11111111-1111-4111-8111-111111111111',
+      body: { enabled: true },
+    },
+    { method: 'DELETE', path: '/api/v1/workflows/11111111-1111-4111-8111-111111111111' },
+    { method: 'POST', path: '/api/v1/workflows/11111111-1111-4111-8111-111111111111/execute' },
   ];
 
   it.each(PRIVILEGED_ROUTES)(
@@ -197,7 +201,7 @@ describe('workflow routes contract', () => {
     const app = buildApp(createEngine(), executor);
 
     const response = await app.handle(
-      new Request('http://localhost/api/v1/workflows/wf-1/execute', {
+      new Request('http://localhost/api/v1/workflows/11111111-1111-4111-8111-111111111111/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -205,14 +209,14 @@ describe('workflow routes contract', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(executor.runDefinition).toHaveBeenCalledWith('wf-1');
+    expect(executor.runDefinition).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
   });
 
   it('exposes GET /:id/executions so run history is readable', async () => {
     const app = buildApp(createEngine(), createExecutor());
 
     const response = await app.handle(
-      new Request('http://localhost/api/v1/workflows/wf-1/executions')
+      new Request('http://localhost/api/v1/workflows/11111111-1111-4111-8111-111111111111/executions')
     );
 
     expect(response.status).toBe(200);
@@ -225,9 +229,23 @@ describe('workflow routes contract', () => {
     const app = buildApp(createEngine(), createExecutor());
 
     const response = await app.handle(
-      new Request('http://localhost/api/v1/workflows/wf-1/executions/op-of-another-workflow')
+      new Request(
+        'http://localhost/api/v1/workflows/11111111-1111-4111-8111-111111111111/executions/22222222-2222-4222-8222-222222222222'
+      )
     );
 
     expect(response.status).toBe(404);
+  });
+
+  it.each([
+    '/api/v1/workflows/definitions',
+    '/api/v1/workflows/not-a-uuid/executions',
+    '/api/v1/workflows/11111111-1111-4111-8111-111111111111/executions/not-a-uuid',
+  ])('returns 400 when a workflow route receives a malformed UUID at %s', async (path) => {
+    const app = buildApp(createEngine(), createExecutor());
+
+    const response = await app.handle(new Request(`http://localhost${path}`));
+
+    expect(response.status).toBe(400);
   });
 });

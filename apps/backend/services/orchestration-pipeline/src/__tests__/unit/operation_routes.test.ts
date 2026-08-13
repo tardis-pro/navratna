@@ -146,6 +146,22 @@ describe('operation routes', () => {
     expect(body.data).toHaveProperty('totalOperations');
   });
 
+  it.each([
+    { path: '/api/v1/operations/not-a-uuid', method: 'GET' },
+    { path: '/api/v1/operations/not-a-uuid/status', method: 'GET' },
+    { path: '/api/v1/operations/not-a-uuid/history', method: 'GET' },
+    { path: '/api/v1/operations/not-a-uuid/logs', method: 'GET' },
+    { path: '/api/v1/operations/not-a-uuid/pause', method: 'POST' },
+    { path: '/api/v1/operations/not-a-uuid/resume', method: 'POST' },
+    { path: '/api/v1/operations/not-a-uuid/cancel', method: 'POST' },
+  ])('returns 400 for malformed operation ids on $method $path', async ({ path, method }) => {
+    const app = registerOperationRoutes(createEngine() as never);
+
+    const response = await app.handle(new Request(`http://localhost${path}`, { method }));
+
+    expect(response.status).toBe(400);
+  });
+
   it('cancels with a non-empty reason even when the request carries no body', async () => {
     const engine = createEngine();
     // The ownership guard resolves the operation first; without an owned row the

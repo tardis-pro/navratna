@@ -16,6 +16,7 @@ import { logger } from '@uaip/utils';
 import type { OrchestrationEngine } from '../orchestration_engine.js';
 
 const DEFAULT_CANCEL_REASON = 'Cancelled by user';
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const ErrorSchema = t.Object({ success: t.Literal(false), error: t.String() });
 const DataSchema = t.Object({ success: t.Literal(true), data: t.Any() });
@@ -133,6 +134,15 @@ async function findOwnedOperation(
     .where(and(eq(operations.id, operationId), eq(operations.userId, userId)))
     .limit(1);
   return (row as Record<string, unknown> | undefined) ?? null;
+}
+
+function rejectMalformedOperationId(
+  operationId: string,
+  set: { status?: number | string }
+): { success: false; error: string } | null {
+  if (UUID_PATTERN.test(operationId)) return null;
+  set.status = 400;
+  return { success: false, error: 'Invalid operation id' };
 }
 
 export function registerOperationRoutes(engine: OrchestrationEngine | undefined) {
@@ -318,6 +328,9 @@ export function registerOperationRoutes(engine: OrchestrationEngine | undefined)
       })
 
       .get('/:id', async (ctx) => {
+        const invalidId = rejectMalformedOperationId(ctx.params.id, ctx.set);
+        if (invalidId) return invalidId;
+
         const userId = getAuthUserId(ctx);
         if (!userId) {
           ctx.set.status = 401;
@@ -341,10 +354,13 @@ export function registerOperationRoutes(engine: OrchestrationEngine | undefined)
           return { success: false, error: 'Failed to get operation' };
         }
       }, {
-        response: { 200: DataSchema, 404: ErrorSchema, 500: ErrorSchema },
+        response: { 200: DataSchema, 400: ErrorSchema, 404: ErrorSchema, 500: ErrorSchema },
       })
 
       .get('/:id/status', async (ctx) => {
+        const invalidId = rejectMalformedOperationId(ctx.params.id, ctx.set);
+        if (invalidId) return invalidId;
+
         if (!engine) {
           ctx.set.status = 503;
           return { success: false, error: 'Orchestration engine unavailable' };
@@ -378,10 +394,13 @@ export function registerOperationRoutes(engine: OrchestrationEngine | undefined)
           return { success: false, error: 'Failed to get operation status' };
         }
       }, {
-        response: { 200: DataSchema, 404: ErrorSchema, 500: ErrorSchema, 503: ErrorSchema },
+        response: { 200: DataSchema, 400: ErrorSchema, 404: ErrorSchema, 500: ErrorSchema, 503: ErrorSchema },
       })
 
       .post('/:id/pause', async (ctx) => {
+        const invalidId = rejectMalformedOperationId(ctx.params.id, ctx.set);
+        if (invalidId) return invalidId;
+
         if (!engine) {
           ctx.set.status = 503;
           return { success: false, error: 'Orchestration engine unavailable' };
@@ -424,6 +443,9 @@ export function registerOperationRoutes(engine: OrchestrationEngine | undefined)
       })
 
       .post('/:id/resume', async (ctx) => {
+        const invalidId = rejectMalformedOperationId(ctx.params.id, ctx.set);
+        if (invalidId) return invalidId;
+
         if (!engine) {
           ctx.set.status = 503;
           return { success: false, error: 'Orchestration engine unavailable' };
@@ -466,6 +488,9 @@ export function registerOperationRoutes(engine: OrchestrationEngine | undefined)
       })
 
       .post('/:id/cancel', async (ctx) => {
+        const invalidId = rejectMalformedOperationId(ctx.params.id, ctx.set);
+        if (invalidId) return invalidId;
+
         if (!engine) {
           ctx.set.status = 503;
           return { success: false, error: 'Orchestration engine unavailable' };
@@ -515,6 +540,9 @@ export function registerOperationRoutes(engine: OrchestrationEngine | undefined)
       })
 
       .get('/:id/history', async (ctx) => {
+        const invalidId = rejectMalformedOperationId(ctx.params.id, ctx.set);
+        if (invalidId) return invalidId;
+
         const userId = getAuthUserId(ctx);
         if (!userId) {
           ctx.set.status = 401;
@@ -566,10 +594,13 @@ export function registerOperationRoutes(engine: OrchestrationEngine | undefined)
           return { success: false, error: 'Failed to get operation history' };
         }
       }, {
-        response: { 200: ListSchema, 500: ErrorSchema },
+        response: { 200: ListSchema, 400: ErrorSchema, 500: ErrorSchema },
       })
 
       .get('/:id/logs', async (ctx) => {
+        const invalidId = rejectMalformedOperationId(ctx.params.id, ctx.set);
+        if (invalidId) return invalidId;
+
         const userId = getAuthUserId(ctx);
         if (!userId) {
           ctx.set.status = 401;
@@ -599,7 +630,7 @@ export function registerOperationRoutes(engine: OrchestrationEngine | undefined)
           return { success: false, error: 'Failed to get operation logs' };
         }
       }, {
-        response: { 200: ListSchema, 500: ErrorSchema },
+        response: { 200: ListSchema, 400: ErrorSchema, 500: ErrorSchema },
       })
   );
 }
