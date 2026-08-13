@@ -407,7 +407,7 @@ class NavratnaCoreService extends BaseService {
           // is the same trust model the CF Worker uses for HTTP.
           let claims: { userId?: string } | null = null
           try {
-            claims = (await JWTValidator.verify(token)) as { userId?: string } | null
+            claims = await JWTValidator.verifyAny(token)
           } catch {
             claims = null
           }
