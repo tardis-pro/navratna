@@ -10,6 +10,7 @@ export { AdapterRegistry } from './adapters/adapter_registry.js';
 export { AnalystAgent } from './analyst/analyst_agent.js';
 export { VerifierService } from './verifier/verifier_service.js';
 export { GitHubSourceControlAdapter } from './verifier/github_source_control_adapter.js';
+export { GiteaSourceControlAdapter } from './verifier/gitea_source_control_adapter.js';
 export { FixProposerAgent } from './fix_proposer/fix_proposer_agent.js';
 export { LearnerService } from './learner/learner_service.js';
 export { ReconciliationLoop } from './reconciliation/reconciliation_loop.js';

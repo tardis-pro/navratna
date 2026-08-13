@@ -33,6 +33,10 @@ export class AdapterRegistry {
     return this.getAll().filter((a): a is ObservabilityAdapter => 'queryErrors' in a);
   }
 
+  getSourceControlAdapters(): SourceControlAdapter[] {
+    return this.getAll().filter((a): a is SourceControlAdapter => 'createPR' in a);
+  }
+
   async healthCheckAll(): Promise<Record<string, boolean>> {
     const results: Record<string, boolean> = {};
     for (const [id, adapter] of this.adapters) {

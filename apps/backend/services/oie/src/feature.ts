@@ -10,6 +10,8 @@ import { LearnerService } from './learner/learner_service.js';
 import { ReconciliationLoop } from './reconciliation/reconciliation_loop.js';
 import { SigNozAdapter } from './adapters/signoz_adapter.js';
 import { SentryAdapter } from './adapters/sentry_adapter.js';
+import { GiteaSourceControlAdapter } from './verifier/gitea_source_control_adapter.js';
+import { GitHubSourceControlAdapter } from './verifier/github_source_control_adapter.js';
 import { AdapterRegistry } from './adapters/adapter_registry.js';
 
 const PROJECT_ID = process.env.OIE_PROJECT_ID ?? 'navratna';
@@ -22,6 +24,34 @@ let verifier: VerifierService | null = null;
 let fixProposer: FixProposerAgent | null = null;
 let learner: LearnerService | null = null;
 let reconciliation: ReconciliationLoop | null = null;
+
+async function registerSourceControl(registry: AdapterRegistry): Promise<void> {
+  if (process.env.GITEA_URL && process.env.GITEA_TOKEN) {
+    try {
+      const gitea = new GiteaSourceControlAdapter();
+      await gitea.initialize({});
+      registry.register(gitea);
+    } catch (error) {
+      logger.error('oie: GiteaSourceControlAdapter registration failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  } else if (process.env.GITEA_URL) {
+    logger.warn('oie: GITEA_URL set but GITEA_TOKEN missing — GiteaSourceControlAdapter skipped');
+  }
+
+  if (process.env.GITHUB_TOKEN) {
+    try {
+      const github = new GitHubSourceControlAdapter();
+      await github.initialize({ token: process.env.GITHUB_TOKEN });
+      registry.register(github);
+    } catch (error) {
+      logger.error('oie: GitHubSourceControlAdapter registration failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+}
 
 export const oieFeature: Feature = {
   name: 'oie',
@@ -48,6 +78,13 @@ export const oieFeature: Feature = {
     } else {
       logger.warn('oie: SENTRY_AUTH_TOKEN/SENTRY_ORG not set — SentryAdapter skipped');
     }
+
+    // Source control. Registered so the verifier tier can read files, diff a
+    // release range, and open/annotate a PR. Each is gated on its own
+    // credential: without a token the adapter would construct fine and then
+    // fail every call at request time. Registration failure must not abort the
+    // whole feature — the collector/triage/ticketing tiers do not depend on it.
+    await registerSourceControl(registry);
 
     collector = new CollectorService(PROJECT_ID);
     for (const adapter of registry.getObservabilityAdapters()) {
@@ -92,6 +129,7 @@ export const oieFeature: Feature = {
       projectId: PROJECT_ID,
       autonomyTier: process.env.FEATURE_OIE_AUTONOMY === 'true',
       adapters: registry.getAll().map((a) => a.id),
+      sourceControl: registry.getSourceControlAdapters().map((a) => a.id),
     });
   },
 

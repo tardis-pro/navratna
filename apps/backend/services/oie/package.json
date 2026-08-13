@@ -1,7 +1,7 @@
 {
   "name": "@uaip/oie",
   "version": "1.0.0",
-  "description": "OIE — Operational Intelligence Engine: modular, provider-agnostic continuous improvement platform",
+  "description": "OIE \u2014 Operational Intelligence Engine: modular, provider-agnostic continuous improvement platform",
   "main": "./src/index.ts",
   "type": "module",
   "exports": {
@@ -21,7 +21,8 @@
   "scripts": {
     "build": "tsc",
     "lint": "oxlint src",
-    "lint:fix": "oxlint --fix src"
+    "lint:fix": "oxlint --fix src",
+    "test": "vitest run"
   },
   "dependencies": {
     "@uaip/config": "workspace:*",
@@ -37,9 +38,13 @@
   },
   "devDependencies": {
     "@types/node": "catalog:backend",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:backend"
   },
   "nx": {
-    "tags": ["backend-service", "oie"]
+    "tags": [
+      "backend-service",
+      "oie"
+    ]
   }
 }
