@@ -45,27 +45,26 @@ export class RelationshipDetector {
     try {
       // Get recent items to compare against (limit for performance)
       const recentItems = await this.knowledgeRepository.findRecentItems(50);
+      const candidates = recentItems.filter((row) => row.id !== newItem.id);
 
-      // Generate embedding for the new item
-      const newItemEmbedding = await this.embeddingService.generateEmbedding(newItem.content);
+      // Embed the new item and every candidate in one batched pass. Doing this
+      // per-candidate meant ~50 sequential provider round-trips for every single
+      // ingested item, which is what made ingest throughput embedding-bound.
+      const [newItemEmbedding, ...candidateEmbeddings] =
+        await this.embeddingService.generateBatchEmbeddings([
+          newItem.content,
+          ...candidates.map((row) => row.content),
+        ]);
 
-      for (const existingRow of recentItems) {
-        if (existingRow.id === newItem.id) continue;
-
+      for (let i = 0; i < candidates.length; i++) {
         // Convert DB row to domain type for analyzeRelationship
-        const existingItem = toKnowledgeItem(existingRow);
-
-        // Generate embedding for existing item
-        // oxlint-disable-next-line no-await-in-loop
-        const existingEmbedding = await this.embeddingService.generateEmbedding(
-          existingItem.content
-        );
+        const existingItem = toKnowledgeItem(candidates[i]);
 
         // Calculate similarity
         // oxlint-disable-next-line no-await-in-loop
         const similarity = await this.embeddingService.calculateSimilarity(
           newItemEmbedding,
-          existingEmbedding
+          candidateEmbeddings[i]
         );
 
         // Detect relationship type and confidence
