@@ -12,10 +12,13 @@ import { DiscussionConfigModal } from '@/components/DiscussionConfigModal';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ExploreSurfaceProvider } from '@/components/TelescopeSurface/ExploreSurfaceProvider';
 import { swift } from '@/lib/motion';
+import { projectsAPI } from '@/api/projects_api';
 import { uaipAPI } from '@/utils/uaip_api';
 import { logger } from '@/utils/browser_logger';
+import { ProjectChatSettingsModal } from './ProjectChatSettingsModal';
 import { ShellHeader } from './ShellHeader';
 import { ThreadDock } from './ThreadDock';
+import { useDockProjects } from './use_dock_projects';
 import { decodeThreadRouteId, encodeThreadRouteId } from './thread_route_id';
 import { useAgentChatThreads } from './use_agent_chat_threads';
 import { WhisperRail } from './WhisperRail';
@@ -83,6 +86,13 @@ export function HomeShellLayout() {
   const [animatingCard, setAnimatingCard] = useState<AnimatingThreadRect | null>(null);
   const [discussionModalOpen, setDiscussionModalOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [settingsProjectId, setSettingsProjectId] = useState<string | null>(null);
+  const [pendingThreadProject, setPendingThreadProject] = useState<{
+    threadKey: string;
+    projectId: string;
+  } | null>(null);
+
+  const { projects: dockProjects } = useDockProjects(true);
 
   const {
     threads: chatThreadSummaries,
@@ -189,6 +199,9 @@ export function HomeShellLayout() {
           agentId: primaryAgentId,
           conversationId: summary.id,
           threadKey: summary.threadKey,
+          // Absent on discussion threads below, which is what keeps them in the
+          // dock's loose section rather than inside somebody's project.
+          projectId: summary.projectId ?? undefined,
         },
       };
     });
@@ -308,10 +321,48 @@ export function HomeShellLayout() {
    * the conversation is created lazily by the first turn.
    */
   const startNewThread = useCallback(
-    (agentId: string) => {
-      selectAgent(agentId, crypto.randomUUID());
+    (agentId: string, projectId?: string) => {
+      const threadKey = crypto.randomUUID();
+      // Held client-side until the first turn creates the row. The server has no
+      // thread to read a project off yet, so this is the only place that knows
+      // which project the conversation is about to belong to.
+      setPendingThreadProject(projectId ? { threadKey, projectId } : null);
+      selectAgent(agentId, threadKey);
     },
     [selectAgent]
+  );
+
+  /**
+   * Opens a new thread inside a project, using the agent the project pins.
+   *
+   * Falls back to the first active agent when nothing is pinned, rather than
+   * refusing: a project with no default should still be usable, and the user can
+   * switch agent inside the thread.
+   */
+  const startProjectThread = useCallback(
+    async (projectId: string) => {
+      let agentId: string | undefined;
+
+      try {
+        agentId = (await projectsAPI.getChatSettings(projectId)).defaultAgentId ?? undefined;
+      } catch (error) {
+        logger.warn('[HomeShell] could not read the project default agent', error);
+      }
+
+      // A pinned agent that no longer exists (deleted, or not assigned to this
+      // user) must not open a thread against an id that resolves to nothing.
+      if (!agentId || !agents[agentId]) {
+        agentId = Object.values(agents).find((agent) => agent.isActive)?.id;
+      }
+
+      if (!agentId) {
+        logger.warn('[HomeShell] no agent available to start a project thread', { projectId });
+        return;
+      }
+
+      startNewThread(agentId, projectId);
+    },
+    [agents, startNewThread]
   );
 
   const selectThreadById = useCallback(
@@ -397,10 +448,33 @@ export function HomeShellLayout() {
     [navigate, selectAgent]
   );
 
+  /**
+   * The stored thread wins: once the first turn has created the row, the server
+   * is authoritative about which project the thread is in. The pending value is
+   * only the bridge across that gap, and it is matched on threadKey so switching
+   * to a different thread before sending cannot carry the project across.
+   */
+  const activeProjectId = useMemo(() => {
+    const summary = chatThreadSummaries.find(
+      (candidate) => candidate.threadKey === selectedThreadKey
+    );
+    if (summary?.projectId) return summary.projectId;
+
+    // The null check is load-bearing: with no pending thread, `?.threadKey` is
+    // undefined, which equals an undefined selectedThreadKey — so comparing the
+    // keys alone takes this branch on null and dereferences it.
+    if (!pendingThreadProject) return undefined;
+
+    return pendingThreadProject.threadKey === selectedThreadKey
+      ? pendingThreadProject.projectId
+      : undefined;
+  }, [chatThreadSummaries, pendingThreadProject, selectedThreadKey]);
+
   const shellContext = useMemo<HomeShellContextValue>(
     () => ({
       selectedAgentId,
       selectedThreadKey,
+      activeProjectId,
       selectAgent,
       selectThreadById,
       openDiscussionComposer,
@@ -408,6 +482,7 @@ export function HomeShellLayout() {
       onThreadActivity: () => void refreshChatThreads(),
     }),
     [
+      activeProjectId,
       openDiscussionComposer,
       refreshChatThreads,
       selectAgent,
@@ -435,11 +510,14 @@ export function HomeShellLayout() {
         <div className="relative flex min-h-0 flex-1 overflow-hidden">
           <ThreadDock
             threads={threads}
+            projects={dockProjects}
             selectedAgentId={selectedAgentId}
             selectedThreadKey={selectedThreadKey}
             onSelectThread={handleSelectThread}
             onRenameThread={renameChatThread}
             onArchiveThread={archiveChatThread}
+            onOpenProject={setSettingsProjectId}
+            onNewThreadInProject={(projectId) => void startProjectThread(projectId)}
             className="hidden lg:flex"
           />
 
@@ -458,11 +536,14 @@ export function HomeShellLayout() {
           {threadDockOpen && (
             <ThreadDock
               threads={threads}
+              projects={dockProjects}
               selectedAgentId={selectedAgentId}
               selectedThreadKey={selectedThreadKey}
               onSelectThread={handleSelectThread}
               onRenameThread={renameChatThread}
               onArchiveThread={archiveChatThread}
+              onOpenProject={setSettingsProjectId}
+              onNewThreadInProject={(projectId) => void startProjectThread(projectId)}
               onClose={() => setThreadDockOpen(false)}
               className="fixed bottom-0 left-0 top-12 z-50 w-[min(20rem,88vw)] shadow-2xl lg:hidden"
             />
@@ -530,6 +611,16 @@ export function HomeShellLayout() {
           onClose={() => setDiscussionModalOpen(false)}
           onDiscussionStarted={handleDiscussionStarted}
         />
+
+        {settingsProjectId && (
+          <ProjectChatSettingsModal
+            projectId={settingsProjectId}
+            projectName={
+              dockProjects.find((project) => project.id === settingsProjectId)?.name ?? 'Project'
+            }
+            onClose={() => setSettingsProjectId(null)}
+          />
+        )}
 
         <IntentField
           open={searchOpen}

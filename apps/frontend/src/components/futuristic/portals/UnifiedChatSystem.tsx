@@ -172,6 +172,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   mode = 'hybrid',
   defaultAgentId,
   threadKey,
+  projectId,
   onStartNewThread,
   onThreadActivity,
 }) => {
@@ -254,8 +255,9 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   // NO fallback to chip.id: that is a locally generated `cmd-*` key, not a project
   // uuid. Falling back to it sends an id that matches no binding, which reads as
   // "integration tools are broken" rather than "no project is selected".
+  // The thread's own project wins over a chip — see the prop's doc comment.
   const activeProjectId =
-    activeContextChip?.type === 'project' ? activeContextChip.resourceId : undefined;
+    projectId ?? (activeContextChip?.type === 'project' ? activeContextChip.resourceId : undefined);
 
   // Portal-mode streaming state. `streamingMessageId` points at the placeholder
   // ChatMessage inside `portalMessages` whose `content` is being updated in

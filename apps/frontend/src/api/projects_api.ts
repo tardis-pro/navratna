@@ -20,6 +20,15 @@ import type {
 } from '@uaip/contracts/api';
 import type { ProjectMetrics } from '@uaip/types';
 
+/**
+ * Mirrors the server's ProjectChatSettings. Declared here rather than imported
+ * from shared-services because that package is backend-only.
+ */
+export interface ProjectChatSettings {
+  instructions: string | null;
+  defaultAgentId: string | null;
+}
+
 function hasProjectsArray(value: unknown): value is { projects: Project[] } {
   if (typeof value !== 'object' || value === null || !('projects' in value)) {
     return false;
@@ -72,6 +81,45 @@ export const projectsAPI = {
 
   async updateStatus(id: string, status: ProjectStatus): Promise<Project> {
     return edenWithCSRFRetry(() => projects[id].status.patch({ status }));
+  },
+
+  /**
+   * The chat configuration every thread in the project inherits.
+   *
+   * Uses edenRequest rather than the typed treaty client because the treaty
+   * types are generated from the gateway's route tree — a route added in the
+   * same change set is not in them until the gateway is rebuilt, and a path this
+   * short does not need the indirection.
+   */
+  async getChatSettings(projectId: string): Promise<ProjectChatSettings> {
+    const response = await edenRequest<Partial<ProjectChatSettings> | null>(
+      `/api/v1/projects/${projectId}/chat-settings`,
+      { method: 'GET' }
+    );
+
+    return {
+      instructions: response?.instructions ?? null,
+      defaultAgentId: response?.defaultAgentId ?? null,
+    };
+  },
+
+  /**
+   * Omitting a field leaves it unchanged; passing null clears it. Callers must
+   * not send `undefined` expecting a clear — that is what null is for.
+   */
+  async updateChatSettings(
+    projectId: string,
+    patch: Partial<ProjectChatSettings>
+  ): Promise<ProjectChatSettings> {
+    const response = await edenRequest<Partial<ProjectChatSettings> | null>(
+      `/api/v1/projects/${projectId}/chat-settings`,
+      { method: 'PUT', body: patch }
+    );
+
+    return {
+      instructions: response?.instructions ?? null,
+      defaultAgentId: response?.defaultAgentId ?? null,
+    };
   },
 
   // Member management

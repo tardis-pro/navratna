@@ -5,8 +5,14 @@ import { useHomeShell } from './use_home_shell';
 
 export function HomeWorkspace() {
   const { agents } = useAgents();
-  const { selectedAgentId, selectedThreadKey, selectAgent, startNewThread, onThreadActivity } =
-    useHomeShell();
+  const {
+    selectedAgentId,
+    selectedThreadKey,
+    activeProjectId,
+    selectAgent,
+    startNewThread,
+    onThreadActivity,
+  } = useHomeShell();
 
   if (selectedAgentId) {
     return (
@@ -18,7 +24,10 @@ export function HomeWorkspace() {
           mode="portal"
           defaultAgentId={selectedAgentId}
           threadKey={selectedThreadKey}
-          onStartNewThread={() => startNewThread(selectedAgentId)}
+          projectId={activeProjectId}
+          // A new thread started from inside a project stays in it — otherwise
+          // "new thread" would silently drop the user out to the top level.
+          onStartNewThread={() => startNewThread(selectedAgentId, activeProjectId)}
           onThreadActivity={onThreadActivity}
         />
       </div>
