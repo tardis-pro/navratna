@@ -397,10 +397,14 @@ type AttachedTool = {
     setMcpToolsError(null);
 
     try {
-      const data = await edenRequest('/api/v1/agents/mcp-tools', { method: 'GET' });
+      // GET /api/v1/agents/mcp-tools returns `{success, tools}` — no `data` key,
+      // so edenRequest's envelope strip leaves the wrapper intact.
+      const response = await edenRequest<{
+        tools?: Array<{ toolId: string; toolName: string; serverName: string; description?: string }>;
+      }>('/api/v1/agents/mcp-tools', { method: 'GET' });
 
-      if (Array.isArray(data)) {
-        setAvailableMCPTools(data);
+      if (Array.isArray(response?.tools)) {
+        setAvailableMCPTools(response.tools);
       } else {
         setMcpToolsError('Invalid MCP tools response format');
       }
