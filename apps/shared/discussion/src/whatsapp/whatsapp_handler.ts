@@ -11,6 +11,7 @@ import {
   type AgentSummary,
   type ContactBinding,
 } from './contact_binding_service.js';
+import { ApprovalAllowlistService, normaliseWhatsAppJid } from './approval_allowlist_service.js';
 
 /** Prefix used to tag pending WhatsApp→agent messages in Redis */
 const WA_PENDING_PREFIX = 'whatsapp:pending:';
@@ -21,6 +22,22 @@ const WA_MSG_ID_PREFIX = 'wa_';
 
 /** Keywords that trigger re-displaying the agent selection menu */
 const RESELECT_COMMANDS = new Set(['!agents', '!change', '!menu', '!select']);
+
+/** `A <code>` / `R <code>` — an approval decision reply. Deliberately strict. */
+const APPROVAL_REPLY_RE = /^([AR])\s+([A-Z0-9]{4})$/i;
+
+/** JID domain for 1:1 chats — the only place an individual sender can be identified. */
+const WA_USER_SUFFIX = '@s.whatsapp.net';
+
+/**
+ * Reply sent to a sender who is not on the approval allowlist. Deliberately vague:
+ * it must not reveal whether the code exists, is pending, or has expired.
+ */
+const NOT_AUTHORISED_REPLY = 'Not authorised.';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
 
 const logger = createLogger({
   serviceName: 'WhatsAppHandler',
@@ -86,6 +103,8 @@ function buildInvalidSelectionMessage(max: number): string {
  *   3. BullMQ Event Bus  → agent-intelligence service (chat requests / responses)
  *
  * Message routing logic (per incoming message):
+ *   0) If message is an approval reply (`A <code>` / `R <code>`) from an allow-listed
+ *      1:1 contact → publish `approval.decision.submitted` (see handleApprovalReply)
  *   a) If message is a re-select command (!agents etc.) → show selection menu
  *   b) If contact has a pending selection → handle numeric choice
  *   c) If contact has a binding → route to bound agent
@@ -102,6 +121,7 @@ export class WhatsAppHandler {
   private readonly redis: Redis;
   private client: BaileysClient;
   private readonly bindingSvc: ContactBindingService;
+  private readonly approvalAllowlist: ApprovalAllowlistService;
 
   /** Fallback agent when no binding and no agents available via API. */
   private readonly defaultAgentId: string | undefined = process.env.WHATSAPP_DEFAULT_AGENT_ID;
@@ -126,6 +146,7 @@ export class WhatsAppHandler {
     this.redis.on('error', (err) => logger.error('WhatsApp Redis error', { err }));
 
     this.bindingSvc = new ContactBindingService(this.redis);
+    this.approvalAllowlist = new ApprovalAllowlistService(this.redis);
     this.client = new BaileysClient(this.redis);
 
     this.bridgeClientEvents();
@@ -277,6 +298,17 @@ export class WhatsAppHandler {
     const jid = msg.from;
     const text = msg.text?.trim() ?? '';
 
+    // 0) Approval decision reply (`A <code>` / `R <code>`). This MUST come first:
+    //    branch (b) below swallows arbitrary text whenever a selection is pending, so
+    //    anywhere later would drop approvals for contacts mid-selection. Anything that
+    //    does not match the strict pattern falls through untouched — normal chat UX
+    //    is completely unchanged.
+    const approvalMatch = APPROVAL_REPLY_RE.exec(text);
+    if (approvalMatch) {
+      await this.handleApprovalReply(msg, approvalMatch[1], approvalMatch[2]);
+      return;
+    }
+
     // a) Re-select command — always show menu regardless of current binding
     if (RESELECT_COMMANDS.has(text.toLowerCase())) {
       await this.startSelectionFlow(jid);
@@ -299,6 +331,80 @@ export class WhatsAppHandler {
 
     // d) Unbound contact — start selection flow
     await this.startSelectionFlow(jid);
+  }
+
+  /**
+   * Handle a matched `A <code>` / `R <code>` approval reply.
+   *
+   * Fail-closed at every step: a group chat, a non-1:1 JID, an unlisted sender or any
+   * thrown error all end here without publishing anything. This never replies with the
+   * decision outcome — the authoritative answer arrives asynchronously on
+   * `approval.decision.ack` once the approval service has validated the code.
+   */
+  private async handleApprovalReply(
+    msg: WhatsAppIncomingMessage,
+    letter: string,
+    code: string
+  ): Promise<void> {
+    const jid = msg.from;
+    const upperCode = code.toUpperCase();
+
+    try {
+      // A group message carries the GROUP jid; the individual participant is never
+      // captured, so the sender cannot be identified. Refuse rather than guess.
+      if (msg.isGroup || !jid.endsWith(WA_USER_SUFFIX)) {
+        logger.warn('Ignoring WhatsApp approval reply from a non-1:1 chat — sender unidentifiable', {
+          jid,
+          isGroup: msg.isGroup,
+        });
+        return;
+      }
+
+      const approver = await this.approvalAllowlist.resolveApprover(jid);
+      if (!approver) {
+        logger.warn('SECURITY: WhatsApp approval reply from a non-allow-listed JID rejected', {
+          jid,
+          code: upperCode,
+        });
+        await this.safeSend(jid, NOT_AUTHORISED_REPLY);
+        return;
+      }
+
+      const approved = letter.toUpperCase() === 'A';
+
+      try {
+        await this.eventBus.publish('approval.decision.submitted', {
+          code: upperCode,
+          approved,
+          channel: 'whatsapp',
+          jid,
+          approverUserId: approver.userId,
+          submittedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        // A dropped submission leaves the operation suspended with the admin believing
+        // they answered — this must be loud.
+        logger.error('SECURITY: failed to publish approval.decision.submitted — decision LOST', {
+          jid,
+          code: upperCode,
+          approved,
+          approverUserId: approver.userId,
+          err,
+        });
+        return;
+      }
+
+      logger.info('WhatsApp approval decision submitted', {
+        jid,
+        code: upperCode,
+        approved,
+        approverUserId: approver.userId,
+      });
+
+      await this.safeSend(jid, 'Received.');
+    } catch (err) {
+      logger.error('Failed to process WhatsApp approval reply', { jid, code: upperCode, err });
+    }
   }
 
   /** Fetch agent list (with Redis cache) and send the selection menu to the user. */
@@ -403,9 +509,6 @@ export class WhatsAppHandler {
         const messageId = 'messageId' in raw && typeof raw.messageId === 'string' ? raw.messageId : undefined;
         const agentName = 'agentName' in raw && typeof raw.agentName === 'string' ? raw.agentName : undefined;
         const responseField = 'response' in raw ? raw.response : undefined;
-        function isRecord(v: unknown): v is Record<string, unknown> {
-          return typeof v === 'object' && v !== null && !Array.isArray(v);
-        }
         const responseRaw: Record<string, unknown> | undefined = isRecord(responseField) ? responseField : undefined;
 
         if (!messageId?.startsWith(WA_MSG_ID_PREFIX)) return;
@@ -442,6 +545,77 @@ export class WhatsAppHandler {
       .catch((err) => {
         logger.error('Failed to subscribe to agent.chat.response for WhatsApp', { err });
       });
+
+    // The approval service runs in navratna-gateway, a different OS process, so it can
+    // never call sendText() directly — outbound approval traffic arrives as events.
+    this.eventBus
+      .subscribe('notification.whatsapp.send', async (event) => {
+        const raw = event.data;
+        if (!isRecord(raw)) {
+          logger.error('Malformed notification.whatsapp.send payload — notification dropped');
+          return;
+        }
+        const to = typeof raw['to'] === 'string' ? raw['to'] : '';
+        const text = typeof raw['text'] === 'string' ? raw['text'] : '';
+        const correlationId =
+          typeof raw['correlationId'] === 'string' ? raw['correlationId'] : undefined;
+
+        const jid = to ? normaliseWhatsAppJid(to) : null;
+        if (!jid || !text) {
+          logger.error('Unusable notification.whatsapp.send payload — notification dropped', {
+            to,
+            correlationId,
+          });
+          return;
+        }
+
+        try {
+          await this.client.sendText(jid, text);
+          logger.info('WhatsApp notification delivered', { jid, correlationId });
+        } catch (err) {
+          // Never swallow: a lost approval notification must be visible in the logs.
+          logger.error('Failed to deliver WhatsApp notification', { jid, correlationId, err });
+        }
+      })
+      .catch((err) => {
+        logger.error('Failed to subscribe to notification.whatsapp.send for WhatsApp', { err });
+      });
+
+    this.eventBus
+      .subscribe('approval.decision.ack', async (event) => {
+        const raw = event.data;
+        if (!isRecord(raw)) {
+          logger.error('Malformed approval.decision.ack payload — ack dropped');
+          return;
+        }
+        const jid = typeof raw['jid'] === 'string' ? raw['jid'].trim() : '';
+        const message = typeof raw['message'] === 'string' ? raw['message'] : '';
+        const ok = raw['ok'] === true;
+
+        if (!jid || !message) {
+          logger.error('Unusable approval.decision.ack payload — ack dropped', { jid, ok });
+          return;
+        }
+
+        try {
+          await this.client.sendText(jid, message);
+          logger.info('Approval decision ack delivered to WhatsApp', { jid, ok });
+        } catch (err) {
+          logger.error('Failed to deliver approval decision ack to WhatsApp', { jid, ok, err });
+        }
+      })
+      .catch((err) => {
+        logger.error('Failed to subscribe to approval.decision.ack for WhatsApp', { err });
+      });
+  }
+
+  /** Send a message, logging rather than throwing — callers run in unawaited listeners. */
+  private async safeSend(jid: string, text: string): Promise<void> {
+    try {
+      await this.client.sendText(jid, text);
+    } catch (err) {
+      logger.error('Failed to send WhatsApp message', { jid, err });
+    }
   }
 
   // ─── 5. Binding broadcast helpers ───────────────────────────────────────────
