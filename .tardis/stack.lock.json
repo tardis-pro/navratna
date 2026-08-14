@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "stackSha256": "5a728f72b0c2f5b73a1a56cb5bc1cf85232b6738a4f320a48db3700527bd64fb",
+  "stackSha256": "76c9808774dd60e06d302f0256a52299e3112a28ab0e3188d5d629d5c9d68344",
   "services": [
     {
       "id": "postgres",
@@ -182,7 +182,10 @@
         "OPENAI_API_KEY": "sk-3909fbf385e370bc-c3b924-cfbfde2c",
         "GITEA_URL": "https://git.tardis.local",
         "ENTERPRISE_MODE": "false",
-        "ZERO_TRUST_MODE": "disabled"
+        "ZERO_TRUST_MODE": "disabled",
+        "WHATSAPP_DEFAULT_AGENT_ID": "",
+        "REDIS_WA_DB": "0",
+        "WHATSAPP_APPROVER_ALLOWLIST": ""
       },
       "probe": {
         "type": "tcp",
@@ -243,7 +246,11 @@
         "GITEA_URL": "https://git.tardis.local",
         "OAUTH_CALLBACK_URL": "https://navratna.tardis.local/api/v1/oauth/callback",
         "ENTERPRISE_MODE": "false",
-        "ZERO_TRUST_MODE": "disabled"
+        "ZERO_TRUST_MODE": "disabled",
+        "FRONTEND_BASE_URL": "https://navratna.tardis.local",
+        "APPROVAL_DEFAULT_APPROVERS": "",
+        "WHATSAPP_APPROVER_ALLOWLIST": "",
+        "NOTIFICATIONS_WHATSAPP_ENABLED": "false"
       },
       "probe": {
         "type": "tcp",
