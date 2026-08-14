@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "stackSha256": "76c9808774dd60e06d302f0256a52299e3112a28ab0e3188d5d629d5c9d68344",
+  "stackSha256": "33620c3d04b2273986eb96e7363ba6c0a101a32409fa2eea44dc95412defa6b3",
   "services": [
     {
       "id": "postgres",
@@ -192,6 +192,7 @@
         "port": 8080
       },
       "metrics": true,
+      "sleep": "never",
       "build": {
         "context": ".",
         "dockerfile": "deploy/fly/Dockerfile.core"
@@ -257,6 +258,7 @@
         "port": 8080
       },
       "metrics": true,
+      "sleep": "never",
       "build": {
         "context": ".",
         "dockerfile": "deploy/fly/Dockerfile.gateway"
@@ -282,6 +284,7 @@
         "type": "tcp",
         "port": 8080
       },
+      "sleep": "never",
       "build": {
         "context": ".",
         "dockerfile": "deploy/tardis/router/Dockerfile"

@@ -129,6 +129,23 @@ services:
     port: 8080
     memory: 1024          # 512 OOMs under load (same finding as Fly)
     cpu: 250
+    # THE BRAIN DOES NOT GET A COLD START.
+    #
+    # This project is the thing that answers when anything else asks a question,
+    # and its own brief sets cold start < 90s and "THOUGHT TO ACTION — the gap
+    # should be imperceptible". An interface you wait for is not an interface.
+    #
+    # Pinned explicitly rather than left to be inferred as routable. A release
+    # sleeps on Traefik traffic, and Traefik only counts what entered through
+    # the router — core is reached from the router over cluster DNS, so it
+    # measures as permanently idle no matter how hard it is being worked.
+    #
+    # The backing services then follow for free: stackSleepDecision() only
+    # sleeps a shared service once EVERY release is asleep, which can no longer
+    # happen. So postgres, graph-db, redis and qdrant stay up without needing
+    # their own pin — and the graph and vector stores in particular must, since
+    # they hold the project knowledge everything else retrieves against.
+    sleep: never
     dependsOn: [postgres, graph-db, redis, qdrant]
     # First boot on an empty database: sync the Drizzle schema (no-op when the
     # DB already matches), then start the service. Seeders run in-app at boot.
@@ -210,6 +227,9 @@ services:
     port: 8080
     memory: 768
     cpu: 250
+    # Same reasoning as navratna-core: reached over cluster DNS, invisible to
+    # Traefik, so it would be reaped as idle while actively serving.
+    sleep: never
     dependsOn: [postgres, graph-db, redis, qdrant]
     env:
       NODE_ENV: "production"
@@ -285,6 +305,11 @@ services:
     port: 8080
     memory: 128
     cpu: 100
+    # The one service Traefik does see, so this is the only pin that wake-on-
+    # request would have covered. Pinned anyway: waking it on the first request
+    # would still make that request pay for the cold start of everything behind
+    # it, which is exactly the latency this project is not allowed to have.
+    sleep: never
     dependsOn: [navratna-core, navratna-gateway]
     env:
       EDGE_AUTH_SECRET: "c84946937277d3a29209f2e3a49d9e7a"
