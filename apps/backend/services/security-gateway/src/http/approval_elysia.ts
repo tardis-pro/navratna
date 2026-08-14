@@ -2,38 +2,22 @@ import { Elysia, t } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth, withOperatorGuard } from '@uaip/middleware';
+import { SecurityService } from '@uaip/shared-services';
 import { AuditService } from '../services/audit_service.js';
-import { ApprovalWorkflowService } from '../services/approval_workflow_service.js';
-import { EventBusService } from '@uaip/infra/event_bus';
-import { NotificationService } from '../services/notification_service.js';
+import { getSharedApprovalWorkflowService } from '../services/approval_event_bridge.js';
 import { ApprovalStatus, SecurityLevel, AuditEventType } from '@uaip/types';
 import { getAuthUser } from './context_helpers.js';
 
 let auditServiceSingleton: AuditService | null = null;
-let notificationServiceSingleton: NotificationService | null = null;
-let approvalWorkflowServiceSingleton: ApprovalWorkflowService | null = null;
 
+// The ApprovalWorkflowService is NOT constructed here. The bridge owns the one
+// instance for the process — it is the one whose expiry/reminder crons run, and
+// a second instance would double-run that sweep.
 async function getServices() {
-  if (!approvalWorkflowServiceSingleton) {
-    auditServiceSingleton = new AuditService();
-    notificationServiceSingleton = new NotificationService();
-    let eventBusService: EventBusService;
-    try {
-      eventBusService = EventBusService.getInstance();
-    } catch {
-      const { config } = await import('@uaip/config');
-      eventBusService = EventBusService.getInstance({ ...config, serviceName: 'navratna-gateway' }, logger);
-    }
-    approvalWorkflowServiceSingleton = new ApprovalWorkflowService(
-      eventBusService,
-      notificationServiceSingleton,
-      auditServiceSingleton
-    );
-  }
+  if (!auditServiceSingleton) auditServiceSingleton = new AuditService();
   return {
-    auditService: auditServiceSingleton!,
-    notificationService: notificationServiceSingleton!,
-    approvalWorkflowService: approvalWorkflowServiceSingleton!,
+    auditService: auditServiceSingleton,
+    approvalWorkflowService: await getSharedApprovalWorkflowService(),
   };
 }
 
@@ -122,6 +106,31 @@ function calculateUrgency(workflow: WorkflowRecord): number {
 
 const ErrorSchema = t.Object({ error: t.String(), message: t.Optional(t.String()) });
 const ValidationErrorSchema = t.Object({ error: t.String(), details: t.Optional(t.Any()) });
+
+/**
+ * Claim the exclusive right to decide a workflow.
+ *
+ * `processApprovalDecision()` validates check-then-act, so two concurrent web
+ * decisions — or a web decision racing a WhatsApp reply — could both pass
+ * validation and both complete the workflow, resuming the suspended operation
+ * twice. `claimApprovalCode()` is the atomic conditional UPDATE the WhatsApp
+ * path already uses (pending AND unclaimed AND unexpired, decided by the
+ * database in one statement), so the web path goes through the same gate rather
+ * than growing a second mechanism.
+ *
+ * Reusing the *code* claim is exact rather than approximate: `requireAllApprovers`
+ * is false, so the first decision of either kind completes the workflow — there
+ * is only ever one decision slot to claim, whichever channel it arrives on.
+ *
+ * MUST be called only after the caller is authorised: claiming first would let
+ * anyone burn the slot and lock the real approver out of their own approval.
+ */
+async function claimDecisionSlot(workflowId: string, approverId: string): Promise<boolean> {
+  const claimed = await SecurityService.getInstance()
+    .getApprovalWorkflowRepository()
+    .claimApprovalCode(workflowId, { consumedAt: new Date(), consumedBy: approverId });
+  return claimed !== null;
+}
 
 export function registerApprovalRoutes() {
   return new Elysia().group('/api/v1/approvals', (app) => withRequiredAuth(app)
@@ -501,6 +510,26 @@ export function registerApprovalRoutes() {
       }
       try {
         const { approvalWorkflowService, auditService } = await getServices();
+
+        // Authorise BEFORE claiming — see claimDecisionSlot().
+        const { workflow } = await approvalWorkflowService.getWorkflowStatus(
+          parsed.data.workflowId
+        );
+        const requiredApprovers = workflow.requiredApprovers ?? [];
+        if (!requiredApprovers.includes(user.id)) {
+          set.status = 403;
+          return { error: 'Not authorized to decide this workflow' };
+        }
+        if (workflow.metadata?.requestedByUserId === user.id) {
+          set.status = 403;
+          return { error: 'Requester cannot approve their own operation' };
+        }
+
+        if (!(await claimDecisionSlot(parsed.data.workflowId, user.id))) {
+          set.status = 409;
+          return { error: 'This approval has already been decided, expired, or is not pending' };
+        }
+
         const decisionInput = {
           workflowId: parsed.data.workflowId,
           approverId: user.id,
@@ -566,6 +595,8 @@ export function registerApprovalRoutes() {
           message: t.String(),
         }),
         400: ValidationErrorSchema,
+        403: t.Object({ error: t.String() }),
+        409: t.Object({ error: t.String() }),
         500: ErrorSchema,
       },
     })

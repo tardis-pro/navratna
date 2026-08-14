@@ -2,12 +2,10 @@ import { Elysia, t } from 'elysia';
 import { z } from 'zod';
 import { withRequiredAuth, withAdminGuard } from '@uaip/middleware';
 import { SecurityService, AuditService as DomainAuditService } from '@uaip/shared-services';
-import { EventBusService } from '@uaip/infra/event_bus';
 import { AuditService } from '../services/audit_service.js';
-import { NotificationService } from '../services/notification_service.js';
 import { AuditEventType, SecurityLevel } from '@uaip/types';
 import { SecurityGatewayService } from '../services/security_gateway_service.js';
-import { ApprovalWorkflowService } from '../services/approval_workflow_service.js';
+import { getSharedApprovalWorkflowService } from '../services/approval_event_bridge.js';
 
 import { getAuthUser } from './context_helpers.js';
 
@@ -18,9 +16,6 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 let securityServiceSingleton: SecurityService | null = null;
 let auditServiceSingleton: AuditService | null = null;
 let domainAuditServiceSingleton: DomainAuditService | null = null;
-let notificationServiceSingleton: NotificationService | null = null;
-let eventBusServiceSingleton: EventBusService | null = null;
-let approvalWorkflowServiceSingleton: ApprovalWorkflowService | null = null;
 let securityGatewayServiceSingleton: SecurityGatewayService | null = null;
 
 async function getServices() {
@@ -36,28 +31,22 @@ async function getServices() {
   };
 }
 
+// The ApprovalWorkflowService is NOT constructed here. The bridge owns the one
+// instance for the process — it is the one whose expiry/reminder crons run, and
+// a second instance would double-run that sweep.
 async function getSecurityServices() {
   const { securityService, auditService, domainAuditService } = await getServices();
-  if (!notificationServiceSingleton) notificationServiceSingleton = new NotificationService();
-  if (!eventBusServiceSingleton) eventBusServiceSingleton = EventBusService.getInstance();
-  if (!approvalWorkflowServiceSingleton)
-    approvalWorkflowServiceSingleton = new ApprovalWorkflowService(
-      eventBusServiceSingleton,
-      notificationServiceSingleton,
-      auditService
-    );
+  const approvalWorkflowService = await getSharedApprovalWorkflowService();
   if (!securityGatewayServiceSingleton)
     securityGatewayServiceSingleton = new SecurityGatewayService(
-      approvalWorkflowServiceSingleton,
+      approvalWorkflowService,
       auditService
     );
   return {
     auditService,
     domainAuditService,
     securityService,
-    notificationService: notificationServiceSingleton,
-    eventBusService: eventBusServiceSingleton,
-    approvalWorkflowService: approvalWorkflowServiceSingleton,
+    approvalWorkflowService,
     securityGatewayService: securityGatewayServiceSingleton,
   };
 }

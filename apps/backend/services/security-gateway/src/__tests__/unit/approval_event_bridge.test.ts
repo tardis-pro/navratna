@@ -5,10 +5,14 @@ const stubs = vi.hoisted(() => ({
   handleDecisionSubmitted: vi.fn(async () => undefined),
   startCronJobs: vi.fn(),
   cleanup: vi.fn(async () => undefined),
+  instances: [] as unknown[],
 }));
 
 vi.mock('../../services/approval_workflow_service.js', () => ({
   ApprovalWorkflowService: class {
+    constructor() {
+      stubs.instances.push(this);
+    }
     handleApprovalRequested = stubs.handleApprovalRequested;
     handleDecisionSubmitted = stubs.handleDecisionSubmitted;
     startCronJobs = stubs.startCronJobs;
@@ -22,7 +26,8 @@ vi.mock('../../services/audit_service.js', () => ({
   AuditService: vi.fn(function AuditService() {}),
 }));
 
-const { subscribeApprovalEvents } = await import('../../services/approval_event_bridge.ts');
+const { subscribeApprovalEvents, getSharedApprovalWorkflowService, startApprovalCronJobs } =
+  await import('../../services/approval_event_bridge.ts');
 
 /** The shape the event bus actually hands a subscriber. */
 const envelope = (type: string, data: unknown): EventBusMessage => ({
@@ -99,5 +104,20 @@ describe('subscribeApprovalEvents', () => {
     );
 
     expect(stubs.handleDecisionSubmitted).toHaveBeenCalledWith(payload);
+  });
+
+  /**
+   * The route modules used to build their own instances, and only the bridge's
+   * starts the crons. One instance per process is the invariant that keeps the
+   * expiry sweep from double-running.
+   */
+  it('hands the route modules the same instance that owns the crons', async () => {
+    const first = await getSharedApprovalWorkflowService(bus as never);
+    const second = await getSharedApprovalWorkflowService(bus as never);
+    startApprovalCronJobs(bus as never);
+
+    expect(second).toBe(first);
+    expect(stubs.instances).toHaveLength(1);
+    expect(stubs.startCronJobs).toHaveBeenCalledTimes(1);
   });
 });
