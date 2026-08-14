@@ -135,3 +135,78 @@ describe('caller-bound integration tools stay off the worker tier', () => {
     expect(descriptor.sandbox).toBeUndefined();
   });
 });
+
+/**
+ * UnifiedToolRegistry demands (user, project, agent) for every `mcp-*` tool
+ * because a caller-bound server resolves its credential from that triple. A
+ * server holding its OWN standing credential has nothing to resolve, and the
+ * blanket requirement made those tools unusable from direct agent chat — which
+ * has a user and an agent but no project. This predicate is what scopes the
+ * requirement, so it must be strict everywhere except the one exempt case.
+ */
+describe('mcpServerCarriesOwnCredential', () => {
+  it('exempts a self-credentialed server (credentialMode none)', async () => {
+    mocks.integrationServers = [{ serverKey: 'navratna', credentialMode: 'none', enabled: true }];
+
+    const { mcpServerCarriesOwnCredential } = await loadDescriptor();
+
+    await expect(mcpServerCarriesOwnCredential('mcp-navratna-find_anomalies')).resolves.toBe(true);
+  });
+
+  it('does NOT exempt a caller-bound server', async () => {
+    mocks.integrationServers = [
+      { serverKey: 'github-h', credentialMode: 'caller_connection', enabled: true },
+    ];
+
+    const { mcpServerCarriesOwnCredential } = await loadDescriptor();
+
+    await expect(mcpServerCarriesOwnCredential('mcp-github-h-create_issue')).resolves.toBe(false);
+  });
+
+  it('does NOT exempt a catalog-credential server', async () => {
+    mocks.integrationServers = [{ serverKey: 'docs-i', credentialMode: 'catalog', enabled: true }];
+
+    const { mcpServerCarriesOwnCredential } = await loadDescriptor();
+
+    await expect(mcpServerCarriesOwnCredential('mcp-docs-i-search')).resolves.toBe(false);
+  });
+
+  it('takes the LONGEST matching key, so a short key cannot claim a longer one', async () => {
+    // 'navratna' is a prefix of 'navratna-tardis-agent'; if the short key won, a
+    // caller-bound server would inherit the exemption of an unrelated one.
+    mocks.integrationServers = [
+      { serverKey: 'navratna', credentialMode: 'none', enabled: true },
+      { serverKey: 'navratna-tardis-agent', credentialMode: 'caller_connection', enabled: true },
+    ];
+
+    const { mcpServerCarriesOwnCredential } = await loadDescriptor();
+
+    await expect(
+      mcpServerCarriesOwnCredential('mcp-navratna-tardis-agent-release_history')
+    ).resolves.toBe(false);
+  });
+
+  it('fails CLOSED for an unknown server', async () => {
+    mocks.integrationServers = [{ serverKey: 'known-j', credentialMode: 'none', enabled: true }];
+
+    const { mcpServerCarriesOwnCredential } = await loadDescriptor();
+
+    await expect(mcpServerCarriesOwnCredential('mcp-unknown-k-do_thing')).resolves.toBe(false);
+  });
+
+  it('fails CLOSED when the credential mode cannot be read', async () => {
+    mocks.listError = new Error('control plane unavailable');
+
+    const { mcpServerCarriesOwnCredential } = await loadDescriptor();
+
+    await expect(mcpServerCarriesOwnCredential('mcp-navratna-find_anomalies')).resolves.toBe(false);
+  });
+
+  it('is false for a non-MCP tool id', async () => {
+    mocks.integrationServers = [{ serverKey: 'navratna', credentialMode: 'none', enabled: true }];
+
+    const { mcpServerCarriesOwnCredential } = await loadDescriptor();
+
+    await expect(mcpServerCarriesOwnCredential('shell-exec')).resolves.toBe(false);
+  });
+});

@@ -116,28 +116,69 @@ function mcpServerNameOf(toolId: string): string | null {
   return parts[1];
 }
 
-interface CallerBoundKeyCache {
-  keys: string[];
+interface ServerModeCache {
+  /** serverKey -> credentialMode, for every registered integration server. */
+  modes: Map<string, string>;
   loadedAt: number;
 }
 
 const CALLER_BOUND_TTL_MS = 30_000;
-let callerBoundCache: CallerBoundKeyCache | null = null;
+let serverModeCache: ServerModeCache | null = null;
 
-async function callerBoundServerKeys(): Promise<string[]> {
+async function serverCredentialModes(): Promise<Map<string, string>> {
   const now = Date.now();
-  if (callerBoundCache && now - callerBoundCache.loadedAt < CALLER_BOUND_TTL_MS) {
-    return callerBoundCache.keys;
+  if (serverModeCache && now - serverModeCache.loadedAt < CALLER_BOUND_TTL_MS) {
+    return serverModeCache.modes;
   }
 
   const { McpConnectionResolver } = await import('@uaip/shared-services');
   const servers = await McpConnectionResolver.getInstance().listIntegrationServers();
-  const keys = servers
-    .filter((server) => server.credentialMode === 'caller_connection')
-    .map((server) => server.serverKey);
+  const modes = new Map(servers.map((server) => [server.serverKey, server.credentialMode]));
 
-  callerBoundCache = { keys, loadedAt: now };
-  return keys;
+  serverModeCache = { modes, loadedAt: now };
+  return modes;
+}
+
+/**
+ * The registered server key this tool id belongs to, or null.
+ *
+ * Longest match wins: keys may themselves contain hyphens, so a short key can be
+ * a prefix of a longer one (`github` vs `github-copilot`) and the shorter would
+ * otherwise claim the longer one's tools.
+ */
+async function serverKeyOf(toolId: string): Promise<string | null> {
+  const remainder = toolId.slice('mcp-'.length);
+  const modes = await serverCredentialModes();
+  let best: string | null = null;
+  for (const key of modes.keys()) {
+    if (remainder.startsWith(`${key}-`) && (best === null || key.length > best.length)) best = key;
+  }
+  return best;
+}
+
+/**
+ * True when the MCP server behind this tool holds its OWN standing credential
+ * (`credentialMode: 'none'` — static headers stored encrypted on the server row),
+ * so a call needs no per-caller project/agent identity to authenticate.
+ *
+ * Used to scope the (user, project, agent) requirement in UnifiedToolRegistry to
+ * the servers that actually need it. Unknown server or lookup failure returns
+ * FALSE, which keeps the stricter requirement — uncertainty must not relax a
+ * credential check.
+ */
+export async function mcpServerCarriesOwnCredential(toolId: string): Promise<boolean> {
+  if (!toolId.startsWith('mcp-')) return false;
+  try {
+    const key = await serverKeyOf(toolId);
+    if (!key) return false;
+    return (await serverCredentialModes()).get(key) === 'none';
+  } catch (error) {
+    logger.warn('Could not determine MCP credential mode; requiring full caller context', {
+      toolId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
 }
 
 /**
@@ -149,10 +190,10 @@ async function callerBoundServerKeys(): Promise<string[]> {
  * keeps the tool on the credential-aware path instead of leaking it outward.
  */
 async function isCallerBoundIntegrationTool(toolId: string): Promise<boolean> {
-  const remainder = toolId.slice('mcp-'.length);
   try {
-    const keys = await callerBoundServerKeys();
-    return keys.some((key) => remainder.startsWith(`${key}-`));
+    const key = await serverKeyOf(toolId);
+    if (!key) return false;
+    return (await serverCredentialModes()).get(key) === 'caller_connection';
   } catch (error) {
     logger.warn('Could not determine integration credential mode; keeping the tool native', {
       toolId,

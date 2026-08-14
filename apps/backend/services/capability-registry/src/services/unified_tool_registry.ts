@@ -11,7 +11,7 @@ import { EventBusService } from '@uaip/infra';
 import { logger, ConflictError, InternalServerError, NotFoundError, RateLimitError, ValidationError } from '@uaip/utils';
 import { z } from 'zod';
 import { ExecutionScheduler } from './execution_mesh/scheduler.js';
-import { resolveToolDescriptor } from './execution_mesh/descriptor.js';
+import { mcpServerCarriesOwnCredential, resolveToolDescriptor } from './execution_mesh/descriptor.js';
 import { tryMintScopedToken } from './execution_mesh/scoped_token.js';
 import { BaseToolExecutor } from './base_tool_executor.js';
 import { isMcpToolKey, withMcpExecutionContext } from '../utils/mcp_tool_key.js';
@@ -912,20 +912,39 @@ export class UnifiedToolRegistry {
       paramsRecord = { ...paramsRecord, userId: context.userId };
     }
 
-    // An MCP tool runs against the credential bound to a (project, agent, provider)
-    // triple, so all three identities must come from the authenticated context. They
-    // are applied AFTER the model-supplied arguments so a model cannot forge them.
+    // An MCP tool that runs under a CALLER-BOUND credential resolves it from a
+    // (project, agent, provider) triple, so all three identities must come from the
+    // authenticated context. They are applied AFTER the model-supplied arguments so
+    // a model cannot forge them.
+    //
+    // A server whose credentialMode is 'none' carries its OWN standing credential
+    // (static headers, encrypted on the server row) and authenticates with no caller
+    // identity at all. Demanding a projectId from those made them unusable from
+    // direct agent chat — which has a user and an agent but no project — so their
+    // tools were discovered, bound, offered to the model, and then refused at the
+    // last step. userId and agentId stay mandatory either way: they are what the
+    // execution is audited against.
     if (isMcpToolKey(toolId)) {
-      if (!context.userId || !context.projectId || !context.agentId) {
+      const selfCredentialed = await mcpServerCarriesOwnCredential(toolId);
+      if (!context.userId || !context.agentId || (!selfCredentialed && !context.projectId)) {
         throw new ValidationError(
-          `Tool ${toolId} requires an authenticated user, project and agent context`
+          selfCredentialed
+            ? `Tool ${toolId} requires an authenticated user and agent context`
+            : `Tool ${toolId} requires an authenticated user, project and agent context`
         );
       }
-      paramsRecord = withMcpExecutionContext(paramsRecord, {
-        userId: context.userId,
-        projectId: context.projectId,
-        agentId: context.agentId,
-      });
+      // The context param exists so a caller-bound server can resolve its
+      // per-(project, agent, provider) credential, and it is stripped before the
+      // arguments reach the remote server. A self-credentialed server has nothing
+      // to resolve, so when there is no project to carry it is simply not attached
+      // rather than the identity type being weakened to make one optional.
+      if (context.projectId) {
+        paramsRecord = withMcpExecutionContext(paramsRecord, {
+          userId: context.userId,
+          projectId: context.projectId,
+          agentId: context.agentId,
+        });
+      }
     }
     const requires = Array.isArray(paramsRecord.requires)
       ? (paramsRecord.requires as unknown[]).filter((r): r is string => typeof r === 'string')
