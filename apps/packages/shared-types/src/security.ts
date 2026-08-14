@@ -1092,6 +1092,91 @@ export interface ApprovalWorkflowStatus {
   nextActions: string[];
 }
 
+// ─── Approval-over-WhatsApp event contract ──────────────────────────────────
+// These payloads cross process boundaries on the event bus (security-gateway
+// lives in navratna-gateway, the WhatsApp client in navratna-core), so the
+// shapes below are the authoritative wire contract between the two.
+
+/**
+ * The orchestration coordinates an approval belongs to. Persisted verbatim on
+ * the workflow's metadata and echoed back on `approval.workflow.completed` so
+ * orchestration can resume the exact suspended step.
+ */
+export interface ApprovalOrchestrationContext {
+  operationId: string;
+  workflowInstanceId: string;
+  stepId: string;
+}
+
+/**
+ * `approval.requested` — orchestration-pipeline → security-gateway.
+ *
+ * Named `...Payload`, not `...Event`: `events.ts` already exports an unrelated
+ * legacy `ApprovalRequestedEvent` envelope schema, and both files are re-exported
+ * with `export *` from the package root.
+ */
+export interface ApprovalRequestedPayload {
+  operationId: string;
+  workflowInstanceId: string;
+  stepId: string;
+  stepName: string;
+  agentId?: string;
+  /** The requesting principal. Used to refuse self-approval. */
+  userId?: string;
+  operationType?: string;
+  description?: string;
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical';
+  timestamp: string;
+}
+
+/** How a terminal approval decision was reached. */
+export type ApprovalDecisionChannel = 'web' | 'whatsapp' | 'api' | 'expiry';
+
+/** `approval.workflow.completed` — security-gateway → orchestration-pipeline. */
+export interface ApprovalWorkflowCompletedEvent {
+  workflowId: string;
+  status: 'approved' | 'rejected' | 'expired';
+  /** Fail-closed: `status: 'expired'` always carries `approved: false`. */
+  approved: boolean;
+  /** Null only when `status === 'expired'`. */
+  approvedBy: string | null;
+  approvedVia: ApprovalDecisionChannel;
+  decidedAt: string;
+  /**
+   * Absent only for workflows that did not originate from `approval.requested`
+   * (e.g. the web/API route). Orchestration ignores context-less events.
+   */
+  context?: ApprovalOrchestrationContext;
+}
+
+/** `approval.decision.submitted` — discussion (WhatsApp) → security-gateway. */
+export interface ApprovalDecisionSubmittedEvent {
+  /** 4-char one-time code, uppercased. */
+  code: string;
+  approved: boolean;
+  channel: 'whatsapp';
+  /** Raw sender JID, retained for audit. */
+  jid: string;
+  approverUserId: string;
+  submittedAt: string;
+}
+
+/** `approval.decision.ack` — security-gateway → discussion (WhatsApp). */
+export interface ApprovalDecisionAckEvent {
+  jid: string;
+  ok: boolean;
+  message: string;
+}
+
+/** `notification.whatsapp.send` — security-gateway → discussion (WhatsApp). */
+export interface WhatsAppNotificationSendEvent {
+  /** E.164 without '+', or a full JID. */
+  to: string;
+  text: string;
+  /** Approval workflow id, for log correlation only. */
+  correlationId: string;
+}
+
 // Risk assessment config for security-gateway
 export interface RiskAssessmentConfig {
   operationTypeWeights: Record<string, number>;
@@ -1154,7 +1239,7 @@ export interface NotificationTemplate {
 }
 
 export interface NotificationChannel {
-  type: 'email' | 'in_app' | 'webhook' | 'sms';
+  type: 'email' | 'in_app' | 'webhook' | 'sms' | 'whatsapp';
   enabled: boolean;
   config: Record<string, unknown>;
 }

@@ -357,6 +357,54 @@ export const OperationErrorSchema = z.object({
 
 export type OperationErrorType = z.infer<typeof OperationErrorSchema>;
 
+/**
+ * Thrown by an approval step when no upstream decision has been made yet.
+ * Signals the orchestrator to SUSPEND the operation (not fail it) and wait
+ * for an external approval decision (e.g. WhatsApp / security-gateway).
+ * Never retried — it is a control-flow signal, not a failure.
+ */
+export class ApprovalPendingError extends Error {
+  public readonly code = 'APPROVAL_PENDING';
+  public readonly stepId: string;
+  public readonly stepName: string;
+
+  constructor(stepId: string, stepName: string) {
+    super(`Approval pending for step ${stepId} (${stepName})`);
+    this.name = 'ApprovalPendingError';
+    this.stepId = stepId;
+    this.stepName = stepName;
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, ApprovalPendingError);
+    }
+  }
+}
+
+/**
+ * A resolved approval decision for a single approval step. Persisted in the
+ * operation state (under `APPROVAL_DECISIONS_STATE_KEY`) so a SUSPENDED
+ * operation can be re-orchestrated deterministically once the decision lands.
+ *
+ * `approvedBy` is null ONLY for an expiry (`approvedVia: 'expiry'`), which is
+ * always carried with `approved: false` — fail-closed.
+ */
+export interface ApprovalDecisionRecord {
+  approved: boolean;
+  approvedBy: string | null;
+  approvedVia: 'web' | 'whatsapp' | 'api' | 'expiry';
+  decidedAt: string;
+}
+
+/** OperationState.variables key holding `stepId -> ApprovalDecisionRecord`. */
+export const APPROVAL_DECISIONS_STATE_KEY = '__approvalDecisions';
+
+/**
+ * OperationState.variables key holding `stepId -> serialised StepResult`.
+ * Serialised (Dates as ISO strings) because the state round-trips through
+ * JSON in Redis and jsonb in Postgres.
+ */
+export const STEP_RESULTS_STATE_KEY = '__stepResults';
+
 // OperationError class implementation
 export class OperationError extends Error {
   public readonly code: string;
