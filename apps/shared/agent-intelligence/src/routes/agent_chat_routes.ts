@@ -29,6 +29,7 @@ export type AgentChatPersistence = {
     userId: string
     agentId: string
     threadKey?: string
+    projectId?: string | null
     clientTurnId: string
     content: string
   }): Promise<AgentChatTurnState>
@@ -56,6 +57,8 @@ export type AgentChatPersistence = {
     organizationId: string
     userId: string
     limit?: number
+    /** undefined = every thread; null = loose only; string = that project. */
+    projectId?: string | null
   }): Promise<AgentChatThreadSummary[]>
   updateOwnedThread(params: {
     conversationId: string
@@ -64,7 +67,15 @@ export type AgentChatPersistence = {
     title?: string
     model?: string | null
     archived?: boolean
+    projectId?: string | null
   }): Promise<boolean>
+  /** null = the thread is loose; undefined = no such thread for this owner. */
+  findThreadProjectId(params: {
+    organizationId: string
+    userId: string
+    agentId: string
+    threadKey?: string
+  }): Promise<string | null | undefined>
   ensureThreadTitle(conversationId: string, firstMessage: string): Promise<void>
   ensureParticipants(params: {
     conversationId: string
@@ -440,13 +451,35 @@ export const toAssignedTools = (value: unknown): AgentAssignedTool[] => {
   return assigned
 }
 
+/**
+ * Builds the system prompt a responding agent actually runs with.
+ *
+ * The project's instructions go FIRST and are labelled: the agent's own prompt
+ * defines who it is, and the project only adds context for this piece of work.
+ * Reversing them would let a project quietly redefine a shared agent for every
+ * thread it appears in.
+ */
+const withProjectInstructions = (
+  agentSystemPrompt: string | undefined,
+  instructions: string | null | undefined
+): string | undefined => {
+  const trimmed = typeof instructions === 'string' ? instructions.trim() : ''
+  if (trimmed === '') return agentSystemPrompt
+
+  const block = `Project instructions:\n${trimmed}`
+  return agentSystemPrompt && agentSystemPrompt.trim() !== ''
+    ? `${block}\n\n${agentSystemPrompt}`
+    : block
+}
+
 const toAgentRequest = (
   agent: Awaited<ReturnType<AgentIntelligenceService['getAgent']>>,
   messages: ChatMessage[],
   context?: DocumentContext,
   tools?: AvailableTool[],
   projectId?: string,
-  modelOverride?: string
+  modelOverride?: string,
+  projectInstructions?: string | null
 ): AgentResponseRequest => ({
   agent: {
     id: agent.id,
@@ -474,7 +507,10 @@ const toAgentRequest = (
     apiType: typeof agent.apiType === 'string' ? agent.apiType : undefined,
     userLLMProviderId:
       typeof agent.userLLMProviderId === 'string' ? agent.userLLMProviderId : undefined,
-    systemPrompt: typeof agent.systemPrompt === 'string' ? agent.systemPrompt : undefined,
+    systemPrompt: withProjectInstructions(
+      typeof agent.systemPrompt === 'string' ? agent.systemPrompt : undefined,
+      projectInstructions
+    ),
     description: typeof agent.description === 'string' ? agent.description : undefined,
     metadata: isRecord(agent.metadata) ? agent.metadata : undefined,
     version: typeof agent.version === 'number' ? agent.version : undefined,
@@ -494,6 +530,79 @@ const toAgentRequest = (
 export type ProjectToolScopeProvider = {
   listIntegrationServerKeys(): Promise<string[]>
   listBoundServerKeys(projectId: string, agentId: string): Promise<string[]>
+}
+
+/**
+ * Answers whether a caller may file threads under a project. Injected for the
+ * same reason as ProjectToolScopeProvider: projects live in the control plane,
+ * which this package must not import.
+ *
+ * This is BOTH halves of the cross-plane contract — the project has to exist
+ * (there is no FK to enforce it) and the caller has to be able to reach it.
+ * Answering only the first would let anyone file a thread under a stranger's
+ * project id.
+ */
+export type ProjectAccessProvider = {
+  canUseProject(params: {
+    projectId: string
+    userId: string
+    organizationId: string
+  }): Promise<boolean>
+}
+
+/**
+ * Reads the instructions a project's threads inherit. Injected for the same
+ * plane reason as the two providers above.
+ */
+export type ProjectChatContextProvider = {
+  getInstructions(projectId: string): Promise<string | null>
+}
+
+/**
+ * Unlike the access and tool-scope providers this fails OPEN: instructions only
+ * add context to a prompt, so a control-plane hiccup should cost the turn its
+ * project preamble, not the whole reply. Losing an answer would be the larger
+ * failure.
+ */
+const loadProjectInstructions = async (
+  provider: ProjectChatContextProvider | undefined,
+  projectId: string | undefined
+): Promise<string | null> => {
+  if (!provider || !projectId) return null
+
+  try {
+    return await provider.getInstructions(projectId)
+  } catch (error) {
+    logger.warn('Could not read project instructions; replying without them', {
+      projectId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return null
+  }
+}
+
+/**
+ * Fails CLOSED, like loadProjectToolScope: with no provider wired, or on any
+ * error reading the control plane, a project cannot be attached. Refusing to
+ * file the thread is recoverable; filing it under an unverified project is not.
+ */
+const mayUseProject = async (
+  provider: ProjectAccessProvider | undefined,
+  projectId: string,
+  userId: string,
+  organizationId: string
+): Promise<boolean> => {
+  if (!provider) return false
+
+  try {
+    return await provider.canUseProject({ projectId, userId, organizationId })
+  } catch (error) {
+    logger.warn('Could not verify project access; refusing to attach the thread', {
+      projectId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return false
+  }
 }
 
 /**
@@ -533,7 +642,9 @@ export function registerAgentChatRoutes(
   toolSchemaProvider?: ToolSchemaProvider,
   projectScopeProvider?: ProjectToolScopeProvider,
   chatPersistence?: AgentChatPersistence,
-  knowledgeContextProvider?: KnowledgeContextProvider
+  knowledgeContextProvider?: KnowledgeContextProvider,
+  projectAccessProvider?: ProjectAccessProvider,
+  projectChatContextProvider?: ProjectChatContextProvider
 ) {
   return new Elysia().group(
     '/api/v1/agents',
@@ -581,6 +692,25 @@ export function registerAgentChatRoutes(
             return { success: false, error: 'Message or messages array is required' }
           }
 
+          // Verified before it is persisted, unlike the tool-scoping use below:
+          // an unverified id there only ever narrows which tools are offered,
+          // whereas storing one files the thread under a project the caller may
+          // not own — where it would disappear from their dock entirely.
+          const requestedProjectId =
+            typeof body.projectId === 'string' && body.projectId.trim() !== ''
+              ? body.projectId.trim()
+              : undefined
+          const attachableProjectId =
+            requestedProjectId &&
+            (await mayUseProject(
+              projectAccessProvider,
+              requestedProjectId,
+              userId,
+              user.organizationId
+            ))
+              ? requestedProjectId
+              : undefined
+
           const scope = {
             organizationId: user.organizationId,
             userId,
@@ -591,6 +721,9 @@ export function registerAgentChatRoutes(
               typeof body.threadKey === 'string' && body.threadKey.trim() !== ''
                 ? body.threadKey.trim()
                 : undefined,
+            // Applied on INSERT only — see resolveConversation. A turn cannot
+            // move an existing thread between projects.
+            projectId: attachableProjectId,
           }
 
           // Resolved ONCE: the user and assistant rows of a turn are paired by
@@ -659,11 +792,25 @@ export function registerAgentChatRoutes(
                   } satisfies ChatMessage,
                 ]
 
-          // Passed through unchecked ON PURPOSE: McpConnectionResolver.resolve()
-          // authorizes (actor, project) server-side before selecting a credential,
-          // so a caller naming a project they cannot reach is refused there rather
-          // than being trusted here.
-          const projectId = typeof body.projectId === 'string' ? body.projectId : undefined
+          /**
+           * The THREAD's project wins over the request's. A thread that lives in
+           * a project is scoped there on every turn whether or not the client
+           * resends the id, which is what makes the project's bound tools work
+           * without the UI having to remember to pass it.
+           *
+           * Falling back to the request covers the two cases where the thread
+           * cannot answer: persistence disabled, and a loose thread (null), where
+           * a caller-supplied id keeps the pre-project behaviour intact.
+           *
+           * The fallback is still passed through unchecked ON PURPOSE:
+           * McpConnectionResolver.resolve() authorizes (actor, project) server-side
+           * before selecting a credential, so a caller naming a project they cannot
+           * reach is refused there rather than being trusted here.
+           */
+          const persistedProjectId = chatPersistence
+            ? await chatPersistence.findThreadProjectId(scope)
+            : undefined
+          const projectId = persistedProjectId ?? requestedProjectId
 
           const modelOverride =
             typeof body.model === 'string' && body.model.trim() !== ''
@@ -684,6 +831,15 @@ export function registerAgentChatRoutes(
           // not the whole transcript. Failure degrades to an ungrounded reply:
           // a knowledge-store outage must never fail the chat turn.
           const retrievalQuery = currentMessage ?? messages[messages.length - 1]?.content
+
+          // Read ONCE per turn rather than per responder: with several agents
+          // answering the same turn they all inherit the same project, so
+          // fetching inside generateFor would repeat the control-plane read for
+          // every one of them.
+          const projectInstructions = await loadProjectInstructions(
+            projectChatContextProvider,
+            projectId
+          )
 
           const generateFor = async (responder: AgentRecord) => {
             const assignedTools = filterToolsForProject(
@@ -715,7 +871,8 @@ export function registerAgentChatRoutes(
               mergeKnowledgeContext(toDocumentContext(body.context), retrieved),
               tools,
               projectId,
-              modelOverride
+              modelOverride,
+              projectInstructions
             )
 
             return userLLMService.generateAgentResponse(userId, request)
@@ -896,9 +1053,25 @@ export function registerAgentChatRoutes(
           if (!chatPersistence) return { success: true, data: { threads: [] } }
 
           const user = getNginxUser(ctx)
+
+          /**
+           * Absent means EVERY thread, project or not — the dock loads once and
+           * groups client-side. `none` is the explicit "loose threads only" ask,
+           * which cannot be spelled as an empty string because a query parameter
+           * that is present-but-empty is indistinguishable from a client bug.
+           */
+          const rawProjectId = ctx.query?.projectId
+          const projectFilter =
+            typeof rawProjectId !== 'string' || rawProjectId.trim() === ''
+              ? undefined
+              : rawProjectId.trim() === 'none'
+                ? null
+                : rawProjectId.trim()
+
           const threads = await chatPersistence.listThreads({
             organizationId: user.organizationId,
             userId: user.id,
+            projectId: projectFilter,
           })
 
           return { success: true, data: { threads } }
@@ -931,7 +1104,34 @@ export function registerAgentChatRoutes(
           const model = typeof body.model === 'string' ? body.model.trim() || null : undefined
           const archived = typeof body.archived === 'boolean' ? body.archived : undefined
 
-          if (title === undefined && model === undefined && archived === undefined) {
+          /**
+           * Three-valued like the list filter: absent leaves the thread where it
+           * is, explicit null moves it back out to the top level, and a string
+           * files it under that project.
+           */
+          let projectId: string | null | undefined
+          if (body.projectId === null) {
+            projectId = null
+          } else if (typeof body.projectId === 'string' && body.projectId.trim() !== '') {
+            const candidate = body.projectId.trim()
+            // Verified before the move, not after: this is the one path that lets
+            // a caller name an arbitrary project id, and an unverified one would
+            // file the thread somewhere it can never be listed from again.
+            if (
+              !(await mayUseProject(projectAccessProvider, candidate, user.id, user.organizationId))
+            ) {
+              ctx.set.status = 404
+              return { success: false, error: 'Project not found' }
+            }
+            projectId = candidate
+          }
+
+          if (
+            title === undefined &&
+            model === undefined &&
+            archived === undefined &&
+            projectId === undefined
+          ) {
             ctx.set.status = 400
             return { success: false, error: 'No supported thread fields to update' }
           }
@@ -946,6 +1146,7 @@ export function registerAgentChatRoutes(
             title,
             model,
             archived,
+            projectId,
           })
 
           if (!updated) {

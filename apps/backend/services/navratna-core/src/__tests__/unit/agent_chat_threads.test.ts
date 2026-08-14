@@ -55,6 +55,7 @@ const persistenceMocks = {
   failTurn: vi.fn(),
   loadHistory: vi.fn(),
   findOwnedConversation: vi.fn(),
+  findThreadProjectId: vi.fn(),
   listThreads: vi.fn(),
   updateOwnedThread: vi.fn(),
   ensureThreadTitle: vi.fn(),

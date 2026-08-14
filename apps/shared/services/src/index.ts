@@ -275,6 +275,14 @@ export type {
 } from '@uaip/types';
 export { OperationManagementService } from './operation_management_service';
 export { ProjectManagementService } from './project_management_service';
+export {
+  EMPTY_PROJECT_CHAT_SETTINGS,
+  PROJECT_CHAT_SETTINGS_KEY,
+  PROJECT_INSTRUCTIONS_MAX,
+  readProjectChatSettings,
+  writeProjectChatSettings,
+} from './project_chat_settings';
+export type { ProjectChatSettings } from './project_chat_settings';
 export { ProjectLifecycleService } from './project_lifecycle_service';
 
 // Persona and Discussion Services
@@ -497,6 +505,10 @@ export {
   EnsureAgentChatThreads,
   AGENT_CHAT_THREAD_STATEMENTS,
 } from './database/migrations/ensure_agent_chat_threads';
+export {
+  EnsureAgentChatProjects,
+  AGENT_CHAT_PROJECT_STATEMENTS,
+} from './database/migrations/ensure_agent_chat_projects';
 export { BackfillUserAgentAssignments } from './database/migrations/backfill_user_agent_assignments';
 export type { BackfillUserAgentAssignmentsResult } from './database/migrations/backfill_user_agent_assignments';
 export {

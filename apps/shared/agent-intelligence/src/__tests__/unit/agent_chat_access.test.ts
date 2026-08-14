@@ -93,6 +93,7 @@ const makeApp = (options: { agentExists?: boolean } = {}) => {
     failTurn: vi.fn(async () => undefined),
     loadHistory: loadHistoryMock,
     findOwnedConversation: vi.fn(async () => 'conv-1'),
+    findThreadProjectId: vi.fn(async () => null),
     listThreads: vi.fn(async () => []),
     updateOwnedThread: vi.fn(async () => true),
     ensureThreadTitle: vi.fn(async () => undefined),

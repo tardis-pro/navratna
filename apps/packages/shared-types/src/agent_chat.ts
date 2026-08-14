@@ -48,6 +48,8 @@ export const AgentChatThreadSummarySchema = z.object({
   model: z.string().nullable().optional(),
   /** Every agent in the thread, not just the primary — one entry for a 1:1 chat. */
   agentIds: z.array(z.string().uuid()),
+  /** The project this thread sits under, or null for a loose top-level thread. */
+  projectId: z.string().uuid().nullable().optional(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });

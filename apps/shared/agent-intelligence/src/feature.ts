@@ -9,7 +9,10 @@ import {
   EnsureOnboardingGuide,
   EnsureOnboardingSchema,
   EnsureAgentChatThreads,
+  EnsureAgentChatProjects,
   McpConnectionResolver,
+  ProjectManagementService,
+  readProjectChatSettings,
   SecurityService,
   ServiceFactory,
   setOnboardingLLMGateway,
@@ -34,6 +37,8 @@ import { registerConstellationRoutes } from './routes/constellation_routes.js'
 import { MemoryConsolidationScheduler } from './services/memory_consolidation_scheduler.js'
 import type {
   KnowledgeContextProvider,
+  ProjectAccessProvider,
+  ProjectChatContextProvider,
   ProjectToolScopeProvider,
   ToolSchemaProvider,
 } from './routes/agent_chat_routes.js'
@@ -49,6 +54,45 @@ const projectToolScope: ProjectToolScopeProvider = {
   },
   async listBoundServerKeys(projectId, agentId) {
     return await McpConnectionResolver.getInstance().listBoundServerKeys(projectId, agentId)
+  },
+}
+
+/**
+ * The cross-plane guard for filing a thread under a project: projects live in
+ * control, threads in intelligence, so nothing at the database level can reject
+ * an id that does not resolve.
+ *
+ * getProject(id, userId) already answers both halves — it returns null when the
+ * project does not exist AND when the caller is neither its owner nor a member —
+ * so reusing it keeps one definition of project access rather than a second copy
+ * of the owner-or-member rule that could drift from it.
+ */
+const projectAccess: ProjectAccessProvider = {
+  async canUseProject({ projectId, userId }) {
+    const service = new ProjectManagementService(databaseServiceRef)
+    await service.initialize()
+
+    // Ownership or membership IS the grant — organizationId is not compared
+    // because ProjectEntity does not expose it, and a member row is issued per
+    // user anyway, so there is no path to a project without one.
+    return (await service.getProject(projectId, userId)) !== null
+  },
+}
+
+/**
+ * Reads the instructions every thread in a project inherits.
+ *
+ * Deliberately does NOT take the caller's identity: by the time a turn reaches
+ * here the thread's project has already been authorized — either when the thread
+ * was filed under it, or by the PATCH that moved it there — so re-checking would
+ * only add a second control-plane round trip per turn.
+ */
+const projectChatContext: ProjectChatContextProvider = {
+  async getInstructions(projectId) {
+    const service = new ProjectManagementService(databaseServiceRef)
+    await service.initialize()
+    const project = await service.getProject(projectId)
+    return project ? readProjectChatSettings(project.settings).instructions : null
   },
 }
 
@@ -155,6 +199,9 @@ export const agentIntelligenceFeature: Feature = {
     try {
       await new EnsureOnboardingSchema().run()
       await new EnsureAgentChatThreads().run()
+      // After the thread schema, never before: it adds a column to the table
+      // that migration creates the thread identity on.
+      await new EnsureAgentChatProjects().run()
       await new EnsureOnboardingGuide().run()
       await new BackfillUserAgentAssignments().run()
       // After the guide exists (it is excluded by id): give every active agent
@@ -196,7 +243,9 @@ export const agentIntelligenceFeature: Feature = {
         loadToolSchema,
         projectToolScope,
         agentChatPersistenceService,
-        knowledgeContextProvider
+        knowledgeContextProvider,
+        projectAccess,
+        projectChatContext
       )
     )
     app.use(registerAgentCapabilityRoutes(agentIntelligenceService, capabilityDiscoveryService))
@@ -216,7 +265,32 @@ export const agentIntelligenceFeature: Feature = {
         publish: (topic, payload) => bus.publish(topic, payload),
       })
     })
-    logger.info('agent-intelligence event subscriptions configured (agent.discussion.trigger)')
+    /**
+     * projects live in the control plane and threads in the intelligence plane,
+     * so `ON DELETE SET NULL` is not available to release a deleted project's
+     * threads. Without this they keep pointing at a project that no longer
+     * resolves and disappear from the dock entirely — matching neither the loose
+     * filter nor any live project. Detaching returns them to the top level with
+     * their history intact.
+     */
+    await bus.subscribe('project.deleted', async (event: EventBusMessage) => {
+      const payload = event.data as { projectId?: unknown } | undefined
+      const projectId = typeof payload?.projectId === 'string' ? payload.projectId : undefined
+      if (!projectId) return
+
+      try {
+        await agentChatPersistenceService.detachThreadsFromProject(projectId)
+      } catch (error) {
+        logger.error('Failed to detach chat threads from a deleted project', {
+          projectId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    })
+
+    logger.info(
+      'agent-intelligence event subscriptions configured (agent.discussion.trigger, project.deleted)'
+    )
   },
 
   async shutdown(): Promise<void> {

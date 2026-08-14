@@ -481,11 +481,27 @@ export const agentChatConversations = pgTable(
      */
     model: text('model'),
     userLlmProviderId: uuid('user_llm_provider_id'),
+    /**
+     * Which project this thread belongs to, or NULL for a loose thread that lives
+     * at the top of the dock. Cross-plane ref to control.projects.id, so there is
+     * no DB FK and no delete cascade — writes go through CrossPlaneGuard and a
+     * deleted project's threads are detached in application code, which is why
+     * this stays nullable rather than pointing at a row that may be gone.
+     */
+    projectId: uuid('project_id'),
     archivedAt: timestamp('archived_at'),
   },
   (t) => [
     uniqueIndex('uq_agent_chat_thread').on(t.organizationId, t.userId, t.threadKey),
     index('idx_agent_chat_thread_list').on(t.organizationId, t.userId, t.updatedAt),
+    // The dock queries one project at a time, so the project has to sit ahead of
+    // updated_at for the index to serve both the filter and the ordering.
+    index('idx_agent_chat_thread_project').on(
+      t.organizationId,
+      t.userId,
+      t.projectId,
+      t.updatedAt
+    ),
   ]
 );
 

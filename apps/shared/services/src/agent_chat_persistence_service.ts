@@ -28,6 +28,14 @@ export interface ListThreadsParams {
   organizationId: string;
   userId: string;
   limit?: number;
+  /**
+   * Three distinct requests, which is why this is not a plain `string`:
+   *   undefined → every thread the user owns, project or not (the dock's one
+   *               call, which then groups client-side)
+   *   null      → loose threads only
+   *   string    → that project's threads only
+   */
+  projectId?: string | null;
 }
 
 export interface UpdateThreadParams {
@@ -37,6 +45,8 @@ export interface UpdateThreadParams {
   title?: string;
   model?: string | null;
   archived?: boolean;
+  /** `null` moves the thread back out to the top level; undefined leaves it. */
+  projectId?: string | null;
 }
 
 export interface ResolveConversationParams {
@@ -49,6 +59,12 @@ export interface ResolveConversationParams {
    * keeps resolving to its existing conversation.
    */
   threadKey?: string;
+  /**
+   * Only applied when the thread is CREATED. A turn naming a project must not
+   * be able to move an existing thread into it — that is an explicit PATCH, not
+   * a side effect of sending a message.
+   */
+  projectId?: string | null;
 }
 
 export interface BeginTurnParams extends ResolveConversationParams {
@@ -116,6 +132,7 @@ export class AgentChatPersistenceService {
         userId: params.userId,
         agentId: params.agentId,
         threadKey,
+        projectId: params.projectId ?? null,
       })
       .onConflictDoUpdate({
         target: [
@@ -123,6 +140,9 @@ export class AgentChatPersistenceService {
           agentChatConversations.userId,
           agentChatConversations.threadKey,
         ],
+        // projectId is deliberately absent from the update: on conflict the row
+        // already exists, and re-sending a projectId with a turn must not move a
+        // thread between projects behind the user's back.
         set: { updatedAt: new Date() },
       })
       .returning({ id: agentChatConversations.id });
@@ -469,6 +489,16 @@ export class AgentChatPersistenceService {
   async listThreads(params: ListThreadsParams): Promise<AgentChatThreadSummary[]> {
     const db = getIntelligenceDb();
 
+    // `eq(col, null)` is not `IS NULL` in SQL — it compares against NULL and
+    // matches nothing — so asking for loose threads has to use isNull, and
+    // "no filter at all" has to be undefined rather than either of those.
+    const projectFilter =
+      params.projectId === undefined
+        ? undefined
+        : params.projectId === null
+          ? isNull(agentChatConversations.projectId)
+          : eq(agentChatConversations.projectId, params.projectId);
+
     const rows = await db
       .select({
         id: agentChatConversations.id,
@@ -476,6 +506,7 @@ export class AgentChatPersistenceService {
         agentId: agentChatConversations.agentId,
         title: agentChatConversations.title,
         model: agentChatConversations.model,
+        projectId: agentChatConversations.projectId,
         createdAt: agentChatConversations.createdAt,
         updatedAt: agentChatConversations.updatedAt,
       })
@@ -484,7 +515,8 @@ export class AgentChatPersistenceService {
         and(
           eq(agentChatConversations.organizationId, params.organizationId),
           eq(agentChatConversations.userId, params.userId),
-          isNull(agentChatConversations.archivedAt)
+          isNull(agentChatConversations.archivedAt),
+          ...(projectFilter ? [projectFilter] : [])
         )
       )
       .orderBy(sql`${agentChatConversations.updatedAt} DESC`)
@@ -519,6 +551,7 @@ export class AgentChatPersistenceService {
       title: row.title,
       model: row.model,
       agentIds: byConversation.get(row.id) ?? [],
+      projectId: row.projectId,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     }));
@@ -538,6 +571,7 @@ export class AgentChatPersistenceService {
     if (params.title !== undefined) patch.title = params.title;
     if (params.model !== undefined) patch.model = params.model;
     if (params.archived !== undefined) patch.archivedAt = params.archived ? new Date() : null;
+    if (params.projectId !== undefined) patch.projectId = params.projectId;
 
     const updated = await db
       .update(agentChatConversations)
@@ -552,6 +586,64 @@ export class AgentChatPersistenceService {
       .returning({ id: agentChatConversations.id });
 
     return updated.length > 0;
+  }
+
+  /**
+   * The project a thread belongs to, scoped by owner so a caller can only ever
+   * read their own thread's project. Returns undefined when no such thread
+   * exists and null when it exists but is loose — the chat route treats both as
+   * "no project", but the distinction matters to callers that need to know
+   * whether the thread was found at all.
+   */
+  async findThreadProjectId(params: ResolveConversationParams): Promise<string | null | undefined> {
+    const db = getIntelligenceDb();
+    const threadKey = params.threadKey ?? params.agentId;
+
+    const [row] = await db
+      .select({ projectId: agentChatConversations.projectId })
+      .from(agentChatConversations)
+      .where(
+        and(
+          eq(agentChatConversations.organizationId, params.organizationId),
+          eq(agentChatConversations.userId, params.userId),
+          eq(agentChatConversations.threadKey, threadKey)
+        )
+      )
+      .limit(1);
+
+    return row ? row.projectId : undefined;
+  }
+
+  /**
+   * Detaches every thread from a deleted project, leaving them loose at the top
+   * level with their history intact.
+   *
+   * This exists because control.projects and intelligence.agent_chat_conversations
+   * are in different planes, so `ON DELETE SET NULL` is not available — without
+   * this call a deleted project leaves threads pointing at an id that resolves to
+   * nothing, and they vanish from the dock entirely (they match neither the loose
+   * filter nor any live project).
+   *
+   * Deliberately NOT scoped to one user: a project is deleted for everyone, so
+   * every member's threads have to be released, not just the deleter's.
+   */
+  async detachThreadsFromProject(projectId: string): Promise<number> {
+    const db = getIntelligenceDb();
+
+    const detached = await db
+      .update(agentChatConversations)
+      .set({ projectId: null, updatedAt: new Date() })
+      .where(eq(agentChatConversations.projectId, projectId))
+      .returning({ id: agentChatConversations.id });
+
+    if (detached.length > 0) {
+      logger.info('Detached agent chat threads from a deleted project', {
+        projectId,
+        threads: detached.length,
+      });
+    }
+
+    return detached.length;
   }
 
   /**

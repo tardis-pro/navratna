@@ -3,6 +3,11 @@ import { z } from 'zod';
 import { logger, ApiError } from '@uaip/utils';
 import { ProjectManagementService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/shared-services';
+import {
+  PROJECT_INSTRUCTIONS_MAX,
+  readProjectChatSettings,
+  writeProjectChatSettings,
+} from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { withOptionalAuth } from '@uaip/middleware';
 import { OAuthService } from '@uaip/shared-services';
@@ -186,6 +191,17 @@ const linkGitRepoSchema = z.object({
   cloneUrl: z.string().url(),
 });
 
+/**
+ * Both fields are nullable AND optional, and the two mean different things:
+ * omitted leaves the stored value alone, explicit null clears it. Without the
+ * nullable half there would be no way to remove instructions or unpin an agent
+ * once set.
+ */
+const chatSettingsSchema = z.object({
+  instructions: z.string().max(PROJECT_INSTRUCTIONS_MAX).nullable().optional(),
+  defaultAgentId: z.string().uuid().nullable().optional(),
+});
+
 export function registerProjectRoutes() {
   return new Elysia().group('/api/v1/projects', (app) => withOptionalAuth(app)
     // List projects
@@ -315,6 +331,68 @@ export function registerProjectRoutes() {
         logger.error('Failed to delete project', { error: describeError(error), projectId: params.projectId });
         set.status = 500;
         return { success: false, error: 'Failed to delete project' };
+      }
+    })
+
+    /**
+     * The chat configuration every thread in the project inherits. Kept separate
+     * from PUT /:projectId because that route's schema describes the project's
+     * identity (name, visibility, repo) and a chat settings save must not have to
+     * round-trip all of it.
+     */
+    .get('/:projectId/chat-settings', async ({ params, set, user }) => {
+      try {
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
+        const service = await getProjectService();
+        const project = await service.getProject(params.projectId, user?.id);
+        if (!project) {
+          set.status = 404;
+          return { success: false, error: 'Project not found' };
+        }
+
+        return { success: true, data: readProjectChatSettings(project.settings) };
+      } catch (error) {
+        logger.error('Failed to read project chat settings', {
+          error: describeError(error),
+          projectId: params.projectId,
+        });
+        set.status = 500;
+        return { success: false, error: 'Failed to read project chat settings' };
+      }
+    })
+
+    .put('/:projectId/chat-settings', async ({ params, body, set, user }) => {
+      try {
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
+        const parsed = chatSettingsSchema.safeParse(body);
+        if (!parsed.success) {
+          set.status = 400;
+          return { error: 'Validation Error', details: parsed.error.flatten() };
+        }
+
+        const service = await getProjectService();
+        const current = await service.getProject(params.projectId, user?.id);
+        if (!current) {
+          set.status = 404;
+          return { success: false, error: 'Project not found' };
+        }
+
+        // Merged against what is stored, never replaced wholesale: `settings`
+        // also holds configuration this route knows nothing about, and writing
+        // only the chat key would drop the rest of the bag.
+        const settings = writeProjectChatSettings(current.settings, parsed.data);
+        await service.updateProject(params.projectId, { settings });
+
+        return { success: true, data: readProjectChatSettings(settings) };
+      } catch (error) {
+        logger.error('Failed to update project chat settings', {
+          error: describeError(error),
+          projectId: params.projectId,
+        });
+        set.status = 500;
+        return { success: false, error: 'Failed to update project chat settings' };
       }
     })
 
