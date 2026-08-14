@@ -15,11 +15,61 @@ import {
   Checkpoint,
   CheckpointType,
   OperationMetrics,
+  ApprovalPendingError,
+  APPROVAL_DECISIONS_STATE_KEY,
+  STEP_RESULTS_STATE_KEY,
 } from '@uaip/types';
+import type { ApprovalDecisionRecord } from '@uaip/types';
 import { logger, InternalServerError, NotFoundError, ValidationError } from '@uaip/utils';
 import { StateManagerService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { StepExecutionManager, StepExecutionContext } from './step_execution_manager.js';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * StepResult carries Dates, but the operation state round-trips through JSON
+ * (Redis) and jsonb (Postgres). Store ISO strings and convert back on resume.
+ */
+function serialiseStepResults(results: Map<string, StepResult>): Record<string, unknown> {
+  const serialised: Record<string, unknown> = {};
+  for (const [stepId, result] of results) {
+    serialised[stepId] = {
+      ...result,
+      startedAt:
+        result.startedAt instanceof Date ? result.startedAt.toISOString() : result.startedAt,
+      completedAt:
+        result.completedAt instanceof Date ? result.completedAt.toISOString() : result.completedAt,
+    };
+  }
+  return serialised;
+}
+
+function deserialiseStepResults(raw: unknown): Map<string, StepResult> {
+  const results = new Map<string, StepResult>();
+  if (!isRecord(raw)) return results;
+
+  for (const [stepId, value] of Object.entries(raw)) {
+    if (!isRecord(value)) continue;
+    const restored: Record<string, unknown> = { ...value };
+    if (typeof restored.startedAt === 'string') restored.startedAt = new Date(restored.startedAt);
+    if (typeof restored.completedAt === 'string') {
+      restored.completedAt = new Date(restored.completedAt);
+    }
+    results.set(stepId, restored as unknown as StepResult);
+  }
+
+  return results;
+}
+
+function readApprovalDecisions(
+  variables: Record<string, unknown> | undefined
+): Record<string, ApprovalDecisionRecord> | undefined {
+  const raw = variables?.[APPROVAL_DECISIONS_STATE_KEY];
+  return isRecord(raw) ? (raw as Record<string, ApprovalDecisionRecord>) : undefined;
+}
 
 export class WorkflowOrchestrator extends EventEmitter {
   private activeWorkflows = new Map<string, WorkflowInstance>();
@@ -39,13 +89,24 @@ export class WorkflowOrchestrator extends EventEmitter {
     workflowId: string,
     initialState?: OperationState
   ): Promise<OperationResult> {
+    // On a resume, carry the reserved state keys back into the workflow's
+    // execution context so already-executed steps and the approval decisions
+    // that unblocked us survive the suspension.
+    const resumedVariables = initialState?.variables;
+    const resumedStepResults = resumedVariables?.[STEP_RESULTS_STATE_KEY];
+    const resumedDecisions = readApprovalDecisions(resumedVariables);
+
     const workflow: WorkflowInstance = {
       id: workflowId,
       operationId: operation.id,
       status: OperationStatus.PENDING,
       startTime: Date.now(),
       currentStepIndex: 0,
-      executionContext: operation.context?.executionContext ?? {},
+      executionContext: {
+        ...(operation.context?.executionContext ?? {}),
+        ...(isRecord(resumedStepResults) ? { [STEP_RESULTS_STATE_KEY]: resumedStepResults } : {}),
+        ...(resumedDecisions ? { [APPROVAL_DECISIONS_STATE_KEY]: resumedDecisions } : {}),
+      },
       state: initialState || {
         operationId: operation.id,
         completedSteps: [],
@@ -56,7 +117,7 @@ export class WorkflowOrchestrator extends EventEmitter {
       },
       createdAt: new Date(),
       updatedAt: new Date(),
-      completedSteps: [],
+      completedSteps: [...(initialState?.completedSteps ?? [])],
       stepResults: [],
       context: operation.context || {},
       retryCount: 0,
@@ -87,6 +148,16 @@ export class WorkflowOrchestrator extends EventEmitter {
 
       return result;
     } catch (error) {
+      if (error instanceof ApprovalPendingError) {
+        // Not a failure: the operation is waiting on an external approval
+        // decision. Mark SUSPENDED and let the engine persist resume state.
+        workflow.status = OperationStatus.SUSPENDED;
+        workflow.error = undefined;
+        await this.updateWorkflowState(workflow);
+        this.clearWorkflowTimeout(workflowId);
+        throw error;
+      }
+
       workflow.status = OperationStatus.FAILED;
       workflow.endTime = Date.now();
       workflow.error = error instanceof Error ? error.message : String(error);
@@ -105,35 +176,56 @@ export class WorkflowOrchestrator extends EventEmitter {
     workflow: WorkflowInstance
   ): Promise<OperationResult> {
     const executionOrder = this.determineExecutionOrder(operation.steps || []);
-    const stepResultsMap = new Map<string, StepResult>();
+    // Rehydrated on resume so `$.stepId.foo` parameter resolution still works
+    // for steps that ran before the suspension.
+    const stepResultsMap = deserialiseStepResults(
+      (workflow.executionContext as unknown as Record<string, unknown>)[STEP_RESULTS_STATE_KEY]
+    );
+    const alreadyCompleted = new Set(workflow.completedSteps ?? []);
 
     for (const stepGroup of executionOrder) {
+      // Idempotency: a step that already ran (before a suspension) must never
+      // run twice — its side effects have already happened.
+      const pendingSteps = stepGroup.filter((step) => !step.id || !alreadyCompleted.has(step.id));
+      if (pendingSteps.length === 0) continue;
+
       // Execute steps in parallel within each group
-      const groupPromises = stepGroup.map((step) =>
+      const groupPromises = pendingSteps.map((step) =>
         this.executeWorkflowStep(step, operation, workflow, stepResultsMap)
       );
 
       // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const results = await Promise.allSettled(groupPromises);
 
-      // Check for failures
-      const failures = results.filter((r) => r.status === 'rejected');
-      if (failures.length > 0) {
-        throw new InternalServerError(`Step execution failed: ${failures[0].reason}`);
+      // Record what did succeed BEFORE surfacing failures: when a sibling step
+      // suspends on approval, the steps that already ran must not re-run on resume.
+      for (const result of results) {
+        if (result.status !== 'fulfilled') continue;
+        const stepResult = result.value;
+        stepResultsMap.set(stepResult.stepId || '', stepResult);
+        workflow.stepResults ??= [];
+        workflow.stepResults.push(stepResult);
+        if (stepResult.stepId && !alreadyCompleted.has(stepResult.stepId)) {
+          alreadyCompleted.add(stepResult.stepId);
+          workflow.completedSteps ??= [];
+          workflow.completedSteps.push(stepResult.stepId);
+        }
       }
 
-      // Update completed steps
-      for (const result of results) {
-        if (result.status === 'fulfilled') {
-          const stepResult = result.value;
-          stepResultsMap.set(stepResult.stepId || '', stepResult);
-          workflow.stepResults ??= [];
-          workflow.stepResults.push(stepResult);
-          if (stepResult.stepId) {
-            workflow.completedSteps ??= [];
-            workflow.completedSteps.push(stepResult.stepId);
-          }
+      this.persistStepResults(workflow, stepResultsMap);
+
+      // Check for failures
+      const failures = results.filter(
+        (r): r is PromiseRejectedResult => r.status === 'rejected'
+      );
+      if (failures.length > 0) {
+        // Preserve typed control-flow errors (approval pending) instead of
+        // flattening them into a generic InternalServerError string.
+        const pending = failures.find((f) => f.reason instanceof ApprovalPendingError);
+        if (pending) {
+          throw pending.reason;
         }
+        throw new InternalServerError(`Step execution failed: ${failures[0].reason}`);
       }
 
       // Create checkpoint after each group
@@ -167,6 +259,9 @@ export class WorkflowOrchestrator extends EventEmitter {
         workflowInstanceId: workflow.id ?? '',
         previousResults,
         globalContext: workflow.context ?? {},
+        approvalDecisions: readApprovalDecisions(
+          workflow.executionContext as unknown as Record<string, unknown>
+        ),
       };
 
       const result = await this.stepExecutionManager.executeStep(step, context);
@@ -181,13 +276,15 @@ export class WorkflowOrchestrator extends EventEmitter {
 
       return result;
     } catch (error) {
-      // Emit step failed event
-      await this.eventBusService.publish('operation.step.failed', {
-        operationId: operation.id,
-        workflowId: workflow.id,
-        stepId: step.id,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      // Approval-pending is a suspension signal, not a step failure.
+      if (!(error instanceof ApprovalPendingError)) {
+        await this.eventBusService.publish('operation.step.failed', {
+          operationId: operation.id,
+          workflowId: workflow.id,
+          stepId: step.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
 
       throw error;
     }
@@ -224,6 +321,19 @@ export class WorkflowOrchestrator extends EventEmitter {
     }
 
     return groups;
+  }
+
+  /**
+   * Fold the accumulated step results into the workflow execution context so
+   * the next updateWorkflowState / createCheckpoint persists them. Without this
+   * a suspension loses every result produced before the approval gate.
+   */
+  private persistStepResults(
+    workflow: WorkflowInstance,
+    stepResults: Map<string, StepResult>
+  ): void {
+    const context = workflow.executionContext as unknown as Record<string, unknown>;
+    context[STEP_RESULTS_STATE_KEY] = serialiseStepResults(stepResults);
   }
 
   private async createCheckpoint(workflow: WorkflowInstance, operation: Operation): Promise<void> {

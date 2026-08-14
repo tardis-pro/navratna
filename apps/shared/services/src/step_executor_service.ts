@@ -9,7 +9,8 @@ import {
   ValidationStep as _ValidationStep,
   WorkflowInstance as _WorkflowInstance,
   ExecutionContext,
-  OperationError as _OperationError,
+  OperationError,
+  ApprovalPendingError,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { EventBusService } from './event_bus_service';
@@ -130,6 +131,13 @@ export class StepExecutorService extends EventEmitter {
 
       return result;
     } catch (error) {
+      // Control-flow signal, not a failure: the orchestrator must suspend the
+      // operation and wait for an external approval decision. Propagate as-is
+      // so it is never counted as a failed step or retried.
+      if (error instanceof ApprovalPendingError) {
+        throw error;
+      }
+
       const result: StepResult = {
         stepId: step.id || Date.now().toString(),
         status: StepStatus.FAILED,
@@ -332,11 +340,22 @@ export class StepExecutorService extends EventEmitter {
   }
 
   /**
-   * FAIL-CLOSED approval gate. An approval step approves ONLY when a real,
-   * upstream approval decision was carried into the step input as
-   * `{ approved: true, approvedBy: '<principal>' }` (e.g. resolved by the
-   * ApprovalWorkflow security-gateway flow before the operation resumed).
-   * Anything else — missing, false, or unattributed — is rejected.
+   * FAIL-CLOSED, ASYNC approval gate. Three outcomes:
+   *
+   * 1. APPROVED — input carries a real upstream decision
+   *    `{ approved: true, approvedBy: '<principal>' }` (injected by the
+   *    orchestrator when the security-gateway approval workflow resolved).
+   *    The step succeeds and execution continues.
+   * 2. REJECTED — input carries an explicit denial `{ approved: false }`,
+   *    normally from a named approver but also unattributed when the approval
+   *    workflow EXPIRED (`approvedBy: null` per the approval event contract).
+   *    The step throws OperationError(APPROVAL_REJECTED) and the operation
+   *    fails terminally (never retried). Denial never requires attribution —
+   *    demanding a named principal to deny would fail OPEN on expiry.
+   * 3. PENDING — no decision present. The step throws ApprovalPendingError,
+   *    signalling the orchestrator to SUSPEND the operation and request an
+   *    approval workflow (WhatsApp / dashboard). The operation resumes when
+   *    the decision arrives.
    *
    * This step previously simulated approval with `Math.random() > 0.2`, which
    * meant a coin flip authorised real-world actions. The Membrane (Sovereign
@@ -348,24 +367,39 @@ export class StepExecutorService extends EventEmitter {
     input: Record<string, unknown>,
     _signal: AbortSignal
   ): Promise<Record<string, unknown>> {
-    const approvedBy = typeof input.approvedBy === 'string' && input.approvedBy ? input.approvedBy : null;
-    const approved = input.approved === true && approvedBy !== null;
+    const approvedBy =
+      typeof input.approvedBy === 'string' && input.approvedBy ? input.approvedBy : null;
 
-    if (!approved) {
-      logger.warn('Approval step rejected (fail-closed: no upstream approval decision)', {
+    // Explicit, attributed decision present?
+    if (approvedBy !== null && input.approved === true) {
+      return {
+        approved: true,
+        approvalResult: 'approved',
+        approvedBy,
+        approvedAt: new Date().toISOString(),
+      };
+    }
+
+    if (input.approved === false) {
+      const rejectedBy = approvedBy ?? 'expiry';
+      logger.warn('Approval step explicitly rejected', {
         stepId: step.id,
         stepName: step.name,
-        hasApprovedFlag: input.approved === true,
-        hasApprover: approvedBy !== null,
+        rejectedBy,
+      });
+      throw new OperationError(`Approval rejected by ${rejectedBy}`, 'APPROVAL_REJECTED', {
+        stepId: step.id,
+        rejectedBy,
       });
     }
 
-    return {
-      approved,
-      approvalResult: approved ? 'approved' : 'rejected',
-      approvedBy: approved ? approvedBy : 'none',
-      approvedAt: new Date().toISOString(),
-    };
+    // No decision yet — suspend and wait for the external approval flow.
+    // (Fail-closed: an unattributed `approved: true` is NOT a decision.)
+    logger.info('Approval step pending — requesting external approval', {
+      stepId: step.id,
+      stepName: step.name,
+    });
+    throw new ApprovalPendingError(step.id, step.name ?? step.id);
   }
 
   private async executeDelayStep(

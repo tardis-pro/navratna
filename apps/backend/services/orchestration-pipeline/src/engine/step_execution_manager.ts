@@ -9,9 +9,11 @@ import {
   StepStatus,
   StepResult,
   OperationError,
+  ApprovalPendingError,
   StepMetrics,
   ParallelExecutionPolicy,
 } from '@uaip/types';
+import type { ApprovalDecisionRecord } from '@uaip/types';
 import { logger, ValidationError } from '@uaip/utils';
 import { StepExecutorService, ResourceManagerService } from '@uaip/shared-services';
 
@@ -20,6 +22,11 @@ export interface StepExecutionContext {
   workflowInstanceId: string;
   previousResults: Map<string, StepResult>;
   globalContext: Record<string, unknown>;
+  /**
+   * Approval decisions resolved outside this process (security-gateway), keyed
+   * by step id. Present only on a resume after a suspension.
+   */
+  approvalDecisions?: Record<string, ApprovalDecisionRecord>;
 }
 
 export class StepExecutionManager extends EventEmitter {
@@ -104,6 +111,12 @@ export class StepExecutionManager extends EventEmitter {
     } catch (error) {
       this.clearStepTimeout(step.id);
 
+      // Approval-pending is a control-flow signal (suspend + wait for external
+      // decision), NOT a failure — never retried, never emitted as step:failed.
+      if (error instanceof ApprovalPendingError) {
+        throw error;
+      }
+
       // Handle retry logic
       if (step.retryPolicy && step.retryPolicy.maxRetries !== undefined && (step.retryCount || 0) < step.retryPolicy.maxRetries) {
         return await this.retryStep(step, context, error);
@@ -169,9 +182,18 @@ export class StepExecutionManager extends EventEmitter {
   ): Promise<StepResult> {
     const input = this.toRecord(this.resolveParameters(step.input, context));
 
+    // Merge the externally-resolved decision for THIS step only. An
+    // `approved: true` with no attributed approver is never merged — the gate
+    // in executeApprovalStep already refuses it, and we do not construct it.
+    const decision = step.id ? context.approvalDecisions?.[step.id] : undefined;
+    const decided =
+      decision && !(decision.approved === true && !decision.approvedBy)
+        ? { approved: decision.approved, approvedBy: decision.approvedBy }
+        : {};
+
     const result = await this.stepExecutorService.executeApprovalStep(
       step,
-      input,
+      { ...input, ...decided },
       new AbortController().signal
     );
 

@@ -1,5 +1,5 @@
 import { StepExecutorService } from '../../step_executor_service';
-import { ExecutionStepSchema } from '@uaip/types';
+import { ApprovalPendingError, ExecutionStepSchema, OperationError } from '@uaip/types';
 
 describe('StepExecutorService', () => {
   let service: StepExecutorService;
@@ -21,6 +21,11 @@ describe('StepExecutorService', () => {
    * approved ONLY when an upstream approval decision (approved:true + a named
    * approver) was carried into the step input. See Sovereign Shell PRD — the
    * Membrane is never probabilistic.
+   *
+   * "Not approved" now splits into two outcomes: PENDING (no decision at all —
+   * ApprovalPendingError, suspend and wait) and REJECTED (an explicit
+   * `approved: false` — OperationError/APPROVAL_REJECTED, terminal). Neither
+   * ever continues execution.
    */
   describe('executeApprovalStep (fail-closed gate)', () => {
     const step = ExecutionStepSchema.parse({
@@ -30,26 +35,42 @@ describe('StepExecutorService', () => {
     });
     const signal = new AbortController().signal;
 
-    it('rejects when no approval decision is present', async () => {
-      const result = await service.executeApprovalStep(step, {}, signal);
-      expect(result.approved).toBe(false);
-      expect(result.approvalResult).toBe('rejected');
-      expect(result.approvedBy).toBe('none');
-    });
-
-    it('rejects when approved is true but no approver is attributed', async () => {
-      const result = await service.executeApprovalStep(step, { approved: true }, signal);
-      expect(result.approved).toBe(false);
-      expect(result.approvalResult).toBe('rejected');
-    });
-
-    it('rejects a truthy-but-not-true approved value (no type coercion)', async () => {
-      const result = await service.executeApprovalStep(
-        step,
-        { approved: 'yes', approvedBy: 'user-1' },
-        signal
+    it('suspends (never approves) when no approval decision is present', async () => {
+      await expect(service.executeApprovalStep(step, {}, signal)).rejects.toBeInstanceOf(
+        ApprovalPendingError
       );
-      expect(result.approved).toBe(false);
+    });
+
+    it('suspends when approved is true but no approver is attributed', async () => {
+      await expect(
+        service.executeApprovalStep(step, { approved: true }, signal)
+      ).rejects.toBeInstanceOf(ApprovalPendingError);
+    });
+
+    it('suspends on a truthy-but-not-true approved value (no type coercion)', async () => {
+      await expect(
+        service.executeApprovalStep(step, { approved: 'yes', approvedBy: 'user-1' }, signal)
+      ).rejects.toBeInstanceOf(ApprovalPendingError);
+    });
+
+    it('rejects terminally on an explicit denial from a named approver', async () => {
+      await expect(
+        service.executeApprovalStep(step, { approved: false, approvedBy: 'user-9' }, signal)
+      ).rejects.toMatchObject({ code: 'APPROVAL_REJECTED' });
+    });
+
+    /**
+     * The approval event contract carries `approvedBy: null` on expiry. Demanding
+     * an attributed principal to DENY would fail open there, so a denial never
+     * requires attribution.
+     */
+    it('rejects terminally on an unattributed denial (workflow expiry)', async () => {
+      const error = await service
+        .executeApprovalStep(step, { approved: false, approvedBy: null }, signal)
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(OperationError);
+      expect((error as OperationError).code).toBe('APPROVAL_REJECTED');
     });
 
     it('approves ONLY a real upstream decision with an attributed approver', async () => {
@@ -63,11 +84,12 @@ describe('StepExecutorService', () => {
       expect(result.approvedBy).toBe('security-gateway:user-42');
     });
 
-    it('is deterministic — identical input always yields the identical decision', async () => {
+    it('is deterministic — identical input always yields the identical outcome', async () => {
       for (let i = 0; i < 25; i++) {
-        // eslint-disable-next-line no-await-in-loop
-        const result = await service.executeApprovalStep(step, {}, signal);
-        expect(result.approved).toBe(false);
+        // oxlint-disable-next-line no-await-in-loop -- determinism is checked sequentially
+        await expect(service.executeApprovalStep(step, {}, signal)).rejects.toBeInstanceOf(
+          ApprovalPendingError
+        );
       }
     });
   });
