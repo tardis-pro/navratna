@@ -6,8 +6,12 @@
 // envelopes as the scheduler in capability-registry. Phase 1a ships only the
 // control-plane side (scheduler + node registry + native node).
 
-/** The runtime tier a tool executes on. `native` = the legacy in-process executor. */
-export type ExecutionRuntime = 'worker' | 'docker-mcp' | 'codespace' | 'native';
+/**
+ * The runtime tier a tool executes on. `native` = the legacy in-process executor.
+ * `federation` = a sovereign TARDIS subdomain producer serving MCP over HTTP —
+ * dialled directly at its per-producer endpoint (never a static front door).
+ */
+export type ExecutionRuntime = 'worker' | 'docker-mcp' | 'codespace' | 'native' | 'federation';
 
 /** Health state of a registered execution node. */
 export type ExecutionNodeHealth = 'ready' | 'degraded' | 'draining' | 'down';
@@ -117,6 +121,11 @@ export interface ExecutionRequestEnvelope {
    * runtime constraint (legacy behaviour preserved).
    */
   requires?: string[];
+  /**
+   * `federation` runtime only: the producer's MCP endpoint this request is
+   * dialled at. Copied from `ToolRuntimeDescriptor.endpoint` at envelope build.
+   */
+  endpoint?: string;
 }
 
 export interface ExecutionResultMetrics {
@@ -142,6 +151,12 @@ export interface ToolRuntimeDescriptor {
   runtime?: ExecutionRuntime;
   sandbox?: ExecutionSandboxPolicy;
   transport?: ToolTransport;
+  /**
+   * Per-producer dispatch endpoint for `federation`-runtime tools (the
+   * subdomain's `mcp_server_url`). Routing data carried explicitly — NOT via
+   * `sandbox.httpUrl`, which is a sandbox policy, not an address book.
+   */
+  endpoint?: string;
 }
 
 /** Payload of an `exec.node.register` bus message. */

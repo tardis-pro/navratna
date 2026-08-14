@@ -24,6 +24,7 @@ const VALID_RUNTIMES: ReadonlySet<string> = new Set([
   'docker-mcp',
   'codespace',
   'native',
+  'federation',
 ]);
 
 export interface NodeRegistryOptions {

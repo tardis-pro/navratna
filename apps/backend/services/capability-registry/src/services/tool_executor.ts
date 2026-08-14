@@ -20,6 +20,7 @@ import { BaseToolExecutor } from './base_tool_executor.js';
 import { config } from '../config/config.js';
 import { ExecutionScheduler } from './execution_mesh/scheduler.js';
 import { resolveToolDescriptor } from './execution_mesh/descriptor.js';
+import { tryMintScopedToken } from './execution_mesh/scoped_token.js';
 import type { ExecutionRequestEnvelope } from '@uaip/types';
 import { randomUUID } from 'node:crypto';
 
@@ -513,18 +514,23 @@ export class ToolExecutor {
     const descriptor = await resolveToolDescriptor(toolId);
     const runtime = scheduler.resolveRuntime(descriptor);
 
+    const correlationId = `corr_${Date.now()}_${randomUUID().slice(0, 8)}`;
+    // Per-call scoped RS256 token (spec §4, §7 / D6). Federation dispatch mints
+    // its own and fails closed; for other remote runtimes a mint failure keeps
+    // the legacy 'system' placeholder so existing degradation is preserved.
+    const scopedToken =
+      (await tryMintScopedToken({ userId: 'system', toolId, correlationId })) ?? 'system';
+
     const envelope: ExecutionRequestEnvelope = {
-      correlationId: `corr_${Date.now()}_${randomUUID().slice(0, 8)}`,
+      correlationId,
       toolId,
       params: parameters,
-      // Phase 2+ STUB: scoped, short-lived per-call token minting (spec §4, §7).
-      // Plumbed end-to-end now (node injects ctx.scopedToken into the container
-      // env); real minting via the JWKS/ENCRYPTION_KEY machinery lands later.
-      ctx: { userId: 'system', scopedToken: 'system' },
+      ctx: { userId: 'system', scopedToken },
       runtime,
       sandbox: descriptor.sandbox,
       deadlineMs: timeout,
       idempotencyKey: `${toolId}_${Date.now()}`,
+      ...(descriptor.endpoint ? { endpoint: descriptor.endpoint } : {}),
     };
 
     const result = await scheduler.schedule(envelope);

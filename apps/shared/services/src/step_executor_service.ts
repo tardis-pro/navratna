@@ -331,20 +331,39 @@ export class StepExecutorService extends EventEmitter {
     };
   }
 
+  /**
+   * FAIL-CLOSED approval gate. An approval step approves ONLY when a real,
+   * upstream approval decision was carried into the step input as
+   * `{ approved: true, approvedBy: '<principal>' }` (e.g. resolved by the
+   * ApprovalWorkflow security-gateway flow before the operation resumed).
+   * Anything else — missing, false, or unattributed — is rejected.
+   *
+   * This step previously simulated approval with `Math.random() > 0.2`, which
+   * meant a coin flip authorised real-world actions. The Membrane (Sovereign
+   * Shell PRD) is the decision boundary between AI suggestion and real-world
+   * impact; it must never be probabilistic.
+   */
   public async executeApprovalStep(
     step: ExecutionStep,
     input: Record<string, unknown>,
-    signal: AbortSignal
+    _signal: AbortSignal
   ): Promise<Record<string, unknown>> {
-    // Simulate approval (in real implementation, this would wait for user input)
-    await this.delay(Math.random() * 5000 + 3000, signal); // 3-8 seconds
+    const approvedBy = typeof input.approvedBy === 'string' && input.approvedBy ? input.approvedBy : null;
+    const approved = input.approved === true && approvedBy !== null;
 
-    const approved = Math.random() > 0.2; // 80% approval rate
+    if (!approved) {
+      logger.warn('Approval step rejected (fail-closed: no upstream approval decision)', {
+        stepId: step.id,
+        stepName: step.name,
+        hasApprovedFlag: input.approved === true,
+        hasApprover: approvedBy !== null,
+      });
+    }
 
     return {
       approved,
       approvalResult: approved ? 'approved' : 'rejected',
-      approvedBy: 'system', // In real implementation, this would be the actual approver
+      approvedBy: approved ? approvedBy : 'none',
       approvedAt: new Date().toISOString(),
     };
   }
@@ -498,36 +517,38 @@ export class StepExecutorService extends EventEmitter {
     };
   }
 
+  /**
+   * Parallel branches are not yet executed by this service (the orchestration
+   * engine fans branches out itself). Report that honestly — fabricating
+   * `{ status: 'completed' }` for sub-steps that never ran let downstream
+   * logic act on work that never happened.
+   */
   private async executeParallelStep(
     step: ExecutionStep,
-    input: Record<string, unknown>,
-    signal: AbortSignal
+    _input: Record<string, unknown>,
+    _signal: AbortSignal
   ): Promise<Record<string, unknown>> {
-    await this.delay(Math.random() * 1000 + 500, signal);
-
     const policy = step.policy || { policy: 'all_success' };
     const branches = step.branches || [];
 
     return {
       policy,
       branches,
-      parallelResults: branches.map(() => ({ status: 'completed', result: 'success' })),
+      parallelResults: branches.map(() => ({ status: 'not_executed', result: null as unknown })),
       executedAt: new Date().toISOString(),
     };
   }
 
+  /**
+   * Deterministic condition evaluation. Only literal 'true' evaluates true;
+   * everything unrecognised evaluates FALSE (fail closed) — this previously
+   * returned `Math.random() > 0.5`, letting a coin flip pick workflow branches.
+   */
   private evaluateCondition(condition: string, _input: Record<string, unknown>): boolean {
-    // Simple condition evaluation - in production, use a proper expression evaluator
-    try {
-      // For safety, only allow simple true/false conditions for now
-      if (condition === 'true') return true;
-      if (condition === 'false') return false;
+    if (condition === 'true') return true;
+    if (condition === 'false') return false;
 
-      // You could extend this to support more complex conditions
-      return Math.random() > 0.5; // Random decision for demo
-    } catch (error) {
-      logger.warn('Failed to evaluate condition', { condition, error });
-      return false;
-    }
+    logger.warn('Unrecognised condition evaluates false (fail-closed)', { condition });
+    return false;
   }
 }

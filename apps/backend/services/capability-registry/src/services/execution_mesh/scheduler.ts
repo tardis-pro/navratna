@@ -17,6 +17,8 @@ import type {
 import { config } from '../../config/config.js';
 import { ExecutionNodeRegistry } from './node_registry.js';
 import { execRequestSubject } from './subjects.js';
+import { parseFederatedToolId } from './descriptor.js';
+import { mintScopedToken } from './scoped_token.js';
 
 /** Typed scheduler failure (e.g. RESOURCE_EXHAUSTED when a runtime queue is full). */
 export class ExecutionMeshError extends Error {
@@ -37,6 +39,7 @@ export type NativeExecutor = (
 
 const NATIVE_NODE_ID = 'native-inproc';
 const WORKER_NODE_ID = 'worker-cf';
+const FEDERATION_NODE_ID = 'federation-dialer';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -130,13 +133,26 @@ export class ExecutionScheduler {
         return await this.runNative(envelope, startedAt, NATIVE_NODE_ID);
       }
 
+      // Federation: tenant scoping is enforced by the scoped token's claims, not
+      // node placement — the always-on dialer advertises no affinity, and a
+      // tenant-affinity filter would wrongly exclude it (matchesAffinity is
+      // false for affinity-less nodes).
       const node = this.registry.pickNode(
         runtime,
         envelope.toolId,
-        this.affinityOf(envelope),
+        runtime === 'federation' ? undefined : this.affinityOf(envelope),
         envelope.requires
       );
       if (!node) {
+        // A federated tool exists ONLY on its producer — native has no such tool,
+        // so "falling back" would silently execute something else (or nothing).
+        // Fail loud instead (execution plan §2.3).
+        if (runtime === 'federation') {
+          throw new ExecutionMeshError(
+            'NO_NODE_AVAILABLE',
+            `No federation node available for tool ${envelope.toolId}`
+          );
+        }
         logger.warn('No healthy node for runtime; falling back to native', {
           runtime,
           toolId: envelope.toolId,
@@ -149,6 +165,12 @@ export class ExecutionScheduler {
       // no bus subscription); every other remote runtime goes over the bus.
       if (runtime === 'worker') {
         return await this.dispatchWorker(node.id, envelope, startedAt);
+      }
+
+      // Federation tier dials the producer's own MCP endpoint directly — no
+      // static front door, per the spec-11 sovereign-nodes thesis (D1/D3).
+      if (runtime === 'federation') {
+        return await this.dispatchFederation(node.id, envelope, startedAt);
       }
 
       return await this.dispatchRemote(node.id, runtime, envelope, startedAt);
@@ -244,6 +266,129 @@ export class ExecutionScheduler {
     }
   }
 
+  /**
+   * Dispatch a federation-runtime request straight to the producer's MCP
+   * endpoint (`envelope.endpoint`, sourced from the federation registry) as a
+   * JSON-RPC `tools/call`, authenticated with a per-call scoped RS256 token the
+   * producer verifies against the fleet JWKS. DELIBERATE divergence from the
+   * worker path: a transport failure NEVER falls back to native — a federated
+   * tool exists only on its producer, so it fails with NODE_ERROR instead of
+   * silently running something else (execution plan §2.3).
+   */
+  private async dispatchFederation(
+    nodeId: string,
+    envelope: ExecutionRequestEnvelope,
+    startedAt: number
+  ): Promise<ExecutionResultEnvelope> {
+    this.registry.acquire(nodeId);
+    try {
+      const endpoint = envelope.endpoint;
+      if (!endpoint) {
+        throw new ExecutionMeshError(
+          'NODE_ERROR',
+          `Federated tool ${envelope.toolId} has no producer endpoint on its envelope`
+        );
+      }
+
+      const parsed = parseFederatedToolId(envelope.toolId);
+      const toolName = parsed?.toolName ?? envelope.toolId;
+
+      // D3 + D6: federation NEVER ships unauthenticated. If the scoped token
+      // cannot be minted, the call fails closed.
+      const scopedToken = await mintScopedToken({
+        userId: envelope.ctx.userId,
+        toolId: envelope.toolId,
+        correlationId: envelope.correlationId,
+        tenant: envelope.ctx.tenant,
+      });
+
+      const output = await this.fetchFederation(endpoint, toolName, envelope, scopedToken);
+      return this.ok(envelope, output, nodeId, startedAt);
+    } catch (error) {
+      logger.warn('Federation dispatch failed (no native fallback for federated tools)', {
+        toolId: envelope.toolId,
+        correlationId: envelope.correlationId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return this.fail(envelope, error, nodeId, startedAt);
+    } finally {
+      this.registry.release(nodeId);
+    }
+  }
+
+  /**
+   * POST a JSON-RPC 2.0 `tools/call` to a federated producer's MCP endpoint.
+   * Mirrors MCPClientService's http/streamable-http request shape (Accept
+   * includes text/event-stream; single-event SSE bodies are unwrapped) without
+   * requiring a registered long-lived server entry — producers are dialled
+   * per-call and never held open.
+   */
+  private async fetchFederation(
+    endpoint: string,
+    toolName: string,
+    envelope: ExecutionRequestEnvelope,
+    scopedToken: string
+  ): Promise<unknown> {
+    const request = {
+      jsonrpc: '2.0' as const,
+      id: envelope.correlationId,
+      method: 'tools/call',
+      params: { name: toolName, arguments: envelope.params },
+    };
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), envelope.deadlineMs);
+    timer.unref?.();
+    try {
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json, text/event-stream',
+          Authorization: `Bearer ${scopedToken}`,
+        },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      });
+      if (!resp.ok) {
+        throw new ExecutionMeshError('NODE_ERROR', `federated producer HTTP ${resp.status}`);
+      }
+
+      const contentType = resp.headers.get('content-type') ?? '';
+      const body: unknown = contentType.includes('text/event-stream')
+        ? this.parseSSEBody(await resp.text())
+        : await resp.json();
+
+      if (!isRecord(body) || body.jsonrpc !== '2.0') {
+        throw new ExecutionMeshError('NODE_ERROR', 'federated producer returned non-JSON-RPC body');
+      }
+      if (isRecord(body.error)) {
+        const message = typeof body.error.message === 'string' ? body.error.message : 'unknown';
+        throw new ExecutionMeshError('NODE_ERROR', `federated tool error: ${message}`);
+      }
+      return body.result;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /** Extract the last `data:` payload from a single-response SSE body. */
+  private parseSSEBody(text: string): unknown {
+    let last: unknown;
+    for (const line of text.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data:')) continue;
+      const payload = trimmed.slice('data:'.length).trim();
+      if (!payload || payload === '[DONE]') continue;
+      try {
+        last = JSON.parse(payload);
+      } catch {
+        // Non-JSON keep-alive chunk — ignore.
+      }
+    }
+    return last;
+  }
+
   private async dispatchRemote(
     nodeId: string,
     runtime: ExecutionRuntime,
@@ -337,9 +482,36 @@ export class ExecutionScheduler {
 
   private async ensureStarted(): Promise<void> {
     if (!this.startPromise) {
-      this.startPromise = this.registry.start().then(() => this.registerWorkerNode());
+      this.startPromise = this.registry.start().then(() => {
+        this.registerWorkerNode();
+        this.registerFederationNode();
+      });
     }
     await this.startPromise;
+  }
+
+  /**
+   * Statically register the in-process federation dialer as a `federation`
+   * node. Like the worker node it is always-on and never heartbeats — producers
+   * are dialled directly per call; their liveness is the federation registry's
+   * health-check concern, not the mesh's. Always registered: a federated tool
+   * with no producer still fails loud (NODE_ERROR), never silently native.
+   */
+  private registerFederationNode(): void {
+    this.registry.registerNode({
+      id: FEDERATION_NODE_ID,
+      runtime: 'federation',
+      capabilities: ['*'], // any federated tool; the endpoint travels on the envelope
+      capacity: {
+        maxConcurrent: this.maxConcurrentPerRuntime,
+        cpu: 1,
+        memMb: 64,
+      },
+      health: 'ready',
+      lastHeartbeat: Date.now(),
+      alwaysOn: true,
+    });
+    logger.info('Registered static federation dialer node', { nodeId: FEDERATION_NODE_ID });
   }
 
   /**

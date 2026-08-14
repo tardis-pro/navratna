@@ -36,6 +36,78 @@ const WORKER_JS_TOOLS: ReadonlySet<string> = new Set([
   'web-search',
 ]);
 
+// ---------------------------------------------------------------------------
+// Federation (D3) — `federation:<subdomainId>:<toolName>` ids resolve to the
+// `federation` runtime, dialled directly at the producer's mcp_server_url.
+// ---------------------------------------------------------------------------
+
+/** Parse `federation:<subdomainId>:<toolName>` (the id shape syncTools registers). */
+export function parseFederatedToolId(
+  toolId: string
+): { subdomainId: string; toolName: string } | null {
+  if (!toolId.startsWith('federation:')) return null;
+  const rest = toolId.slice('federation:'.length);
+  const sep = rest.indexOf(':');
+  if (sep <= 0 || sep === rest.length - 1) return null;
+  return { subdomainId: rest.slice(0, sep), toolName: rest.slice(sep + 1) };
+}
+
+interface FederationEndpointCacheEntry {
+  descriptor: ToolRuntimeDescriptor | null; // null = known miss (also cached)
+  loadedAt: number;
+}
+
+const FEDERATION_TTL_MS = 30_000;
+const federationCache = new Map<string, FederationEndpointCacheEntry>();
+
+/**
+ * Resolve a federated tool's producer endpoint from the federation registry.
+ * TTL-cached per subdomain — a registry lookup on every call is a per-invocation
+ * DB round trip the < 200 ms agent-turn budget will not absorb. Returns null on
+ * any miss (unknown subdomain, deregistered, stdio producer) — caller maps null
+ * to `{}` (native), which then simply fails to find the tool rather than
+ * executing something else.
+ */
+async function resolveFederationDescriptor(
+  subdomainId: string
+): Promise<ToolRuntimeDescriptor | null> {
+  const now = Date.now();
+  const cached = federationCache.get(subdomainId);
+  if (cached && now - cached.loadedAt < FEDERATION_TTL_MS) {
+    return cached.descriptor;
+  }
+
+  const { FederationRegistryService } = await import('../federation_registry_service.js');
+  const subdomain = await FederationRegistryService.getInstance().getSubdomainById(subdomainId);
+
+  let descriptor: ToolRuntimeDescriptor | null = null;
+  if (subdomain && subdomain.status !== 'deregistered' && subdomain.mcpServerUrl) {
+    // Only http-family producers are direct-dialled by the federation node. A
+    // stdio producer needs a local docker-mcp node fronting it — that is the
+    // homelab stdio decision (execution plan §4), not this path.
+    if (subdomain.transport === 'streamable-http' || subdomain.transport === 'sse') {
+      descriptor = {
+        runtime: 'federation',
+        transport: subdomain.transport === 'sse' ? 'http' : 'streamable-http',
+        endpoint: subdomain.mcpServerUrl,
+      };
+    } else {
+      logger.warn('Federated producer uses a non-HTTP transport; tool stays unresolved', {
+        subdomainId,
+        transport: subdomain.transport,
+      });
+    }
+  }
+
+  federationCache.set(subdomainId, { descriptor, loadedAt: now });
+  return descriptor;
+}
+
+/** Test hook — clears the federation endpoint cache. */
+export function resetFederationDescriptorCache(): void {
+  federationCache.clear();
+}
+
 /** Parse `mcp-<server>-<tool>` -> serverName (or null if not an MCP tool id). */
 function mcpServerNameOf(toolId: string): string | null {
   if (!toolId.startsWith('mcp-')) return null;
@@ -101,6 +173,15 @@ export async function resolveToolDescriptor(toolId: string): Promise<ToolRuntime
     // scheduler falls back to native — behaviour preserved. file-reader is absent
     // here on purpose (no Worker filesystem) and resolves to native below.
     if (WORKER_JS_TOOLS.has(toolId)) return { runtime: 'worker' };
+
+    // Federated producer tools (D3). Resolved BEFORE the mcp-* prefix check: a
+    // federated tool is addressed by its registry id `federation:<sub>:<tool>`
+    // and must dial its own producer endpoint, never the static worker URL.
+    const federated = parseFederatedToolId(toolId);
+    if (federated) {
+      const descriptor = await resolveFederationDescriptor(federated.subdomainId);
+      return descriptor ?? {};
+    }
 
     const serverName = mcpServerNameOf(toolId);
     if (!serverName) return {}; // native tools (file-reader, oauth-*, unknown)

@@ -617,7 +617,14 @@ export class FederationRegistryService {
           source: 'federation',
           tool: {
             id: `federation:${subdomainId}:${tool.name}`,
-            name: tool.name,
+            // `name` IS the dispatch key (tool_definitions.name is UNIQUE;
+            // UnifiedToolRegistry resolves non-uuid ids via findToolByName and
+            // the mesh routes on this string — same contract as
+            // buildMcpToolRegistration's `mcp-<server>-<tool>`). The bare
+            // producer-local name would collide across producers AND lose the
+            // producer binding the federation descriptor resolves from.
+            name: `federation:${subdomainId}:${tool.name}`,
+            displayName: tool.name,
             description: tool.description,
             inputSchema: tool.inputSchema,
             category: 'api',

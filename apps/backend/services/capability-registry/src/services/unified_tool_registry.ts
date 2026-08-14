@@ -12,6 +12,7 @@ import { logger, ConflictError, InternalServerError, NotFoundError, RateLimitErr
 import { z } from 'zod';
 import { ExecutionScheduler } from './execution_mesh/scheduler.js';
 import { resolveToolDescriptor } from './execution_mesh/descriptor.js';
+import { tryMintScopedToken } from './execution_mesh/scoped_token.js';
 import { BaseToolExecutor } from './base_tool_executor.js';
 import { isMcpToolKey, withMcpExecutionContext } from '../utils/mcp_tool_key.js';
 import type { ExecutionRequestEnvelope } from '@uaip/types';
@@ -872,7 +873,11 @@ export class UnifiedToolRegistry {
       //
       // Pass the tool NAME, not the UUID id: BaseToolExecutor (and mcp-*/oauth- routing)
       // dispatches on the semantic key, while the DB primary key is a generated UUID.
-      return await this.executeViaMesh(tool.name || tool.id, parameters, context);
+      // EXCEPTION — federated tools: their registry id `federation:<sub>:<tool>` IS
+      // the routing key (it carries the producer binding); their `name` is the bare
+      // producer-local tool name, which would resolve to native and dead-end.
+      const dispatchKey = tool.id?.startsWith('federation:') ? tool.id : tool.name || tool.id;
+      return await this.executeViaMesh(dispatchKey, parameters, context);
     } catch (error) {
       logger.error('Standard execution failed', { error, toolId: tool.id, operation });
       throw error;
@@ -926,16 +931,28 @@ export class UnifiedToolRegistry {
       ? (paramsRecord.requires as unknown[]).filter((r): r is string => typeof r === 'string')
       : undefined;
 
+    const correlationId = `corr_${Date.now()}_${randomUUID().slice(0, 8)}`;
+    // Per-call scoped RS256 token (spec §4, §7 / D6). Federation dispatch mints
+    // its own copy and fails closed; other remote runtimes degrade to the legacy
+    // placeholder when the signing key is unavailable.
+    const scopedToken =
+      (await tryMintScopedToken({
+        userId: context.userId ?? 'system',
+        toolId,
+        correlationId,
+      })) ?? 'system';
+
     const envelope: ExecutionRequestEnvelope = {
-      correlationId: `corr_${Date.now()}_${randomUUID().slice(0, 8)}`,
+      correlationId,
       toolId,
       params: paramsRecord,
-      ctx: { userId: context.userId ?? 'system', scopedToken: 'system' },
+      ctx: { userId: context.userId ?? 'system', scopedToken },
       runtime,
       sandbox: descriptor.sandbox,
       deadlineMs: 120000,
       idempotencyKey: `${toolId}_${Date.now()}`,
       ...(requires ? { requires } : {}),
+      ...(descriptor.endpoint ? { endpoint: descriptor.endpoint } : {}),
     };
 
     const result = await scheduler.schedule(envelope);
