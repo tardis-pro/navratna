@@ -35,6 +35,7 @@ import { registerAgentRoutes } from './routes/agent_routes.js'
 import { registerCognitivePortraitRoutes } from './routes/cognitive_portrait_routes.js'
 import { registerConstellationRoutes } from './routes/constellation_routes.js'
 import { MemoryConsolidationScheduler } from './services/memory_consolidation_scheduler.js'
+import { sanitizeKnowledgeForContext } from './services/knowledge_context_sanitizer.js'
 import type {
   KnowledgeContextProvider,
   ProjectAccessProvider,
@@ -190,23 +191,26 @@ const buildKnowledgeContextProvider = (
 
   if (items.length === 0) return null
 
-  const result = { ...general, items }
-
-  const sections = result.items.map((item) => {
-    const source = item.sourceIdentifier ? ` (source: ${item.sourceIdentifier})` : ''
-    return `•${source ? source + '\n' : ''}${item.content}`
-  })
+  // Retrieval returns whatever is semantically nearest, and this store contains
+  // captured transcripts of other agents' sessions. Concatenated raw, their
+  // system directives read as instructions and the model obeys them, so the
+  // block is filtered and fenced before it can reach the prompt.
+  const sanitized = sanitizeKnowledgeForContext(items)
 
   logger.info('Knowledge context retrieved for chat turn', {
     agentId,
-    itemCount: result.items.length,
-    layerBreakdown: result.layerBreakdown,
-    totalTokens: result.totalTokens,
+    retrievedCount: items.length,
+    itemCount: sanitized.items.length,
+    dropped: sanitized.dropped,
+    layerBreakdown: general.layerBreakdown,
+    totalTokens: general.totalTokens,
   })
+
+  if (!sanitized.content) return null
 
   return {
     title: 'Relevant knowledge',
-    content: sections.join('\n\n'),
+    content: sanitized.content,
   }
 }
 

@@ -5,6 +5,8 @@ import type {
   VectorFilterValue,
   VectorSearchOptions,
 } from '@uaip/types';
+import { createHash } from 'node:crypto';
+
 import { config } from '@uaip/config';
 import { createLogger } from '@uaip/utils';
 
@@ -61,6 +63,43 @@ export function buildVectorFilters(
 
 function isPlainRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+/**
+ * Fixed namespace for chunk point ids. Any constant UUID works; it only has to
+ * stay stable, because changing it re-points every stored chunk and orphans the
+ * existing collection.
+ */
+const CHUNK_ID_NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+
+/**
+ * Deterministic point id for one chunk of one knowledge item (RFC 4122 v5).
+ *
+ * `store()` previously used the chunk INDEX as the point id, so every item's
+ * chunk 0 was written as point `0` and each ingest overwrote the last one — the
+ * collection collapsed to roughly `max(chunk_count)` points no matter how many
+ * items existed. Qdrant accepts only an unsigned integer or a UUID as a point
+ * id, so the id is derived rather than concatenated.
+ *
+ * Deterministic (not random) so that re-ingesting an item replaces its own
+ * chunks instead of accumulating a second copy of them.
+ */
+export function chunkPointId(knowledgeItemId: string, chunkIndex: number): string {
+  const namespace = Buffer.from(CHUNK_ID_NAMESPACE.replace(/-/g, ''), 'hex');
+  const name = Buffer.from(`${knowledgeItemId}:${chunkIndex}`, 'utf8');
+  const hash = createHash('sha1').update(Buffer.concat([namespace, name])).digest();
+
+  hash[6] = (hash[6] & 0x0f) | 0x50; // version 5
+  hash[8] = (hash[8] & 0x3f) | 0x80; // RFC 4122 variant
+
+  const hex = hash.subarray(0, 16).toString('hex');
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20, 32),
+  ].join('-');
 }
 
 export class QdrantService {
@@ -123,7 +162,9 @@ export class QdrantService {
     }
   }
 
-  private isQdrantPoint(v: unknown): v is { id: string; score: number; payload: Record<string, unknown> } {
+  private isQdrantPoint(
+    v: unknown
+  ): v is { id: string | number; score: number; payload: Record<string, unknown> } {
     return (
       typeof v === 'object' &&
       v !== null &&
@@ -133,19 +174,43 @@ export class QdrantService {
     );
   }
 
+  /**
+   * Callers treat `VectorSearchResult.id` as the KNOWLEDGE ITEM id and hydrate
+   * it straight from Postgres, so the payload's `knowledge_item_id` is
+   * authoritative and the raw point id is only a fallback.
+   *
+   * Chunked items store one point per chunk under a derived point id, so
+   * returning `point.id` produced a lookup for a value that is not a row key at
+   * all — in production that surfaced as `where id in ($1) params: 0`. Points
+   * written by `upsert()` carry a payload id equal to their point id, so both
+   * paths now report the same thing.
+   */
   private mapSearchPoints(data: unknown): VectorSearchResult[] {
     if (typeof data !== 'object' || data === null || !('result' in data)) {
       return [];
     }
-      const result: unknown = (data as { result: unknown })['result'];
-      if (!Array.isArray(result)) {
-        return [];
-      }
-      return result.filter(this.isQdrantPoint).map((point) => ({
-      id: point.id,
-      score: point.score,
-      payload: point.payload,
-    }));
+    const result: unknown = (data as { result: unknown })['result'];
+    if (!Array.isArray(result)) {
+      return [];
+    }
+    const mapped = result.filter(this.isQdrantPoint).map((point) => {
+      const payloadId = point.payload?.['knowledge_item_id'];
+      return {
+        id: typeof payloadId === 'string' && payloadId ? payloadId : String(point.id),
+        score: point.score,
+        payload: point.payload,
+      };
+    });
+
+    // Several chunks of one item can match the same query. They hydrate to the
+    // same Postgres row, so emitting each one would spend the caller's limit
+    // and the model's context window on repeats of a single document. Qdrant
+    // returns points in descending score, so the first occurrence is the best.
+    const bestPerItem = new Map<string, VectorSearchResult>();
+    for (const hit of mapped) {
+      if (!bestPerItem.has(hit.id)) bestPerItem.set(hit.id, hit);
+    }
+    return Array.from(bestPerItem.values());
   }
 
   private async deleteByIds(workingUrl: string, collectionName: string, ids: string[]): Promise<void> {
@@ -260,8 +325,11 @@ export class QdrantService {
       const workingUrl = await this.ensureConnection();
       const collectionName = this.getCollectionName(collectionOptions);
 
+      // The point id must be unique ACROSS items, not just within one. Using the
+      // chunk index made every item's chunk 0 collide on point 0, so each ingest
+      // silently destroyed the previous item's vectors.
       const points = embeddings.map((embedding, index) => ({
-        id: index,
+        id: chunkPointId(knowledgeItemId, index),
         vector: embedding,
         payload: {
           knowledge_item_id: knowledgeItemId,
