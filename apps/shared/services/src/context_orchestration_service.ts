@@ -39,6 +39,13 @@ export class ContextOrchestrationService {
     options: {
       includeRelationships?: boolean;
       similarityThreshold?: number;
+      /**
+       * Tenant scope for the vector search. KnowledgeGraphService derives its
+       * tenantId from filters.organizationId and silently falls back to the
+       * default org when absent — so omitting this on a multi-tenant call
+       * searches the wrong tenant, it does not fail.
+       */
+      organizationId?: string;
       config?: Partial<ContextOrchestrationConfig>;
     } = {}
   ): Promise<{
@@ -98,7 +105,11 @@ export class ContextOrchestrationService {
     agentId?: string,
     userId?: string,
     config: ContextOrchestrationConfig = this.defaultConfig,
-    options: { includeRelationships?: boolean; similarityThreshold?: number } = {}
+    options: {
+      includeRelationships?: boolean;
+      similarityThreshold?: number;
+      organizationId?: string;
+    } = {}
   ): Promise<{
     agent: KnowledgeItem[];
     user: KnowledgeItem[];
@@ -106,6 +117,9 @@ export class ContextOrchestrationService {
   }> {
     const searchRequest: KnowledgeSearchRequest = {
       query,
+      ...(options.organizationId
+        ? { filters: { organizationId: options.organizationId } }
+        : {}),
       options: {
         limit: config.maxItemsPerLayer,
         similarityThreshold: options.similarityThreshold || 0.7,

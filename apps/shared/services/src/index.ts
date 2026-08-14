@@ -499,6 +499,14 @@ export {
 } from './database/migrations/ensure_agent_chat_threads';
 export { BackfillUserAgentAssignments } from './database/migrations/backfill_user_agent_assignments';
 export type { BackfillUserAgentAssignmentsResult } from './database/migrations/backfill_user_agent_assignments';
+export {
+  EnsureDefaultAgentTools,
+  defaultToolBinding,
+} from './database/migrations/ensure_default_agent_tools';
+export type {
+  EnsureDefaultAgentToolsResult,
+  DefaultAgentToolBinding,
+} from './database/migrations/ensure_default_agent_tools';
 
 // =============================================================================
 // SERVICE FACTORY AND DEPENDENCY INJECTION

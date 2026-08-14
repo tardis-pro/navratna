@@ -159,6 +159,48 @@ export type ToolSchemaProvider = (
   toolId: string
 ) => Promise<{ description: string; parameters: Record<string, unknown> } | null>
 
+/**
+ * Server-side knowledge retrieval for a chat turn. Injected rather than
+ * imported so this route package does not depend on shared-services (the same
+ * seam as ToolSchemaProvider / ProjectToolScopeProvider).
+ *
+ * Returns null when nothing relevant was found. MUST NOT throw for ordinary
+ * retrieval failures — but the route also guards, because a knowledge outage
+ * must degrade to an ungrounded reply, never fail the turn.
+ */
+export type KnowledgeContextProvider = (params: {
+  query: string
+  agentId: string
+  userId: string
+  organizationId: string
+}) => Promise<{ title: string; content: string } | null>
+
+/**
+ * Merges retrieved knowledge with the caller-supplied document context.
+ *
+ * The prompt builder accepts ONE DocumentContext, so both sources land in a
+ * single document: client context first (the user pointed at it explicitly),
+ * retrieved knowledge after. When only one side exists it is used as-is.
+ */
+export const mergeKnowledgeContext = (
+  clientContext: DocumentContext | undefined,
+  retrieved: { title: string; content: string } | null
+): DocumentContext | undefined => {
+  if (!retrieved) return clientContext
+  if (!clientContext) {
+    return {
+      id: 'knowledge-context',
+      title: retrieved.title,
+      content: retrieved.content,
+      type: 'knowledge',
+    }
+  }
+  return {
+    ...clientContext,
+    content: `${clientContext.content}\n\n--- Retrieved knowledge ---\n${retrieved.content}`,
+  }
+}
+
 export type ProjectToolScope = {
   integrationServerKeys: string[]
   boundServerKeys: string[]
@@ -490,7 +532,8 @@ export function registerAgentChatRoutes(
   securityService: SecurityDeps,
   toolSchemaProvider?: ToolSchemaProvider,
   projectScopeProvider?: ProjectToolScopeProvider,
-  chatPersistence?: AgentChatPersistence
+  chatPersistence?: AgentChatPersistence,
+  knowledgeContextProvider?: KnowledgeContextProvider
 ) {
   return new Elysia().group(
     '/api/v1/agents',
@@ -637,6 +680,11 @@ export function registerAgentChatRoutes(
               )
           )
 
+          // The query is the CURRENT user message — retrieval grounds this turn,
+          // not the whole transcript. Failure degrades to an ungrounded reply:
+          // a knowledge-store outage must never fail the chat turn.
+          const retrievalQuery = currentMessage ?? messages[messages.length - 1]?.content
+
           const generateFor = async (responder: AgentRecord) => {
             const assignedTools = filterToolsForProject(
               toAssignedTools(responder.assignedMCPTools),
@@ -644,10 +692,27 @@ export function registerAgentChatRoutes(
             )
             const tools = await resolveAgentTools(assignedTools, toolSchemaProvider)
 
+            let retrieved: { title: string; content: string } | null = null
+            if (knowledgeContextProvider && retrievalQuery) {
+              try {
+                retrieved = await knowledgeContextProvider({
+                  query: retrievalQuery,
+                  agentId: responder.id,
+                  userId,
+                  organizationId: user.organizationId,
+                })
+              } catch (error) {
+                logger.warn('Knowledge retrieval failed; continuing without context', {
+                  agentId: responder.id,
+                  error: error instanceof Error ? error.message : String(error),
+                })
+              }
+            }
+
             const request = toAgentRequest(
               responder,
               messages,
-              toDocumentContext(body.context),
+              mergeKnowledgeContext(toDocumentContext(body.context), retrieved),
               tools,
               projectId,
               modelOverride

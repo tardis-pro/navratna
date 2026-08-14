@@ -5,6 +5,7 @@ import {
   BackfillUserAgentAssignments,
   CapabilityDiscoveryService,
   DatabaseService,
+  EnsureDefaultAgentTools,
   EnsureOnboardingGuide,
   EnsureOnboardingSchema,
   EnsureAgentChatThreads,
@@ -31,7 +32,11 @@ import { registerAgentRoutes } from './routes/agent_routes.js'
 import { registerCognitivePortraitRoutes } from './routes/cognitive_portrait_routes.js'
 import { registerConstellationRoutes } from './routes/constellation_routes.js'
 import { MemoryConsolidationScheduler } from './services/memory_consolidation_scheduler.js'
-import type { ProjectToolScopeProvider, ToolSchemaProvider } from './routes/agent_chat_routes.js'
+import type {
+  KnowledgeContextProvider,
+  ProjectToolScopeProvider,
+  ToolSchemaProvider,
+} from './routes/agent_chat_routes.js'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -72,6 +77,44 @@ const loadToolSchema: ToolSchemaProvider = async (toolId) => {
   }
 }
 
+/**
+ * Grounds each chat turn in the knowledge graph. ContextOrchestrationService
+ * already does layered retrieval (agent → user → general), ranking, and token
+ * budgeting; this adapter only shapes its output into one context document.
+ * organizationId is the AUTHENTICATED caller's org (from the gateway headers),
+ * never a model- or client-supplied value — it is the tenant filter for the
+ * vector search.
+ */
+const buildKnowledgeContextProvider = (
+  factory: ServiceFactory
+): KnowledgeContextProvider => async ({ query, agentId, userId, organizationId }) => {
+  const orchestrator = await factory.getContextOrchestrationService()
+  const result = await orchestrator.getOrchestatedContext(query, agentId, userId, {
+    organizationId,
+    similarityThreshold: 0.55,
+  })
+
+  if (result.items.length === 0) return null
+
+  const sections = result.items.map((item) => {
+    const source = item.sourceIdentifier ? ` (source: ${item.sourceIdentifier})` : ''
+    return `•${source ? source + '\n' : ''}${item.content}`
+  })
+
+  logger.info('Knowledge context retrieved for chat turn', {
+    agentId,
+    itemCount: result.items.length,
+    layerBreakdown: result.layerBreakdown,
+    totalTokens: result.totalTokens,
+  })
+
+  return {
+    title: 'Relevant knowledge',
+    content: sections.join('\n\n'),
+  }
+}
+
+let knowledgeContextProvider: KnowledgeContextProvider
 let agentIntelligenceService: AgentIntelligenceService
 let capabilityDiscoveryService: CapabilityDiscoveryService
 let userLLMService: UserLLMService
@@ -114,6 +157,10 @@ export const agentIntelligenceFeature: Feature = {
       await new EnsureAgentChatThreads().run()
       await new EnsureOnboardingGuide().run()
       await new BackfillUserAgentAssignments().run()
+      // After the guide exists (it is excluded by id): give every active agent
+      // the safe built-in tools, otherwise runWithTools short-circuits on the
+      // empty binding list and no agent can ever call anything.
+      await new EnsureDefaultAgentTools().run()
     } catch (err) {
       logger.error('agent-intelligence: onboarding provisioning failed', {
         error: err instanceof Error ? err.message : String(err),
@@ -122,6 +169,7 @@ export const agentIntelligenceFeature: Feature = {
 
     securityService = SecurityService.getInstance()
     const factory = ServiceFactory.getInstance()
+    knowledgeContextProvider = buildKnowledgeContextProvider(factory)
     semanticMemoryManager = await factory.getSemanticMemoryManager()
 
     const [memoryConsolidator, workingMemoryManager] = await Promise.all([
@@ -147,7 +195,8 @@ export const agentIntelligenceFeature: Feature = {
         securityService,
         loadToolSchema,
         projectToolScope,
-        agentChatPersistenceService
+        agentChatPersistenceService,
+        knowledgeContextProvider
       )
     )
     app.use(registerAgentCapabilityRoutes(agentIntelligenceService, capabilityDiscoveryService))

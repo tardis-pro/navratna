@@ -886,7 +886,19 @@ export class UserLLMService {
     try {
       const userProviders = await this.getActiveUserProviders(userId);
       const allModels = [];
-      logger.info('Getting models for user', { userId, userProviders });
+      // NEVER log the provider objects themselves: findActiveByUserId decrypts
+      // apiKeyEncrypted on read, so a whole-object log writes the user's live API
+      // key to stdout in cleartext on every models request.
+      logger.info('Getting models for user', {
+        userId,
+        providerCount: userProviders.length,
+        providers: userProviders.map((provider) => ({
+          id: provider.id,
+          name: provider.name,
+          type: provider.type,
+          defaultModel: provider.defaultModel,
+        })),
+      });
       for (const userProvider of userProviders) {
         try {
           // eslint-disable-next-line no-await-in-loop -- sequential processing required
