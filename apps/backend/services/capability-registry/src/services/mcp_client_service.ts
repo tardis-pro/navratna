@@ -189,6 +189,12 @@ interface MCPServerState {
    * a secret alongside httpHeaders — never serialized to clients.
    */
   httpSessionId?: string;
+  /**
+   * Primary key of this server's `mcp_servers` row, resolved lazily from the
+   * name on the first tool call. This map is keyed by NAME, but the tool-call
+   * table stores a uuid foreign key — see executeTool.
+   */
+  dbId?: string;
   status: 'stopped' | 'starting' | 'running' | 'error' | 'stopping';
   pid?: number;
   startTime?: Date;
@@ -958,24 +964,46 @@ export class MCPClientService extends EventEmitter {
     let jobId: string | null = null;
 
     try {
-      // Create job record in database if DatabaseService is available
+      // Create job record in database if DatabaseService is available.
+      //
+      // `mcp_tool_calls.server_id` is a uuid FK to `mcp_servers(id)`, but this
+      // service keys its live servers by NAME. Passing the name straight through
+      // made every insert fail with `invalid input syntax for type uuid`, and
+      // because the record is created BEFORE the call is dispatched, the whole
+      // tool execution failed with "Failed to create MCP tool call" — no MCP tool
+      // could execute through this path at all. Resolve the name to its row id,
+      // once per server, and cache it on the state.
       if (this.mcpRepo) {
         const mcpService = this.mcpRepo;
-        const toolCall = await mcpService.createToolCall({
-          serverId: serverName,
-          toolName,
-          parameters,
-          agentId: context?.agentId,
-          userId: context?.userId,
-          conversationId: context?.conversationId,
-          operationId: context?.operationId,
-          sessionId: context?.sessionId,
-          securityLevel: 'medium',
-        });
-        jobId = toolCall.id;
+        if (!server.dbId) {
+          server.dbId = (await mcpService.getServerByName(serverName))?.id ?? undefined;
+        }
 
-        // Start the job
-        await mcpService.startToolCall(jobId);
+        // The job record is bookkeeping, not the execution path. A server that is
+        // live in memory but has no row (or a lookup that fails) must not take the
+        // tool call down with it — execute, and skip the record.
+        if (server.dbId) {
+          const toolCall = await mcpService.createToolCall({
+            serverId: server.dbId,
+            toolName,
+            parameters,
+            agentId: context?.agentId,
+            userId: context?.userId,
+            conversationId: context?.conversationId,
+            operationId: context?.operationId,
+            sessionId: context?.sessionId,
+            securityLevel: 'medium',
+          });
+          jobId = toolCall.id;
+
+          // Start the job
+          await mcpService.startToolCall(jobId);
+        } else {
+          logger.warn('No mcp_servers row for this server; executing without a job record', {
+            serverName,
+            toolName,
+          });
+        }
       }
 
       const startTime = Date.now();
