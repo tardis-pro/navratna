@@ -183,6 +183,20 @@ services:
       GITEA_URL: "https://git.tardis.local"
       ENTERPRISE_MODE: "false"
       ZERO_TRUST_MODE: "disabled"
+      # ── WhatsApp (Baileys) ───────────────────────────────────────────────
+      # The Baileys client lives in the discussion feature, which only
+      # navratna-core mounts — hence these belong here and NOT in the gateway.
+      # Agent an unbound contact is routed to before choosing from the menu.
+      WHATSAPP_DEFAULT_AGENT_ID: ""
+      # Redis logical DB for the WhatsApp session/auth state. Falls back to
+      # REDIS_DB then 0; kept separate so clearing a WhatsApp session cannot
+      # touch application cache keys.
+      REDIS_WA_DB: "0"
+      # jid:userId pairs, comma-separated — the ONLY identities allowed to
+      # approve an operation by replying over WhatsApp. Same variable as in
+      # navratna-gateway, read here in the jid → userId direction.
+      # Empty ⇒ an approval reply from ANY number is refused and logged.
+      WHATSAPP_APPROVER_ALLOWLIST: ""
     probe: { type: tcp, port: 8080 }
 
   - id: navratna-gateway
@@ -239,6 +253,29 @@ services:
       OAUTH_CALLBACK_URL: "https://navratna.tardis.local/api/v1/oauth/callback"
       ENTERPRISE_MODE: "false"
       ZERO_TRUST_MODE: "disabled"
+      # Where the approval email/in-app notification points the admin. Without
+      # this the NotificationService builds {{approvalUrl}} against the
+      # localhost:3000 default and every approval link it sends is dead.
+      FRONTEND_BASE_URL: "https://navratna.tardis.local"
+      # ── Human-in-the-loop approvals ──────────────────────────────────────
+      # Approvers notified when an `approval` step suspends an operation.
+      # Comma-separated user ids. EMPTY ON PURPOSE: with no approver the
+      # approval fails closed (the operation is rejected, never auto-approved).
+      # Provision real ids before relying on approval steps.
+      APPROVAL_DEFAULT_APPROVERS: ""
+      # jid:userId pairs, comma-separated — the ONLY identities allowed to
+      # approve over WhatsApp. Deliberately separate from the self-service chat
+      # binding in `whatsapp:binding:*`: picking a chat agent and authorising a
+      # real-world action are different trust levels.
+      # Empty ⇒ nobody can approve over WhatsApp. Mirrored into navratna-core,
+      # which reads the same variable in the opposite direction (jid → userId).
+      WHATSAPP_APPROVER_ALLOWLIST: ""
+      # Enables the `whatsapp` NotificationService channel. Named *_ENABLED
+      # because it maps to config.notifications.whatsapp.enabled, not to the
+      # config.notifications.channels.* flags that NOTIFICATIONS_EMAIL/SMS set.
+      # Only "true" enables it; the gateway publishes notification.whatsapp.send
+      # and navratna-core's Baileys client does the actual delivery.
+      NOTIFICATIONS_WHATSAPP_ENABLED: "false"
     probe: { type: tcp, port: 8080 }
 
   - id: router
