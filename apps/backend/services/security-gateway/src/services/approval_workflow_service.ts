@@ -486,18 +486,10 @@ export class ApprovalWorkflowService {
         await this.publishAck(event.jid, false, DECISION_REFUSED_MESSAGE);
       };
 
-      if (workflow.status !== ApprovalStatus.PENDING) {
-        await refuse('workflow_not_pending');
-        return;
-      }
-      if (workflow.expiresAt && new Date() > workflow.expiresAt) {
-        await refuse('workflow_expired');
-        return;
-      }
-      if (metadata.codeConsumedAt) {
-        await refuse('code_already_consumed');
-        return;
-      }
+      // Authorisation is decided on fields that are fixed at creation, so a
+      // plain read cannot lose a race on them. It has to stay AHEAD of the
+      // claim: claiming first would let anyone who guesses a code burn it and
+      // lock the real approver out of their own approval.
       if (!(workflow.requiredApprovers ?? []).includes(event.approverUserId)) {
         await refuse('not_a_required_approver');
         return;
@@ -507,24 +499,27 @@ export class ApprovalWorkflowService {
         return;
       }
 
-      // Consume the code BEFORE applying the decision. Handlers for one event
-      // type run concurrently, so this is the only ordering that guarantees a
-      // duplicate reply cannot apply the decision twice — the second delivery
-      // sees codeConsumedAt and is refused above.
-      await this.securityService
+      // Claim-then-act. Handlers for one event type run in parallel and BullMQ
+      // retries a failed job, so checking `codeConsumedAt` here and writing it
+      // afterwards lets two concurrent deliveries both apply the decision. The
+      // conditional UPDATE is the single authority on pending / unexpired /
+      // unconsumed — whoever the database hands the row back to won, and the
+      // loser is refused with the same wording as every other refusal.
+      const claimed = await this.securityService
         .getApprovalWorkflowRepository()
-        .updateApprovalWorkflow(workflow.id!, {
-          metadata: {
-            ...metadata,
-            codeConsumedAt: new Date().toISOString(),
-            codeConsumedBy: event.approverUserId,
-            codeConsumedJid: event.jid,
-          },
+        .claimApprovalCode(workflow.id!, {
+          consumedAt: new Date(),
+          consumedBy: event.approverUserId,
+          consumedJid: event.jid,
         });
+      if (!claimed) {
+        await refuse('code_claim_lost');
+        return;
+      }
 
       await this.processApprovalDecision(
         {
-          workflowId: workflow.id!,
+          workflowId: claimed.id,
           approverId: event.approverUserId,
           decision: event.approved ? 'approve' : 'reject',
           decidedAt: new Date(),
@@ -532,11 +527,11 @@ export class ApprovalWorkflowService {
         { approvedVia: 'whatsapp', jid: event.jid }
       );
 
-      const operationType = String(metadata.operationType ?? 'operation');
+      const operationType = String(claimed.metadata?.operationType ?? 'operation');
       await this.publishAck(
         event.jid,
         true,
-        `${event.approved ? 'Approved' : 'Rejected'} ${operationType} (${workflow.operationId}).`
+        `${event.approved ? 'Approved' : 'Rejected'} ${operationType} (${claimed.operationId}).`
       );
     } catch (error) {
       logger.error('Failed to process submitted approval decision', {

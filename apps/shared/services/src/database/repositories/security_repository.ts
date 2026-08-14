@@ -1,4 +1,4 @@
-import { eq, and, desc, lte, count } from 'drizzle-orm';
+import { eq, and, desc, lte, count, sql } from 'drizzle-orm';
 import { getControlDb } from '../drizzle/clients/index';
 import {
   securityPolicies,
@@ -173,6 +173,54 @@ export class ApprovalWorkflowRepository {
       return row ?? null;
     } catch (error) {
       logger.error('ApprovalWorkflowRepository.update failed', { id, error: error instanceof Error ? error.message : String(error) });
+      throw error;
+    }
+  }
+
+  /**
+   * Atomically claim the one-time approval code on a pending workflow.
+   *
+   * Read-then-write loses here: handlers for one event type run in parallel and
+   * BullMQ retries a failed job, so two genuinely concurrent deliveries of the
+   * same code can both observe `codeConsumedAt` as unset and both apply the
+   * decision. The claim is therefore a single conditional UPDATE — the row only
+   * comes back to the caller that actually wrote it. `null` means someone else
+   * claimed it, the workflow is no longer pending, or it has expired; the caller
+   * must not be able to tell those apart.
+   *
+   * The metadata write is a SQL-level `||` merge rather than a read-modify-write
+   * of the whole object, so a concurrent writer touching a different key is not
+   * clobbered by a stale copy read moments earlier.
+   */
+  async claimApprovalCode(
+    id: string,
+    claim: { consumedAt: Date; consumedBy: string; consumedJid?: string }
+  ): Promise<ApprovalWorkflow | null> {
+    try {
+      const patch = JSON.stringify({
+        codeConsumedAt: claim.consumedAt.toISOString(),
+        codeConsumedBy: claim.consumedBy,
+        ...(claim.consumedJid ? { codeConsumedJid: claim.consumedJid } : {}),
+      });
+
+      const [row] = await this.db
+        .update(approvalWorkflows)
+        .set({
+          metadata: sql`coalesce(${approvalWorkflows.metadata}, '{}'::jsonb) || ${patch}::jsonb`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(approvalWorkflows.id, id),
+            eq(approvalWorkflows.status, 'pending'),
+            sql`${approvalWorkflows.metadata}->>'codeConsumedAt' is null`,
+            sql`(${approvalWorkflows.expiresAt} is null or ${approvalWorkflows.expiresAt} > now())`
+          )
+        )
+        .returning();
+      return row ?? null;
+    } catch (error) {
+      logger.error('ApprovalWorkflowRepository.claimApprovalCode failed', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }

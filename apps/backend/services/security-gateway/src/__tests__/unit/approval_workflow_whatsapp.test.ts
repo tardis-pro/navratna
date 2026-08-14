@@ -33,6 +33,13 @@ const db = vi.hoisted(() => {
   const workflows = new Map<string, WorkflowRow>();
   const decisions: DecisionRow[] = [];
 
+  /**
+   * Lets a test hold every caller at the door of `claimApprovalCode` so two
+   * deliveries are genuinely in flight at once. Without it the two handlers just
+   * take turns on the microtask queue and prove nothing about concurrency.
+   */
+  const claimGate: { open: Promise<void> | null; entered: number } = { open: null, entered: 0 };
+
   const workflowRepository = {
     findById: vi.fn(async (id: string) => workflows.get(id) ?? null),
     findByOperationId: vi.fn(async (operationId: string) =>
@@ -61,6 +68,38 @@ const db = vi.hoisted(() => {
       Object.assign(row, patch, { updatedAt: new Date() });
       return row;
     }),
+    /**
+     * Stands in for the conditional `UPDATE ... WHERE status = 'pending' AND
+     * metadata->>'codeConsumedAt' IS NULL AND (expires_at IS NULL OR expires_at
+     * > now()) RETURNING *`. The round trip is awaited first, then the guard and
+     * the write happen in one synchronous block — that block is what makes the
+     * real statement atomic, and it is why only one of two concurrent callers
+     * can be handed the row.
+     */
+    claimApprovalCode: vi.fn(
+      async (
+        id: string,
+        claim: { consumedAt: Date; consumedBy: string; consumedJid?: string }
+      ) => {
+        claimGate.entered += 1;
+        await (claimGate.open ?? Promise.resolve());
+
+        const row = workflows.get(id);
+        if (!row) return null;
+        if (row.status !== ApprovalStatus.PENDING) return null;
+        if (row.metadata?.codeConsumedAt) return null;
+        if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) return null;
+
+        row.metadata = {
+          ...(row.metadata ?? {}),
+          codeConsumedAt: claim.consumedAt.toISOString(),
+          codeConsumedBy: claim.consumedBy,
+          ...(claim.consumedJid ? { codeConsumedJid: claim.consumedJid } : {}),
+        };
+        row.updatedAt = new Date();
+        return row;
+      }
+    ),
   };
 
   const decisionRepository = {
@@ -75,7 +114,7 @@ const db = vi.hoisted(() => {
     ),
   };
 
-  return { workflows, decisions, workflowRepository, decisionRepository };
+  return { workflows, decisions, workflowRepository, decisionRepository, claimGate };
 });
 
 vi.mock('@uaip/shared-services', () => ({
@@ -133,6 +172,8 @@ describe('ApprovalWorkflowService — orchestration bridge and WhatsApp decision
   beforeEach(() => {
     db.workflows.clear();
     db.decisions.length = 0;
+    db.claimGate.open = null;
+    db.claimGate.entered = 0;
     publish = vi.fn(async () => undefined);
     sendNotification = vi.fn(async () => undefined);
     process.env.APPROVAL_DEFAULT_APPROVERS = 'user-approver,user-second';
@@ -224,6 +265,77 @@ describe('ApprovalWorkflowService — orchestration bridge and WhatsApp decision
     });
   });
 
+  it('lets only ONE of two genuinely concurrent replies carrying the same code apply a decision', async () => {
+    await service.handleApprovalRequested(requestedEvent());
+    const code = codeOf(onlyWorkflow());
+    const applyDecision = vi.spyOn(service, 'processApprovalDecision');
+
+    // Hold both callers inside the claim until each has finished every read the
+    // handler performs. This is the interleaving the event bus actually produces
+    // — handlers for one event type run under Promise.allSettled, and BullMQ
+    // retries a failed job — and it is the one a check-then-act consume loses.
+    let release!: () => void;
+    db.claimGate.open = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    const first = service.handleDecisionSubmitted(submitted({ code }));
+    const second = service.handleDecisionSubmitted(
+      submitted({ code, approved: false, approverUserId: 'user-second' })
+    );
+
+    await vi.waitFor(() => expect(db.claimGate.entered).toBe(2));
+    release();
+    await Promise.all([first, second]);
+
+    // Exactly one decision was applied, so the code really was one-time.
+    expect(applyDecision).toHaveBeenCalledTimes(1);
+    expect(db.decisions).toHaveLength(1);
+    expect(published('approval.workflow.completed')).toHaveLength(1);
+
+    const acks = published<ApprovalDecisionAckEvent>('approval.decision.ack');
+    expect(acks.filter((ack) => ack.ok)).toHaveLength(1);
+    // The loser is told the same nothing as an unknown code.
+    expect(acks.filter((ack) => !ack.ok)).toEqual([
+      { jid: '919812345678@s.whatsapp.net', ok: false, message: REFUSAL },
+    ]);
+  });
+
+  it('refuses a decision whose claim was lost without touching the workflow', async () => {
+    await service.handleApprovalRequested(requestedEvent());
+    const workflow = onlyWorkflow();
+    const applyDecision = vi.spyOn(service, 'processApprovalDecision');
+
+    // The database hands the row to somebody else.
+    db.workflowRepository.claimApprovalCode.mockResolvedValueOnce(null);
+    await service.handleDecisionSubmitted(submitted({ code: codeOf(workflow) }));
+
+    expect(applyDecision).not.toHaveBeenCalled();
+    expect(published('approval.workflow.completed')).toHaveLength(0);
+    expect(published<ApprovalDecisionAckEvent>('approval.decision.ack').at(-1)).toEqual({
+      jid: '919812345678@s.whatsapp.net',
+      ok: false,
+      message: REFUSAL,
+    });
+  });
+
+  it('does not burn the code on a reply from someone who may not approve', async () => {
+    await service.handleApprovalRequested(requestedEvent());
+    const workflow = onlyWorkflow();
+    const code = codeOf(workflow);
+
+    await service.handleDecisionSubmitted(submitted({ code, approverUserId: 'user-outsider' }));
+
+    // Claiming before authorising would let anyone who guesses a code lock the
+    // real approver out of their own approval.
+    expect(db.workflowRepository.claimApprovalCode).not.toHaveBeenCalled();
+    expect(db.workflows.get(workflow.id)?.metadata?.codeConsumedAt).toBeUndefined();
+
+    // And the genuine approver can still use it.
+    await service.handleDecisionSubmitted(submitted({ code }));
+    expect(published('approval.workflow.completed')).toHaveLength(1);
+  });
+
   it('does not cross-apply a code onto another pending workflow', async () => {
     await service.handleApprovalRequested(requestedEvent());
     await service.handleApprovalRequested(
@@ -238,6 +350,23 @@ describe('ApprovalWorkflowService — orchestration bridge and WhatsApp decision
     expect(completed[0].workflowId).toBe(first.id);
     expect(db.workflows.get(second.id)?.status).toBe(ApprovalStatus.PENDING);
     expect(db.workflows.get(second.id)?.metadata?.codeConsumedAt).toBeUndefined();
+  });
+
+  it('refuses a reply to a workflow that expired before the sweep reached it', async () => {
+    await service.handleApprovalRequested(requestedEvent());
+    const workflow = onlyWorkflow();
+    // Still `pending` on the row — the 30-minute sweep has not run yet — so the
+    // expiry can only be caught by the claim predicate.
+    workflow.expiresAt = new Date(Date.now() - 1_000);
+
+    await service.handleDecisionSubmitted(submitted({ code: codeOf(workflow) }));
+
+    expect(published('approval.workflow.completed')).toHaveLength(0);
+    expect(db.workflows.get(workflow.id)?.metadata?.codeConsumedAt).toBeUndefined();
+    expect(published<ApprovalDecisionAckEvent>('approval.decision.ack').at(-1)).toMatchObject({
+      ok: false,
+      message: REFUSAL,
+    });
   });
 
   it('refuses a decision from a user who is not a required approver', async () => {
