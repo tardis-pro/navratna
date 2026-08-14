@@ -1,4 +1,5 @@
 import * as cron from 'node-cron';
+import { randomInt, randomUUID } from 'node:crypto';
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { EventBusService } from '@uaip/infra/event_bus';
@@ -12,9 +13,31 @@ import {
   ApprovalWorkflowConfig,
   ApprovalRequest,
   ApprovalWorkflowStatus,
+  SecurityLevel,
+} from '@uaip/types';
+import type {
+  ApprovalDecisionAckEvent,
+  ApprovalDecisionChannel,
+  ApprovalDecisionSubmittedEvent,
+  ApprovalOrchestrationContext,
+  ApprovalRequestedPayload,
+  ApprovalWorkflowCompletedEvent,
 } from '@uaip/types';
 import { NotificationService } from './notification_service.js';
 import { AuditService } from './audit_service.js';
+
+/** How a terminal decision was reached, carried from the caller to the event. */
+interface DecisionChannelContext {
+  approvedVia: ApprovalDecisionChannel;
+  jid?: string;
+}
+
+/**
+ * Deliberately vague. Every inbound-decision refusal uses the same wording so a
+ * sender cannot probe which codes exist, which are expired, or who is allowed to
+ * approve.
+ */
+const DECISION_REFUSED_MESSAGE = 'That code is not valid for an open approval.';
 
 export class ApprovalWorkflowService {
   private config: ApprovalWorkflowConfig;
@@ -40,9 +63,17 @@ export class ApprovalWorkflowService {
   }
 
   /**
-   * Start the cron jobs (should be called after database is initialized)
+   * Start the cron jobs (should be called after database is initialized).
+   *
+   * Idempotent: more than one ApprovalWorkflowService is constructed per process
+   * (the approval and security route modules each hold their own), and starting
+   * the expiry sweep twice would double-publish completion events.
    */
   public startCronJobs(): void {
+    if (this.reminderJob !== null || this.expirationJob !== null) {
+      logger.debug('Approval workflow cron jobs already running, skipping start');
+      return;
+    }
     this.setupCronJobs();
   }
 
@@ -69,7 +100,10 @@ export class ApprovalWorkflowService {
       const savedWorkflow = await this.securityService
         .getApprovalWorkflowRepository()
         .createApprovalWorkflow({
-          id: request.operationId,
+          // The workflow id is its own identity, NOT the operation id: one
+          // operation can carry several approval steps, and operation ids are
+          // not required to be UUIDs while this column is.
+          id: randomUUID(),
           operationId: request.operationId,
           requiredApprovers: request.requiredApprovers,
           currentApprovers: [],
@@ -89,7 +123,9 @@ export class ApprovalWorkflowService {
         operationId: savedWorkflow.operationId,
         requiredApprovers: savedWorkflow.requiredApprovers,
         currentApprovers: savedWorkflow.currentApprovers,
-        status: Object.values(ApprovalStatus).find((s) => s === savedWorkflow.status) ?? ApprovalStatus.PENDING,
+        status:
+          Object.values(ApprovalStatus).find((s) => s === savedWorkflow.status) ??
+          ApprovalStatus.PENDING,
         expiresAt: savedWorkflow.expiresAt ?? undefined,
         metadata: savedWorkflow.metadata ?? undefined,
         createdAt: savedWorkflow.createdAt,
@@ -139,7 +175,8 @@ export class ApprovalWorkflowService {
    * Process an approval decision
    */
   public async processApprovalDecision(
-    decision: ApprovalDecision
+    decision: ApprovalDecision,
+    channel: DecisionChannelContext = { approvedVia: 'web' }
   ): Promise<ApprovalWorkflowStatus> {
     try {
       logger.info('Processing approval decision', {
@@ -150,7 +187,11 @@ export class ApprovalWorkflowService {
 
       // Fail closed: all required decision fields must be present
       if (!decision.workflowId || !decision.approverId || !decision.decision) {
-        throw new ApiError(400, 'Required fields missing from approval decision', 'INVALID_DECISION');
+        throw new ApiError(
+          400,
+          'Required fields missing from approval decision',
+          'INVALID_DECISION'
+        );
       }
 
       // Get workflow
@@ -165,11 +206,18 @@ export class ApprovalWorkflowService {
       // Save decision using DatabaseService
       const approvalDecisionRepo = this.securityService.getApprovalDecisionRepository();
       await approvalDecisionRepo.createApprovalDecision({
-        id: `decision-${decision.workflowId}-${decision.approverId}`,
+        // approval_decisions.id is a uuid column — the previous deterministic
+        // `decision-<workflow>-<approver>` string could never be inserted.
+        id: randomUUID(),
         workflowId: decision.workflowId,
         approverId: decision.approverId,
         decision: decision.decision,
         reason: decision.feedback,
+        // "Who approved this, and how" must be answerable from the record alone.
+        metadata: {
+          approvedVia: channel.approvedVia,
+          ...(channel.jid ? { jid: channel.jid } : {}),
+        },
       });
 
       // Update workflow status
@@ -185,7 +233,11 @@ export class ApprovalWorkflowService {
 
       // Check if workflow is complete
       if (status.isComplete) {
-        await this.completeWorkflow(updatedWorkflow, status.canProceed);
+        await this.completeWorkflow(updatedWorkflow, status.canProceed, {
+          approvedVia: channel.approvedVia,
+          approvedBy: decision.approverId,
+          decidedAt: decision.decidedAt ?? new Date(),
+        });
       }
 
       // Audit log
@@ -200,6 +252,8 @@ export class ApprovalWorkflowService {
           approverId: decision.approverId,
           decision: decision.decision,
           feedback: decision.feedback,
+          approvedVia: channel.approvedVia,
+          jid: channel.jid,
         },
       });
 
@@ -287,8 +341,8 @@ export class ApprovalWorkflowService {
       const { workflows } = await repo.findMany({ status });
 
       const filtered = userId
-        ? workflows.filter((w) =>
-            w.requiredApprovers?.includes(userId) || w.currentApprovers?.includes(userId)
+        ? workflows.filter(
+            (w) => w.requiredApprovers?.includes(userId) || w.currentApprovers?.includes(userId)
           )
         : workflows;
 
@@ -350,6 +404,292 @@ export class ApprovalWorkflowService {
     }
   }
 
+  // ─── Orchestration bridge ─────────────────────────────────────────────────
+
+  /**
+   * Handle `approval.requested` from orchestration: mint a one-time code, carry
+   * the orchestration coordinates onto the workflow metadata, and notify.
+   *
+   * Every failure path here ends in a fail-closed
+   * `approval.workflow.completed{status:'expired'}` so the suspended operation
+   * is released as rejected instead of hanging until someone notices.
+   */
+  public async handleApprovalRequested(event: ApprovalRequestedPayload): Promise<void> {
+    const context: ApprovalOrchestrationContext = {
+      operationId: event.operationId,
+      workflowInstanceId: event.workflowInstanceId,
+      stepId: event.stepId,
+    };
+
+    const approvers = ApprovalWorkflowService.readDefaultApprovers();
+    if (approvers.length === 0) {
+      logger.error(
+        'APPROVAL_DEFAULT_APPROVERS is empty — no one can approve. Failing the operation closed.',
+        { operationId: event.operationId, stepId: event.stepId }
+      );
+      await this.failClosed(context, event, 'no_approvers_configured');
+      return;
+    }
+
+    try {
+      const approvalCode = await this.generateApprovalCode();
+
+      await this.createApprovalWorkflow({
+        operationId: event.operationId,
+        operationType: event.operationType ?? 'operation',
+        requiredApprovers: approvers,
+        securityLevel: ApprovalWorkflowService.mapRiskToSecurityLevel(event.riskLevel),
+        context: { ...context },
+        metadata: {
+          orchestration: context,
+          requestedByUserId: event.userId,
+          approvalCode,
+          stepName: event.stepName,
+          description: event.description,
+          riskLevel: event.riskLevel,
+        },
+      });
+    } catch (error) {
+      logger.error('Failed to create approval workflow from approval.requested', {
+        operationId: event.operationId,
+        stepId: event.stepId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      await this.failClosed(context, event, 'workflow_creation_failed');
+    }
+  }
+
+  /**
+   * Handle `approval.decision.submitted` from the WhatsApp channel.
+   *
+   * Every branch — accepted or refused — publishes `approval.decision.ack` so
+   * the admin always gets a reply in chat.
+   */
+  public async handleDecisionSubmitted(event: ApprovalDecisionSubmittedEvent): Promise<void> {
+    try {
+      const entity = await this.findWorkflowByCode(event.code);
+      if (!entity) {
+        logger.warn('Approval decision submitted with an unknown code', { jid: event.jid });
+        await this.publishAck(event.jid, false, DECISION_REFUSED_MESSAGE);
+        return;
+      }
+
+      const workflow = this.mapEntityToWorkflow(entity);
+      const metadata = workflow.metadata ?? {};
+      const refuse = async (reason: string): Promise<void> => {
+        logger.warn('Refusing WhatsApp approval decision', {
+          workflowId: workflow.id,
+          approverUserId: event.approverUserId,
+          jid: event.jid,
+          reason,
+        });
+        await this.publishAck(event.jid, false, DECISION_REFUSED_MESSAGE);
+      };
+
+      if (workflow.status !== ApprovalStatus.PENDING) {
+        await refuse('workflow_not_pending');
+        return;
+      }
+      if (workflow.expiresAt && new Date() > workflow.expiresAt) {
+        await refuse('workflow_expired');
+        return;
+      }
+      if (metadata.codeConsumedAt) {
+        await refuse('code_already_consumed');
+        return;
+      }
+      if (!(workflow.requiredApprovers ?? []).includes(event.approverUserId)) {
+        await refuse('not_a_required_approver');
+        return;
+      }
+      if (metadata.requestedByUserId === event.approverUserId) {
+        await refuse('self_approval');
+        return;
+      }
+
+      // Consume the code BEFORE applying the decision. Handlers for one event
+      // type run concurrently, so this is the only ordering that guarantees a
+      // duplicate reply cannot apply the decision twice — the second delivery
+      // sees codeConsumedAt and is refused above.
+      await this.securityService
+        .getApprovalWorkflowRepository()
+        .updateApprovalWorkflow(workflow.id!, {
+          metadata: {
+            ...metadata,
+            codeConsumedAt: new Date().toISOString(),
+            codeConsumedBy: event.approverUserId,
+            codeConsumedJid: event.jid,
+          },
+        });
+
+      await this.processApprovalDecision(
+        {
+          workflowId: workflow.id!,
+          approverId: event.approverUserId,
+          decision: event.approved ? 'approve' : 'reject',
+          decidedAt: new Date(),
+        },
+        { approvedVia: 'whatsapp', jid: event.jid }
+      );
+
+      const operationType = String(metadata.operationType ?? 'operation');
+      await this.publishAck(
+        event.jid,
+        true,
+        `${event.approved ? 'Approved' : 'Rejected'} ${operationType} (${workflow.operationId}).`
+      );
+    } catch (error) {
+      logger.error('Failed to process submitted approval decision', {
+        jid: event.jid,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      await this.publishAck(event.jid, false, DECISION_REFUSED_MESSAGE);
+    }
+  }
+
+  private static readDefaultApprovers(): string[] {
+    return (process.env.APPROVAL_DEFAULT_APPROVERS ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter((id) => id.length > 0);
+  }
+
+  private static mapRiskToSecurityLevel(riskLevel: string | undefined): SecurityLevel {
+    switch (riskLevel) {
+      case 'low':
+        return SecurityLevel.LOW;
+      case 'high':
+        return SecurityLevel.HIGH;
+      case 'critical':
+        return SecurityLevel.CRITICAL;
+      default:
+        return SecurityLevel.MEDIUM;
+    }
+  }
+
+  /**
+   * Release a suspended operation as rejected when no approval can ever be
+   * collected. A workflow row is still written so the refusal is auditable.
+   */
+  private async failClosed(
+    context: ApprovalOrchestrationContext,
+    event: ApprovalRequestedPayload,
+    reason: string
+  ): Promise<void> {
+    let workflowId: string = randomUUID();
+    try {
+      const saved = await this.securityService
+        .getApprovalWorkflowRepository()
+        .createApprovalWorkflow({
+          id: workflowId,
+          operationId: event.operationId,
+          requiredApprovers: [],
+          currentApprovers: [],
+          status: ApprovalStatus.EXPIRED,
+          expiresAt: new Date(),
+          metadata: { orchestration: context, failureReason: reason, stepName: event.stepName },
+        });
+      workflowId = saved.id;
+    } catch (error) {
+      logger.error('Could not persist the fail-closed approval workflow', {
+        operationId: event.operationId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+
+    try {
+      await this.auditService.logEvent({
+        eventType: AuditEventType.APPROVAL_DENIED,
+        resourceType: 'approval_workflow',
+        resourceId: workflowId,
+        details: { operationId: event.operationId, reason, action: 'fail_closed' },
+      });
+    } catch (error) {
+      logger.error('Could not audit the fail-closed approval workflow', {
+        workflowId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+
+    const payload: ApprovalWorkflowCompletedEvent = {
+      workflowId,
+      status: 'expired',
+      approved: false,
+      approvedBy: null,
+      approvedVia: 'expiry',
+      decidedAt: new Date().toISOString(),
+      context,
+    };
+    await this.eventBusService.publish('approval.workflow.completed', payload);
+  }
+
+  // ─── One-time approval codes ──────────────────────────────────────────────
+
+  private static readonly CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  private static readonly CODE_LENGTH = 4;
+  private static readonly CODE_MAX_ATTEMPTS = 12;
+
+  /**
+   * Mint a code that is unique among currently pending workflows. Throws (and so
+   * fails the request closed) rather than issuing an ambiguous code.
+   */
+  private async generateApprovalCode(): Promise<string> {
+    const pending = await this.securityService.getApprovalWorkflowRepository().findPending();
+    const taken = new Set(
+      pending
+        .map((w) => w.metadata?.approvalCode)
+        .filter((code): code is string => typeof code === 'string')
+        .map((code) => code.toUpperCase())
+    );
+
+    const alphabet = ApprovalWorkflowService.CODE_ALPHABET;
+    for (let attempt = 0; attempt < ApprovalWorkflowService.CODE_MAX_ATTEMPTS; attempt++) {
+      let code = '';
+      for (let i = 0; i < ApprovalWorkflowService.CODE_LENGTH; i++) {
+        code += alphabet[randomInt(alphabet.length)];
+      }
+      if (!taken.has(code)) return code;
+    }
+
+    throw new ApiError(
+      500,
+      'Could not allocate a unique approval code',
+      'APPROVAL_CODE_UNAVAILABLE'
+    );
+  }
+
+  /**
+   * Resolve a one-time code to its workflow.
+   *
+   * A linear scan of the pending set is deliberate: pending approvals number in
+   * the tens, so a dedicated code column plus index would cost a schema change
+   * for no measurable gain. Revisit if the pending set ever grows large.
+   */
+  private async findWorkflowByCode(code: string): Promise<ApprovalWorkflowEntity | null> {
+    const wanted = code.trim().toUpperCase();
+    if (wanted.length === 0) return null;
+
+    const pending = await this.securityService.getApprovalWorkflowRepository().findPending();
+    return (
+      pending.find((workflow) => {
+        const stored = workflow.metadata?.approvalCode;
+        return typeof stored === 'string' && stored.toUpperCase() === wanted;
+      }) ?? null
+    );
+  }
+
+  private async publishAck(jid: string, ok: boolean, message: string): Promise<void> {
+    const payload: ApprovalDecisionAckEvent = { jid, ok, message };
+    try {
+      await this.eventBusService.publish('approval.decision.ack', payload);
+    } catch (error) {
+      logger.error('Failed to publish approval decision ack', {
+        jid,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
   /**
    * Setup cron jobs for reminders and expiration
    */
@@ -407,25 +747,30 @@ export class ApprovalWorkflowService {
         return;
       }
 
-      await this.processInBatches(workflows.filter((w): w is typeof w & { id: string } => 'id' in w && typeof w.id === 'string'), async (workflowEntity) => {
-        try {
-          logger.debug('Expiring workflow', { workflowId: workflowEntity.id });
-          await this.expireWorkflow(workflowEntity.id);
-          logger.info('Successfully expired workflow', { workflowId: workflowEntity.id });
-        } catch (workflowError) {
-          logger.error('Failed to expire individual workflow', {
-            workflowId: workflowEntity.id,
-            error:
-              workflowError instanceof Error
-                ? {
-                    message: workflowError.message,
-                    stack: workflowError.stack,
-                    name: workflowError.name,
-                  }
-                : workflowError,
-          });
+      await this.processInBatches(
+        workflows.filter(
+          (w): w is typeof w & { id: string } => 'id' in w && typeof w.id === 'string'
+        ),
+        async (workflowEntity) => {
+          try {
+            logger.debug('Expiring workflow', { workflowId: workflowEntity.id });
+            await this.expireWorkflow(workflowEntity.id);
+            logger.info('Successfully expired workflow', { workflowId: workflowEntity.id });
+          } catch (workflowError) {
+            logger.error('Failed to expire individual workflow', {
+              workflowId: workflowEntity.id,
+              error:
+                workflowError instanceof Error
+                  ? {
+                      message: workflowError.message,
+                      stack: workflowError.stack,
+                      name: workflowError.name,
+                    }
+                  : workflowError,
+            });
+          }
         }
-      });
+      );
     } catch (error) {
       logger.error('Failed to expire workflows', {
         error:
@@ -447,11 +792,23 @@ export class ApprovalWorkflowService {
    */
   private async expireWorkflow(workflowId: string): Promise<void> {
     try {
-      // Update workflow status to expired
+      // Read first: the orchestration context and the one-time code both live in
+      // metadata, and the update below rewrites that column.
+      const existing = await this.getWorkflow(workflowId);
+      if (!existing) {
+        logger.warn('Workflow not found during expiration', { workflowId });
+        return;
+      }
+
+      // The one-time code is cleared on expiry so a late reply cannot land on a
+      // dead workflow and so the code returns to the pool.
+      const { approvalCode: _expiredCode, ...remainingMetadata } = existing.metadata ?? {};
+
       const updatedWorkflow = await this.securityService
         .getApprovalWorkflowRepository()
         .updateApprovalWorkflow(workflowId, {
           status: 'expired',
+          metadata: remainingMetadata,
         });
 
       if (!updatedWorkflow) {
@@ -459,11 +816,7 @@ export class ApprovalWorkflowService {
         return;
       }
 
-      const workflow = await this.getWorkflow(workflowId);
-      if (!workflow) {
-        logger.warn('Could not retrieve workflow after expiration update', { workflowId });
-        return;
-      }
+      const workflow = { ...existing, status: ApprovalStatus.EXPIRED };
 
       // Notify approvers (don't let notification failures stop the process)
       try {
@@ -477,9 +830,20 @@ export class ApprovalWorkflowService {
 
       // Publish event (don't let event publishing failures stop the process)
       try {
+        // Kept for back-compat with existing subscribers.
         await this.eventBusService.publish('approval.workflow.expired', {
           workflowId,
           operationId: workflow.operationId,
+        });
+
+        // The contract event orchestration actually listens on. Without this an
+        // expired approval leaves the suspended operation hanging forever.
+        await this.publishWorkflowCompleted(workflow, {
+          status: 'expired',
+          approved: false,
+          approvedBy: null,
+          approvedVia: 'expiry',
+          decidedAt: new Date().toISOString(),
         });
       } catch (eventError) {
         logger.error('Failed to publish workflow expiration event', {
@@ -549,7 +913,11 @@ export class ApprovalWorkflowService {
   /**
    * Complete workflow
    */
-  private async completeWorkflow(workflow: ApprovalWorkflowType, approved: boolean): Promise<void> {
+  private async completeWorkflow(
+    workflow: ApprovalWorkflowType,
+    approved: boolean,
+    outcome: { approvedVia: ApprovalDecisionChannel; approvedBy: string | null; decidedAt: Date }
+  ): Promise<void> {
     if (!workflow.id) {
       throw new ApiError(500, 'Cannot complete workflow: missing ID', 'INVALID_WORKFLOW_STATE');
     }
@@ -561,11 +929,12 @@ export class ApprovalWorkflowService {
 
     await this.notifyApprovers(workflow, approved ? 'approval_completed' : 'approval_rejected');
 
-    await this.eventBusService.publish('approval.workflow.completed', {
-      workflowId: workflow.id,
-      operationId: workflow.operationId,
+    await this.publishWorkflowCompleted(workflow, {
+      status: approved ? 'approved' : 'rejected',
       approved,
-      status: newStatus,
+      approvedBy: outcome.approvedBy,
+      approvedVia: outcome.approvedVia,
+      decidedAt: outcome.decidedAt.toISOString(),
     });
 
     logger.info('Approval workflow completed', {
@@ -573,7 +942,56 @@ export class ApprovalWorkflowService {
       operationId: workflow.operationId,
       approved,
       status: newStatus,
+      approvedVia: outcome.approvedVia,
     });
+  }
+
+  /**
+   * Publish the orchestration-facing completion event. The `context` block is
+   * read back out of the workflow metadata that `approval.requested` planted
+   * there; without it orchestration cannot resume and ignores the event.
+   */
+  private async publishWorkflowCompleted(
+    workflow: ApprovalWorkflowType,
+    outcome: Omit<ApprovalWorkflowCompletedEvent, 'workflowId' | 'context'>
+  ): Promise<void> {
+    const context = this.readOrchestrationContext(workflow);
+    const payload: ApprovalWorkflowCompletedEvent = {
+      workflowId: workflow.id!,
+      ...outcome,
+      ...(context ? { context } : {}),
+    };
+
+    await this.eventBusService.publish('approval.workflow.completed', payload);
+  }
+
+  private readOrchestrationContext(
+    workflow: ApprovalWorkflowType
+  ): ApprovalOrchestrationContext | undefined {
+    const raw = workflow.metadata?.orchestration as
+      | Partial<ApprovalOrchestrationContext>
+      | undefined;
+    if (
+      raw &&
+      typeof raw.operationId === 'string' &&
+      typeof raw.workflowInstanceId === 'string' &&
+      typeof raw.stepId === 'string'
+    ) {
+      return {
+        operationId: raw.operationId,
+        workflowInstanceId: raw.workflowInstanceId,
+        stepId: raw.stepId,
+      };
+    }
+
+    logger.warn(
+      'Approval workflow has no orchestration context — completion event will be ignored by orchestration',
+      {
+        workflowId: workflow.id,
+        operationId: workflow.operationId,
+      }
+    );
+    return undefined;
   }
 
   /**
@@ -654,6 +1072,7 @@ export class ApprovalWorkflowService {
     additionalData?: Record<string, unknown>
   ): Promise<void> {
     try {
+      const metadata = workflow.metadata ?? {};
       await this.processInBatches(workflow.requiredApprovers ?? [], async (approverId) =>
         this.notificationService.sendNotification({
           type,
@@ -663,6 +1082,15 @@ export class ApprovalWorkflowService {
           data: {
             workflowId: workflow.id,
             operationId: workflow.operationId,
+            // Channels that render their own body (WhatsApp) need the real
+            // values, not placeholders.
+            approvalCode: metadata.approvalCode,
+            operationType: metadata.operationType,
+            stepName: metadata.stepName,
+            description: metadata.description,
+            requestedByUserId: metadata.requestedByUserId,
+            riskLevel: metadata.riskLevel,
+            expiresAt: workflow.expiresAt?.toISOString(),
             ...additionalData,
           },
         })
@@ -764,7 +1192,8 @@ export class ApprovalWorkflowService {
       operationId: entity.operationId,
       requiredApprovers: entity.requiredApprovers,
       currentApprovers: entity.currentApprovers,
-      status: Object.values(ApprovalStatus).find((s) => s === entity.status) ?? ApprovalStatus.PENDING,
+      status:
+        Object.values(ApprovalStatus).find((s) => s === entity.status) ?? ApprovalStatus.PENDING,
       expiresAt: entity.expiresAt ?? undefined,
       metadata: entity.metadata ?? undefined,
       createdAt: entity.createdAt,
@@ -791,10 +1220,7 @@ export class ApprovalWorkflowService {
 
   private static readonly BATCH_SIZE = 10;
 
-  private async processInBatches<T>(
-    items: T[],
-    fn: (item: T) => Promise<void>
-  ): Promise<void> {
+  private async processInBatches<T>(items: T[], fn: (item: T) => Promise<void>): Promise<void> {
     for (let i = 0; i < items.length; i += ApprovalWorkflowService.BATCH_SIZE) {
       const batch = items.slice(i, i + ApprovalWorkflowService.BATCH_SIZE);
       await Promise.all(batch.map(fn));

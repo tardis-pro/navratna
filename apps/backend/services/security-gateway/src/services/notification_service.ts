@@ -3,12 +3,14 @@ import crypto from 'crypto';
 import { logger, ExternalServiceError } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { DatabaseService as _DatabaseService } from '@uaip/infra/database';
-import { EventBusService as _EventBusService } from '@uaip/infra/event_bus';
+import { EventBusService } from '@uaip/infra/event_bus';
 import type {
   ApprovalNotification,
   NotificationTemplate,
   NotificationChannel,
+  WhatsAppNotificationSendEvent,
 } from '@uaip/types';
+import { resolveApproverJid } from './whatsapp_approver_allowlist.js';
 
 type NotificationRecipient = {
   id?: string;
@@ -28,10 +30,25 @@ export class NotificationService {
   private templates: Map<string, NotificationTemplate> = new Map();
   private channels: NotificationChannel[] = [];
 
-  constructor() {
+  /**
+   * The event bus is optional so the existing zero-arg construction sites keep
+   * compiling. When it is omitted the WhatsApp channel falls back to the process
+   * singleton at send time; if that is not available either, the send is skipped
+   * with a warning rather than throwing.
+   */
+  constructor(private readonly eventBusService?: EventBusService) {
     this.initializeEmailTransporter();
     this.loadNotificationTemplates();
     this.setupNotificationChannels();
+  }
+
+  private resolveEventBus(): EventBusService | null {
+    if (this.eventBusService) return this.eventBusService;
+    try {
+      return EventBusService.getInstance();
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -100,6 +117,9 @@ export class NotificationService {
           break;
         case 'sms':
           await this.sendSMSNotification(notification, recipient, channel.config);
+          break;
+        case 'whatsapp':
+          await this.sendWhatsAppNotification(notification, recipient, channel.config);
           break;
         default:
           logger.warn('Unknown notification channel type', { type: channel.type });
@@ -230,7 +250,9 @@ export class NotificationService {
     });
 
     if (!response.ok) {
-      throw new ExternalServiceError(`Webhook request failed: ${response.status} ${response.statusText}`);
+      throw new ExternalServiceError(
+        `Webhook request failed: ${response.status} ${response.statusText}`
+      );
     }
 
     logger.info('Webhook notification sent', {
@@ -281,7 +303,11 @@ export class NotificationService {
         }
 
         const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-        const body = new URLSearchParams({ To: recipient.phone ?? '', From: fromNumber, Body: message });
+        const body = new URLSearchParams({
+          To: recipient.phone ?? '',
+          From: fromNumber,
+          Body: message,
+        });
         const credentials = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
 
         const response = await fetch(url, {
@@ -336,6 +362,101 @@ export class NotificationService {
         error,
       });
     }
+  }
+
+  /**
+   * Send WhatsApp notification.
+   *
+   * This never talks to Baileys: the WhatsApp client lives in navratna-core
+   * (:3001) and this service runs in navratna-gateway (:3002). The message is
+   * handed to the discussion service over the event bus instead.
+   */
+  private async sendWhatsAppNotification(
+    notification: ApprovalNotification,
+    _recipient: NotificationRecipient,
+    _whatsappConfig: Record<string, unknown>
+  ): Promise<void> {
+    // Deliberately NOT using `_recipient`: getRecipientDetails() is still a mock
+    // returning a placeholder phone number. The only trusted user -> JID mapping
+    // is the separately provisioned approval allowlist.
+    const jid = resolveApproverJid(notification.recipientId);
+    if (!jid) {
+      logger.warn('No WhatsApp allowlist entry for approver, skipping', {
+        recipientId: notification.recipientId,
+        workflowId: notification.workflowId,
+      });
+      return;
+    }
+
+    const bus = this.resolveEventBus();
+    if (!bus) {
+      logger.warn('Event bus unavailable, WhatsApp notification not sent', {
+        recipientId: notification.recipientId,
+        workflowId: notification.workflowId,
+      });
+      return;
+    }
+
+    const payload: WhatsAppNotificationSendEvent = {
+      to: jid,
+      text: this.getWhatsAppMessage(notification),
+      correlationId: notification.workflowId,
+    };
+
+    await bus.publish('notification.whatsapp.send', payload);
+
+    logger.info('WhatsApp notification published', {
+      recipientId: notification.recipientId,
+      workflowId: notification.workflowId,
+      type: notification.type,
+    });
+  }
+
+  /**
+   * Render the WhatsApp message body.
+   *
+   * Only the actionable notification types carry the reply instructions; every
+   * other type gets the plain status line, because replying to those does
+   * nothing.
+   */
+  private getWhatsAppMessage(notification: ApprovalNotification): string {
+    const metadata = notification.metadata ?? {};
+    const code = typeof metadata.approvalCode === 'string' ? metadata.approvalCode : '';
+    const actionable =
+      code.length > 0 &&
+      (notification.type === 'approval_requested' || notification.type === 'approval_reminder');
+
+    if (!actionable) {
+      return this.getNotificationMessage(notification);
+    }
+
+    const operationType = String(metadata.operationType ?? 'Operation');
+    const summary = String(metadata.stepName ?? metadata.description ?? operationType);
+    const requestedBy = String(metadata.requestedByUserId ?? 'unknown');
+    const riskLevel = String(metadata.riskLevel ?? 'unknown');
+    const heading =
+      notification.type === 'approval_reminder' ? 'Approval reminder' : 'Approval required';
+
+    return [
+      `🔐 ${heading} · ${code}`,
+      '',
+      `${operationType} — "${summary}"`,
+      `Requested by: ${requestedBy}`,
+      `Risk: ${riskLevel}`,
+      '',
+      `Reply   A ${code}   to approve`,
+      `Reply   R ${code}   to reject`,
+      '',
+      `Expires ${this.formatExpiry(metadata.expiresAt)}. No reply = rejected.`,
+    ].join('\n');
+  }
+
+  private formatExpiry(expiresAt: unknown): string {
+    if (typeof expiresAt !== 'string' && !(expiresAt instanceof Date)) {
+      return 'at the configured deadline';
+    }
+    const date = expiresAt instanceof Date ? expiresAt : new Date(expiresAt);
+    return Number.isNaN(date.getTime()) ? 'at the configured deadline' : date.toLocaleString();
   }
 
   /**
@@ -465,7 +586,10 @@ export class NotificationService {
     });
   }
 
-  private async sendRealTimeNotification(userId: string, notification: InAppNotificationRecord): Promise<void> {
+  private async sendRealTimeNotification(
+    userId: string,
+    notification: InAppNotificationRecord
+  ): Promise<void> {
     logger.info('Real-time notification sent', {
       userId,
       notificationId: notification.id,
@@ -652,6 +776,11 @@ export class NotificationService {
           provider: config.notifications?.sms?.provider,
         },
       },
+      {
+        type: 'whatsapp',
+        enabled: config.notifications?.whatsapp?.enabled === true,
+        config: {},
+      },
     ];
 
     logger.info('Notification channels configured', {
@@ -679,8 +808,10 @@ export class NotificationService {
       const approvalNotification: ApprovalNotification = {
         type: notification.type,
         recipientId: notification.recipient,
-        workflowId: typeof notification.data?.workflowId === 'string' ? notification.data.workflowId : '',
-        operationId: typeof notification.data?.operationId === 'string' ? notification.data.operationId : '',
+        workflowId:
+          typeof notification.data?.workflowId === 'string' ? notification.data.workflowId : '',
+        operationId:
+          typeof notification.data?.operationId === 'string' ? notification.data.operationId : '',
         metadata: {
           subject: notification.subject,
           message: notification.message,

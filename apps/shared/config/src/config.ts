@@ -201,6 +201,11 @@ export interface NotificationsConfig {
   sms?: {
     provider: string;
   };
+  // WhatsApp approvals are delivered by publishing to the discussion service,
+  // which owns the Baileys client in the other process. Off unless configured.
+  whatsapp?: {
+    enabled: boolean;
+  };
 }
 
 export interface OrchestrationConfig {
@@ -561,6 +566,9 @@ const defaultConfig: Config = {
           provider: process.env.NOTIFICATIONS_SMS_PROVIDER,
         }
       : undefined,
+    whatsapp: {
+      enabled: process.env.NOTIFICATIONS_WHATSAPP_ENABLED === 'true',
+    },
   },
   orchestration: {
     cleanupIntervalMs: parseInt(process.env.ORCHESTRATION_CLEANUP_INTERVAL_MS || '300000'), // 5 minutes

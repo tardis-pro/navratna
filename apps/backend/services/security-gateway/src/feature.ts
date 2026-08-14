@@ -1,3 +1,4 @@
+import type { EventBusService } from '@uaip/infra/event_bus'
 import type { Feature, ServiceDeps } from '@uaip/shared-services/feature-factory'
 import { IntegrationProviderSeed, OAuthProviderSeed } from '@uaip/shared-services'
 import { logger } from '@uaip/utils'
@@ -24,6 +25,11 @@ import { ErasureSweepJob } from './jobs/erasure_sweep_job.js'
 import { AuditRetentionJob } from './jobs/audit_retention_job.js'
 import { TokenCleanupJob } from './jobs/token_cleanup_job.js'
 import { CrossTenantProbeJob } from './jobs/cross_tenant_probe_job.js'
+import {
+  startApprovalCronJobs,
+  stopApprovalCronJobs,
+  subscribeApprovalEvents,
+} from './services/approval_event_bridge.js'
 
 let erasureSweepJob: ErasureSweepJob | null = null
 let auditRetentionJob: AuditRetentionJob | null = null
@@ -33,7 +39,7 @@ let crossTenantProbeJob: CrossTenantProbeJob | null = null
 export const securityFeature: Feature = {
   name: 'security-gateway',
 
-  async initialize(_deps: ServiceDeps): Promise<void> {
+  async initialize(deps: ServiceDeps): Promise<void> {
     // Provider rows are credential configuration, not sample data, so this runs on
     // every boot including production. DatabaseSeeder.seedAll() refuses to run in
     // production, which would otherwise leave prod with no connectable providers.
@@ -85,7 +91,23 @@ export const securityFeature: Feature = {
       })
     }
 
+    // The approval expiry sweep has never actually run: startCronJobs() had no
+    // call site anywhere in the repo, so an unanswered approval suspended its
+    // operation indefinitely. Started here, and only here, so the two
+    // route-module instances of ApprovalWorkflowService do not double-sweep.
+    try {
+      startApprovalCronJobs(deps.eventBusService)
+    } catch (err) {
+      logger.error('security-gateway: approval workflow cron jobs failed to start', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+
     logger.info('security-gateway GDPR cron jobs started')
+  },
+
+  async events(bus: EventBusService): Promise<void> {
+    await subscribeApprovalEvents(bus)
   },
 
   routes<TApp extends Elysia>(app: TApp): TApp {
@@ -113,6 +135,14 @@ export const securityFeature: Feature = {
   },
 
   async shutdown(): Promise<void> {
+    try {
+      await stopApprovalCronJobs()
+    } catch (err) {
+      logger.error('security-gateway: approval workflow cron jobs failed to stop', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+
     if (erasureSweepJob !== null) {
       try {
         await erasureSweepJob.stop()
