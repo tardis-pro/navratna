@@ -2,8 +2,13 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import { logger, ExternalServiceError } from '@uaip/utils';
 import { config } from '@uaip/config';
-import { DatabaseService as _DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
+// Deliberately the narrow drizzle subpaths, NOT the `@uaip/shared-services`
+// barrel: the barrel pulls the Elysia middleware stack (rate limiter included)
+// into module initialisation, and this is a leaf service that must not drag HTTP
+// middleware into its import graph.
+import { getControlDb, eq } from '@uaip/shared-services/drizzle/clients';
+import { users } from '@uaip/shared-services/drizzle/control';
 import type {
   ApprovalNotification,
   NotificationTemplate,
@@ -19,6 +24,20 @@ type NotificationRecipient = {
   phone?: string;
   userId?: string;
 };
+
+/**
+ * Channels that address the recipient from their `users` record and therefore
+ * cannot send at all when the lookup fails. WhatsApp is absent by design: it
+ * addresses the approver from WHATSAPP_APPROVER_ALLOWLIST and never reads the
+ * record, so gating it on the lookup would take out the primary approval
+ * channel for an approver who is allow-listed but has no `users` row.
+ */
+const CHANNELS_REQUIRING_RECIPIENT: ReadonlySet<NotificationChannel['type']> = new Set([
+  'email',
+  'in_app',
+  'webhook',
+  'sms',
+]);
 
 type InAppNotificationRecord = {
   id: string;
@@ -62,20 +81,34 @@ export class NotificationService {
         workflowId: notification.workflowId,
       });
 
-      // Get recipient details
+      // Get recipient details. Never fall back to a synthesised address: sending
+      // approval mail to a fabricated recipient is worse than not sending it.
       const recipient = await this.getRecipientDetails(notification.recipientId);
+
+      // WhatsApp addresses the approver from WHATSAPP_APPROVER_ALLOWLIST and never
+      // reads the recipient record, so it must NOT be gated on the users lookup.
+      // An approver provisioned in the allowlist but absent from `users` would
+      // otherwise lose the primary channel and the operation would silently hang
+      // until the expiry sweep rejected it.
+      const usable = recipient
+        ? this.channels
+        : this.channels.filter((channel) => !CHANNELS_REQUIRING_RECIPIENT.has(channel.type));
+
       if (!recipient) {
-        logger.warn('Recipient not found for notification', {
+        logger.error('Recipient could not be resolved — record-based channels SKIPPED', {
           recipientId: notification.recipientId,
           workflowId: notification.workflowId,
+          type: notification.type,
+          skipped: [...CHANNELS_REQUIRING_RECIPIENT],
         });
-        return;
       }
 
       // Send via enabled channels
-      const promises = this.channels
+      const promises = usable
         .filter((channel) => channel.enabled)
-        .map((channel) => this.sendViaChannel(channel, notification, recipient));
+        .map((channel) =>
+          this.sendViaChannel(channel, notification, recipient ?? { id: notification.recipientId })
+        );
 
       await Promise.allSettled(promises);
 
@@ -263,7 +296,13 @@ export class NotificationService {
   }
 
   /**
-   * Send SMS notification
+   * Send SMS notification.
+   *
+   * Webhook-only by design: WhatsApp (Baileys in navratna-core, plus the Cloud
+   * API) is the messaging path, and a third first-party SMS integration is not
+   * maintained alongside it. A deployment that still needs SMS points
+   * `NOTIFICATIONS_SMS_PROVIDER=webhook` (or `SMS_WEBHOOK_URL`) at its own
+   * gateway.
    */
   private async sendSMSNotification(
     notification: ApprovalNotification,
@@ -287,48 +326,7 @@ export class NotificationService {
     });
 
     try {
-      if (provider === 'twilio') {
-        const accountSid = process.env.TWILIO_ACCOUNT_SID;
-        const authToken = process.env.TWILIO_AUTH_TOKEN;
-        const fromNumber = process.env.TWILIO_FROM_NUMBER || String(smsConfig.from || '');
-
-        if (!accountSid || !authToken || !fromNumber) {
-          logger.warn(
-            'Twilio credentials not configured (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER)',
-            {
-              recipientId: notification.recipientId,
-            }
-          );
-          return;
-        }
-
-        const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-        const body = new URLSearchParams({
-          To: recipient.phone ?? '',
-          From: fromNumber,
-          Body: message,
-        });
-        const credentials = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
-
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            Authorization: `Basic ${credentials}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: body.toString(),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new ExternalServiceError(`Twilio API error ${response.status}: ${errorText}`);
-        }
-
-        logger.info('SMS sent via Twilio', {
-          recipientId: notification.recipientId,
-          phone: recipient.phone,
-        });
-      } else if (provider === 'webhook' || smsConfig.webhookUrl) {
+      if (provider === 'webhook' || smsConfig.webhookUrl) {
         const webhookUrl = String(smsConfig.webhookUrl || process.env.SMS_WEBHOOK_URL || '');
         if (!webhookUrl) {
           logger.warn('SMS webhook URL not configured', { recipientId: notification.recipientId });
@@ -353,7 +351,7 @@ export class NotificationService {
         logger.warn('Unknown SMS provider, message not sent', {
           provider,
           recipientId: notification.recipientId,
-          supportedProviders: ['twilio', 'webhook'],
+          supportedProviders: ['webhook'],
         });
       }
     } catch (error) {
@@ -376,9 +374,10 @@ export class NotificationService {
     _recipient: NotificationRecipient,
     _whatsappConfig: Record<string, unknown>
   ): Promise<void> {
-    // Deliberately NOT using `_recipient`: getRecipientDetails() is still a mock
-    // returning a placeholder phone number. The only trusted user -> JID mapping
-    // is the separately provisioned approval allowlist.
+    // Deliberately NOT using `_recipient`: the `users` row carries no phone
+    // number, and authorising a real-world action is a higher trust level than a
+    // profile field anyway. The only trusted user -> JID mapping is the
+    // separately provisioned approval allowlist.
     const jid = resolveApproverJid(notification.recipientId);
     if (!jid) {
       logger.warn('No WhatsApp allowlist entry for approver, skipping', {
@@ -460,22 +459,39 @@ export class NotificationService {
   }
 
   /**
-   * Get recipient details from database
+   * Resolve a recipient from the control-plane `users` table.
+   *
+   * Returns null — never a synthesised recipient — when the id does not resolve
+   * or the lookup fails. Callers MUST skip the notification: mailing a
+   * fabricated address is worse than not mailing at all.
+   *
+   * `users` carries no phone number and no per-channel notification preference,
+   * so `phone` is left unset (the SMS channel skips a recipient without one) and
+   * every enabled channel is attempted. The WhatsApp channel does not use this
+   * record at all — its only trusted user -> JID mapping is the approver
+   * allowlist.
    */
-  private async getRecipientDetails(recipientId: string): Promise<unknown> {
+  private async getRecipientDetails(recipientId: string): Promise<NotificationRecipient | null> {
     try {
-      // This would query the users table
-      // For now, return a mock recipient
+      const [user] = await getControlDb()
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+        })
+        .from(users)
+        .where(eq(users.id, recipientId))
+        .limit(1);
+      if (!user) return null;
+
+      const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+
       return {
-        id: recipientId,
-        email: `user-${recipientId}@example.com`,
-        name: `User ${recipientId}`,
-        phone: '+1234567890',
-        preferences: {
-          email: true,
-          inApp: true,
-          sms: false,
-        },
+        id: user.id,
+        userId: user.id,
+        name: name.length > 0 ? name : user.email,
+        email: user.email,
       };
     } catch (error) {
       logger.error('Failed to get recipient details', {

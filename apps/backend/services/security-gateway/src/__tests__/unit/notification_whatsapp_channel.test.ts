@@ -3,6 +3,38 @@ import type { ApprovalNotification, WhatsAppNotificationSendEvent } from '@uaip/
 // The WhatsApp channel is off unless configured, and NotificationService reads
 // the flag once at construction — so the config module is stubbed rather than
 // driven through process.env after the fact.
+// Every recipient resolves, so the allowlist stays the only thing these tests
+// discriminate on. Recipient resolution itself is covered by
+// notification_recipient_lookup.test.ts.
+const { lastFilter } = vi.hoisted(() => ({ lastFilter: { value: '' } }));
+
+vi.mock('@uaip/shared-services/drizzle/clients', () => ({
+  getControlDb: () => ({
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          limit: async () => [
+            {
+              id: lastFilter.value,
+              email: `${lastFilter.value}@navratna.test`,
+              firstName: 'Ada',
+              lastName: 'Lovelace',
+            },
+          ],
+        }),
+      }),
+    }),
+  }),
+  eq: (column: unknown, value: string) => {
+    lastFilter.value = value;
+    return { column, value };
+  },
+}));
+
+vi.mock('@uaip/shared-services/drizzle/control', () => ({
+  users: { id: 'id', email: 'email', firstName: 'first_name', lastName: 'last_name' },
+}));
+
 vi.mock('@uaip/config', () => ({
   config: {
     email: {},
