@@ -1,3 +1,4 @@
+import type { VectorFilterValue } from '@uaip/types';
 import { VectorSearchResult } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { QdrantService } from '../qdrant_service';
@@ -23,7 +24,8 @@ export interface SearchOptions {
   useReranking?: boolean;
   rerankTopK?: number;
   includeEmbeddings?: boolean;
-  filters?: Record<string, unknown>;
+  /** Flat payload-key -> scalar pairs; QdrantService builds the `must` envelope. */
+  filters?: Record<string, VectorFilterValue | undefined>;
   tenantId?: string;
 }
 
@@ -227,12 +229,16 @@ export class EnhancedRAGService {
       }
 
       // Search for similar documents
+      // `exclude_ids` was passed as a filter VALUE, which Qdrant read as a
+      // match on a payload key named `exclude_ids` holding an array — rejected
+      // outright. Exclusion is a `must_not: [{ has_id }]` clause, which
+      // QdrantService now builds from `excludeIds`.
       const candidates = await this.vectorStore.search(document.embedding, {
         limit: topK + 1,
         threshold: minScore,
         // TODO(tenant): callers should pass tenantId from request context
         tenantId: '00000000-0000-0000-0000-000000000001',
-        filters: { exclude_ids: [documentId] },
+        excludeIds: [documentId],
       });
 
       // Filter by minimum score and format results

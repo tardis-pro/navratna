@@ -875,10 +875,25 @@ export interface CollectionOptions {
   collection?: MemoryCollectionType;
 }
 
+/**
+ * Qdrant `match: { value }` accepts only a keyword, integer or bool. Widening
+ * this to `unknown` is what let callers pass an already-built filter object (or
+ * a raw `{ tags: [...], timeRange: {...} }`) straight through, which Qdrant
+ * rejects with a whole-body parse error rather than ignoring.
+ */
+export type VectorFilterValue = string | number | boolean;
+
 export interface VectorSearchOptions {
   limit: number;
   threshold?: number;
-  filters?: Record<string, unknown>;
+  /**
+   * Flat payload-key -> scalar equality pairs. NOT a Qdrant filter object: the
+   * `must`/`must_not` envelope is built by QdrantService, which is the only
+   * place that knows the wire format.
+   */
+  filters?: Record<string, VectorFilterValue | undefined>;
+  /** Point ids to exclude, expressed as a `must_not: [{ has_id }]` clause. */
+  excludeIds?: string[];
   tenantId: string;
 }
 

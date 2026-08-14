@@ -88,17 +88,12 @@ describe('KnowledgeGraphService search', () => {
     expect(result.items.map((item) => item.id)).toEqual([firstItem.id, secondItem.id]);
     expect(result.searchMetadata.similarityScores).toEqual([0.91, 0.75]);
     expect(repository.getItems).toHaveBeenCalledWith([firstItem.id, secondItem.id]);
-    expect(vectorDb.search).toHaveBeenCalledWith(
-      [0.1, 0.2],
-      expect.objectContaining({
-        filters: expect.objectContaining({
-          must: expect.arrayContaining([
-            { key: 'user_id', match: { value: firstItem.userId } },
-          ]),
-        }),
-      }),
-      expect.any(Object)
-    );
+    // Scope must NOT be pushed into the Qdrant filter: the ingest path never
+    // writes `user_id` into the point payload, so such a condition matches zero
+    // points. It is enforced against the hydrated Postgres rows instead.
+    const [, searchOptions] = vi.mocked(vectorDb.search).mock.calls[0];
+    expect(searchOptions.filters).toBeUndefined();
+    expect(searchOptions.tenantId).toBe(firstItem.organizationId);
   });
 
   it('uses provider scores and provider order when reranking succeeds', async () => {

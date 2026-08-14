@@ -13,8 +13,9 @@ import {
   Interaction,
   ChatIngestionOptions,
 } from '@uaip/types';
+import type { VectorSearchOptions } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { QdrantService, buildVectorFilters } from '../qdrant_service';
+import { QdrantService } from '../qdrant_service';
 import {
   KnowledgeRepository,
   type RelationshipRow as KnowledgeRelationshipRecord,
@@ -200,7 +201,6 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
             {
               limit: (options?.limit || 20) * 2,
               threshold: options?.similarityThreshold || 0.7,
-              filters: this.buildKnowledgeVectorFilters(tenantId, filters, scope),
               tenantId,
             },
             filters
@@ -219,6 +219,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
               return item ? [item] : [];
             });
             filteredResults = rankedItems
+              .filter((item) => this.matchesScopeAndSource(item, filters, scope))
               .filter(
                 (item) =>
                   !filters?.tags?.length || filters.tags.every((tag) => item.tags.includes(tag))
@@ -388,21 +389,36 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
       // Generate context embedding from discussion/conversation history and preferences
       const contextEmbedding = await this.embeddings.generateContextEmbedding(context);
 
+      // No `filters` here: tags/timeRange/scope are an array, an object and an
+      // object, and Qdrant `match: { value }` takes only a scalar — passing them
+      // produced a body Qdrant refused outright, so this path never once
+      // returned a vector hit. They are applied to the hydrated Postgres rows
+      // below, which is where tags, timestamps and scope actually live.
       const results = await this.vectorDb.search(contextEmbedding, {
         limit: 10,
         threshold: 0.6,
         // TODO(tenant): use context.scope?.organizationId once KnowledgeScope carries it
         tenantId: '00000000-0000-0000-0000-000000000001',
-        filters: {
-          tags: context.relevantTags,
-          timeRange: context.timeRange,
-          scope: context.scope,
-        },
       });
 
-      // Vector search succeeded — hydrate from Postgres
+      // Vector search succeeded — hydrate the ranked hits and apply the tag,
+      // time and scope predicates that could not be pushed down to Qdrant.
+      // Hydrating by id (rather than re-querying by scope) is what preserves
+      // vector rank; the previous `applyFilters` call threw the ranking away
+      // and returned recency-ordered rows, making the vector search decorative.
       if (results.length > 0) {
-        return this.repository.applyFilters({ ...context.scope });
+        const items = await this.repository.getItems(results.map((result) => result.id));
+        const itemsById = new Map(items.map((item) => [item.id, item]));
+        const ranked = results.flatMap((result) => {
+          const item = itemsById.get(result.id);
+          return item ? [item] : [];
+        });
+
+        const matched = ranked.filter((item) =>
+          this.matchesContext(item, context)
+        );
+
+        if (matched.length > 0) return matched;
       }
 
       // Qdrant empty or returned nothing — fall back to Postgres scope/text search
@@ -639,21 +655,11 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
 
   private async searchAcrossCollections(
     queryEmbedding: number[],
-    options: {
-      limit: number;
-      threshold: number;
-      filters?: Record<string, unknown>;
-      tenantId: string;
-    },
+    options: VectorSearchOptions,
     filters?: KnowledgeFilters
   ): Promise<VectorSearchResult[]> {
     const requestedTypes = filters?.types || [];
-    const searchOptions: {
-      limit: number;
-      threshold: number;
-      tenantId: string;
-      filters?: Record<string, unknown>;
-    } = {
+    const searchOptions: VectorSearchOptions = {
       limit: options.limit,
       threshold: options.threshold,
       tenantId: options.tenantId,
@@ -686,21 +692,60 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
       .slice(0, options.limit);
   }
 
-  private buildKnowledgeVectorFilters(
-    tenantId: string,
+  /**
+   * Scope and source-type are enforced against Postgres, never Qdrant.
+   *
+   * The ingest path (`QdrantService.store`) writes only `knowledge_item_id`,
+   * `tenant_id`, `chunk_index` and `created_at` into the point payload — there
+   * is no `user_id`, `agent_id` or `source_type` key to match on. Sending those
+   * as Qdrant conditions matched zero points, so a scoped search returned
+   * nothing and fell through to the keyword fallback. The authoritative values
+   * live on `knowledge_items`, so they are applied to the hydrated rows.
+   */
+  private matchesScopeAndSource(
+    item: KnowledgeItem,
     filters?: KnowledgeFilters,
     scope?: KnowledgeScope
-  ): Record<string, unknown> {
-    const additionalFilters: Record<string, string | number | undefined> = {};
+  ): boolean {
+    if (scope?.userId && item.userId !== scope.userId) return false;
+    if (scope?.agentId && item.agentId !== scope.agentId) return false;
+    if (filters?.sourceTypes?.length && !filters.sourceTypes.includes(item.sourceType)) {
+      return false;
+    }
+    return true;
+  }
 
-    if (filters?.sourceTypes?.length) {
-      additionalFilters['source_type'] = filters.sourceTypes[0];
+  /**
+   * The contextual-retrieval counterpart of `matchesScopeAndSource`: the tag,
+   * time and scope predicates that `getContextualKnowledge` used to hand to
+   * Qdrant as non-scalar match values. Tags match on ANY overlap, because a
+   * context supplies several loosely-related topics rather than a conjunction.
+   */
+  private matchesContext(
+    item: KnowledgeItem,
+    context: ContextRequest & { scope?: KnowledgeScope }
+  ): boolean {
+    if (context.scope?.userId && item.userId !== context.scope.userId) return false;
+    if (context.scope?.agentId && item.agentId !== context.scope.agentId) return false;
+
+    if (
+      context.relevantTags?.length &&
+      !context.relevantTags.some((tag) => item.tags.includes(tag))
+    ) {
+      return false;
     }
 
-    additionalFilters['user_id'] = scope?.userId;
-    additionalFilters['agent_id'] = scope?.agentId;
+    if (context.timeRange) {
+      const createdAt = item.createdAt.getTime();
+      if (
+        createdAt < context.timeRange.start.getTime() ||
+        createdAt > context.timeRange.end.getTime()
+      ) {
+        return false;
+      }
+    }
 
-    return buildVectorFilters(tenantId, additionalFilters);
+    return true;
   }
 
   private async enhanceWithRelationships(

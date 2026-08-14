@@ -2,6 +2,7 @@ import type {
   VectorSearchResult,
   MemoryCollectionType,
   CollectionOptions,
+  VectorFilterValue,
   VectorSearchOptions,
 } from '@uaip/types';
 import { config } from '@uaip/config';
@@ -17,28 +18,45 @@ const logger = createLogger({
  * Build a valid Qdrant filter with mandatory tenant isolation.
  * Qdrant filter format: { must: [{ key, match: { value } }, ...] }
  * tenantId is REQUIRED — throws if not provided.
+ *
+ * `additionalFilters` is a FLAT map of payload key -> scalar. It is deliberately
+ * not a Qdrant filter object: passing one in used to produce
+ * `{ key: 'must', match: { value: [ ...conditions ] } }`, which Qdrant rejects
+ * with a whole-body "Expected some form of condition" parse error, silently
+ * degrading every search to the Postgres fallback. A non-scalar now throws at
+ * the call site instead of failing opaquely at the wire.
  */
 export function buildVectorFilters(
   tenantId: string,
-  additionalFilters?: Record<string, unknown>
+  additionalFilters?: Record<string, VectorFilterValue | undefined>,
+  excludeIds?: string[]
 ): Record<string, unknown> {
   if (!tenantId) {
     throw new Error('tenantId is required for buildVectorFilters');
   }
 
-  const mustClauses: Array<{ key: string; match: { value: unknown } }> = [
+  const mustClauses: Array<{ key: string; match: { value: VectorFilterValue } }> = [
     { key: 'tenant_id', match: { value: tenantId } },
   ];
 
-  if (additionalFilters && typeof additionalFilters === 'object') {
+  if (additionalFilters) {
     for (const [key, value] of Object.entries(additionalFilters)) {
-      if (value !== undefined && value !== null) {
-        mustClauses.push({ key, match: { value } });
+      if (value === undefined || value === null) continue;
+      if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
+        throw new Error(
+          `Vector filter "${key}" must be a string, number or boolean — got ${Array.isArray(value) ? 'array' : typeof value}. ` +
+            'Qdrant match conditions accept only scalars; filter on arrays/objects in Postgres instead.'
+        );
       }
+      mustClauses.push({ key, match: { value } });
     }
   }
 
-  return { must: mustClauses };
+  const filter: Record<string, unknown> = { must: mustClauses };
+  if (excludeIds && excludeIds.length > 0) {
+    filter.must_not = [{ has_id: excludeIds }];
+  }
+  return filter;
 }
 
 function isPlainRecord(v: unknown): v is Record<string, unknown> {
@@ -192,7 +210,11 @@ export class QdrantService {
       const workingUrl = await this.ensureConnection();
       const collectionName = this.getCollectionName(collectionOptions);
 
-      const tenantFilter = buildVectorFilters(options.tenantId, options.filters as Record<string, unknown> | undefined);
+      const tenantFilter = buildVectorFilters(
+        options.tenantId,
+        options.filters,
+        options.excludeIds
+      );
 
       const response = await fetch(`${workingUrl}/collections/${collectionName}/points/search`, {
         method: 'POST',
