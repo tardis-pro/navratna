@@ -14,7 +14,6 @@ import { logger } from '@uaip/utils'
 
 import { TaskController } from './controllers/task_controller.js'
 import { OrchestrationEngine } from './orchestration_engine.js'
-import { registerApprovalRoutes } from './routes/approval_routes.js'
 import { registerDevLoopRoutes } from './routes/dev_loop_routes.js'
 import { registerOperationRoutes } from './routes/operation_routes.js'
 import { registerTaskRoutes } from './routes/task_routes.js'
@@ -24,14 +23,12 @@ import { registerJiraWebhookRoutes } from './routes/jira_webhook_routes.js'
 import { importOpenClawWorkflows } from './seeds/openclaw-workflow-import.js'
 import { DevLoopOrchestrator } from './services/dev_loop_orchestrator.js'
 import { HealingAgentService } from './services/healing_agent_service.js'
-import { RDLOApprovalService } from './services/rdlo_approval_service.js'
 import { WorkflowEngineService } from './services/workflow_engine_service.js'
 import { WorkflowExecutorService } from './services/workflow_executor_service.js'
 
 let taskController: TaskController
 let workflowEngineService: WorkflowEngineService
 let workflowExecutorService: WorkflowExecutorService
-let rdloApprovalService: RDLOApprovalService
 let orchestrationEngine: OrchestrationEngine | undefined
 const devLoopServices: {
   devLoopOrchestrator?: DevLoopOrchestrator
@@ -57,7 +54,6 @@ export const orchestrationFeature: Feature = {
     taskController = new TaskController(taskService)
     workflowEngineService = new WorkflowEngineService(eventBusService)
     workflowExecutorService = new WorkflowExecutorService(eventBusService)
-    rdloApprovalService = new RDLOApprovalService(eventBusService)
 
     devLoopServices.healingAgent = new HealingAgentService(eventBusService)
     devLoopServices.devLoopOrchestrator = new DevLoopOrchestrator(eventBusService)
@@ -77,7 +73,6 @@ export const orchestrationFeature: Feature = {
     // cron jobs fire into a queue nobody reads. Consumers must be listening before
     // loadAll() registers the cron jobs that produce into them.
     await workflowExecutorService.initialize()
-    await rdloApprovalService.initialize()
     await devLoopServices.devLoopOrchestrator.initialize()
     await orchestrationEngine.initialize()
 
@@ -97,7 +92,6 @@ export const orchestrationFeature: Feature = {
   },
 
   routes(app) {
-    app.use(registerApprovalRoutes(rdloApprovalService))
     app.use(registerTaskRoutes(taskController))
     app.use(registerWorkflowRoutes(workflowEngineService, workflowExecutorService))
     app.use(registerOperationRoutes(orchestrationEngine))
