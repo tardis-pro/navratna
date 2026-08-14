@@ -46,6 +46,12 @@ export class ContextOrchestrationService {
        * searches the wrong tenant, it does not fail.
        */
       organizationId?: string;
+      /**
+       * Restricts every layer to items carrying ALL of these tags. Used to pull
+       * a project's own knowledge (tagged `project:<id>`) rather than whatever
+       * the query happens to match across the whole store.
+       */
+      tags?: string[];
       config?: Partial<ContextOrchestrationConfig>;
     } = {}
   ): Promise<{
@@ -109,17 +115,24 @@ export class ContextOrchestrationService {
       includeRelationships?: boolean;
       similarityThreshold?: number;
       organizationId?: string;
+      tags?: string[];
     } = {}
   ): Promise<{
     agent: KnowledgeItem[];
     user: KnowledgeItem[];
     general: KnowledgeItem[];
   }> {
+    // One `filters` object built from both options: spreading two conditional
+    // `filters` keys would leave the second overwriting the first, silently
+    // dropping the organization scope whenever tags were supplied.
+    const filters = {
+      ...(options.organizationId ? { organizationId: options.organizationId } : {}),
+      ...(options.tags?.length ? { tags: options.tags } : {}),
+    };
+
     const searchRequest: KnowledgeSearchRequest = {
       query,
-      ...(options.organizationId
-        ? { filters: { organizationId: options.organizationId } }
-        : {}),
+      ...(Object.keys(filters).length > 0 ? { filters } : {}),
       options: {
         limit: config.maxItemsPerLayer,
         similarityThreshold: options.similarityThreshold || 0.7,

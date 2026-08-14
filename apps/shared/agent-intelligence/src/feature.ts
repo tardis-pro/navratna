@@ -129,16 +129,68 @@ const loadToolSchema: ToolSchemaProvider = async (toolId) => {
  * never a model- or client-supplied value — it is the tenant filter for the
  * vector search.
  */
+/** Marks a knowledge item as belonging to a project. Mirrors RepoIngestionService. */
+const PROJECT_TAG_PREFIX = 'project:'
+
+/**
+ * Drops knowledge that belongs to a DIFFERENT project.
+ *
+ * Necessary because the search filter is inclusion-only: a general-layer query
+ * matches any item semantically, including another project's ingested codebase,
+ * and there is no `must_not` to express "anything but theirs". Untagged items
+ * are kept — they are the shared, project-neutral knowledge every thread should
+ * still see.
+ */
+const isReachableFromProject = (tags: string[] | undefined, projectId?: string): boolean => {
+  const owner = (tags ?? []).find((tag) => tag.startsWith(PROJECT_TAG_PREFIX))
+  if (!owner) return true
+  return owner === `${PROJECT_TAG_PREFIX}${projectId}`
+}
+
 const buildKnowledgeContextProvider = (
   factory: ServiceFactory
-): KnowledgeContextProvider => async ({ query, agentId, userId, organizationId }) => {
+): KnowledgeContextProvider => async ({ query, agentId, userId, organizationId, projectId }) => {
   const orchestrator = await factory.getContextOrchestrationService()
-  const result = await orchestrator.getOrchestatedContext(query, agentId, userId, {
-    organizationId,
-    similarityThreshold: 0.55,
+
+  /**
+   * Two passes when the thread has a project. The general pass is what every
+   * thread gets; the project pass exists because the project's own knowledge
+   * competes with the entire store on similarity alone and would often lose to
+   * it — asking for it explicitly is what makes "the thread knows its codebase"
+   * reliable rather than lucky.
+   */
+  const [general, scoped] = await Promise.all([
+    orchestrator.getOrchestatedContext(query, agentId, userId, {
+      organizationId,
+      similarityThreshold: 0.55,
+    }),
+    projectId
+      ? orchestrator.getOrchestatedContext(query, agentId, userId, {
+          organizationId,
+          similarityThreshold: 0.55,
+          tags: [`${PROJECT_TAG_PREFIX}${projectId}`],
+        })
+      : Promise.resolve(null),
+  ])
+
+  // Project results first: they are the more specific answer, and the token
+  // limit downstream truncates from the end.
+  const merged = [...(scoped?.items ?? []), ...general.items].filter((item) =>
+    isReachableFromProject(item.tags, projectId)
+  )
+
+  // Deduped by id because an item matching both passes would otherwise be sent
+  // to the model twice, spending the context window on a repeat.
+  const seen = new Set<string>()
+  const items = merged.filter((item) => {
+    if (seen.has(item.id)) return false
+    seen.add(item.id)
+    return true
   })
 
-  if (result.items.length === 0) return null
+  if (items.length === 0) return null
+
+  const result = { ...general, items }
 
   const sections = result.items.map((item) => {
     const source = item.sourceIdentifier ? ` (source: ${item.sourceIdentifier})` : ''

@@ -184,6 +184,8 @@ export type KnowledgeContextProvider = (params: {
   agentId: string
   userId: string
   organizationId: string
+  /** The thread's project, so retrieval reaches its codebase and not another's. */
+  projectId?: string
 }) => Promise<{ title: string; content: string } | null>
 
 /**
@@ -856,6 +858,7 @@ export function registerAgentChatRoutes(
                   agentId: responder.id,
                   userId,
                   organizationId: user.organizationId,
+                  ...(projectId ? { projectId } : {}),
                 })
               } catch (error) {
                 logger.warn('Knowledge retrieval failed; continuing without context', {

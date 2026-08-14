@@ -1,6 +1,15 @@
 import { execSync } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync, rmSync, statSync, type Dirent, type Stats } from 'node:fs'
+import { createHash, randomUUID } from 'node:crypto'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  type Dirent,
+  type Stats,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join, relative, resolve } from 'node:path'
 import { getIntelligenceDb, knowledgeItems } from '@uaip/shared-services'
@@ -458,25 +467,146 @@ function listBranches(repoPath: string): string[] {
   }
 }
 
+/**
+ * Where cloned repositories live between ingests.
+ *
+ * Defaults under tmpdir so the service works with no configuration, but a
+ * deployment that wants the cache to survive a restart must point this at a
+ * mounted volume — otherwise every boot re-clones every project.
+ */
+const REPO_CACHE_ROOT =
+  process.env.REPO_CACHE_DIR?.trim() || join(tmpdir(), 'navratna-repo-cache')
+
+/**
+ * One directory per project, so re-ingesting a project reuses its checkout.
+ * Sources with no project fall back to a hash of the URL, which keeps two
+ * different repositories from sharing (and overwriting) one directory.
+ */
+function repoCacheKey(source: string, projectId?: string): string {
+  if (projectId) return `project-${projectId}`
+  return `source-${createHash('sha256').update(source).digest('hex').slice(0, 32)}`
+}
+
+/**
+ * Serializes ingests of the SAME cache key within this process.
+ *
+ * Two concurrent ingests of one project would otherwise run `git reset --hard`
+ * in the directory the other is mid-read of, producing a half-updated tree that
+ * analysis silently reports as the repository's real contents. Cross-process
+ * races are NOT covered — a second navratna-core replica ingesting the same
+ * project concurrently still conflicts; that needs the cache on a per-replica
+ * volume or a distributed lock.
+ */
+const cacheLocks = new Map<string, Promise<unknown>>()
+
+function withCacheLock<T>(key: string, run: () => Promise<T>): Promise<T> {
+  const previous = cacheLocks.get(key) ?? Promise.resolve()
+
+  // Both handlers are `run`, so the queue advances whether the predecessor
+  // succeeded or threw. Chaining on success alone would wedge the key forever
+  // after the first failed ingest.
+  const current = previous.then(run, run)
+
+  // The map holds a promise that never rejects, so an unhandled rejection from
+  // one waiter cannot escape through the chain of the next.
+  const tail: Promise<unknown> = current.then(
+    () => {
+      if (cacheLocks.get(key) === tail) cacheLocks.delete(key)
+    },
+    () => {
+      if (cacheLocks.get(key) === tail) cacheLocks.delete(key)
+    }
+  )
+  cacheLocks.set(key, tail)
+
+  return current
+}
+
+/**
+ * Brings the cached checkout of `source` up to date and returns its path.
+ *
+ * Refresh, not re-clone: a shallow fetch plus a hard reset is what makes the
+ * cache worth having. A cache directory that fails to refresh (interrupted
+ * clone, corrupted objects, a repository that moved) is discarded and cloned
+ * fresh rather than being reported as an error — a stale tree analysed as if it
+ * were current is the worse failure.
+ */
+function syncRepoCache(source: string, cacheKey: string): string {
+  const cachePath = join(REPO_CACHE_ROOT, cacheKey)
+
+  if (existsSync(join(cachePath, '.git'))) {
+    try {
+      execSync(`git -C ${shellQuote(cachePath)} fetch --depth 1 origin`, { stdio: 'pipe' })
+      execSync(`git -C ${shellQuote(cachePath)} reset --hard FETCH_HEAD`, { stdio: 'pipe' })
+      // Build artefacts and other untracked leftovers from a previous checkout
+      // would otherwise be walked as if they were part of the repository.
+      execSync(`git -C ${shellQuote(cachePath)} clean -fdx`, { stdio: 'pipe' })
+
+      logger.info('Refreshed cached repository clone', { source, cachePath })
+      return cachePath
+    } catch (error) {
+      logger.warn('Could not refresh the cached clone; recloning', {
+        source,
+        cachePath,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      rmSync(cachePath, { recursive: true, force: true })
+    }
+  }
+
+  mkdirSync(REPO_CACHE_ROOT, { recursive: true })
+  // Removed unconditionally: a directory that exists WITHOUT a .git is the
+  // wreckage of an interrupted clone, and git refuses to clone into it.
+  rmSync(cachePath, { recursive: true, force: true })
+  execSync(`git clone --depth 1 ${shellQuote(source)} ${shellQuote(cachePath)}`, { stdio: 'pipe' })
+
+  logger.info('Cloned repository into the cache', { source, cachePath })
+  return cachePath
+}
+
+export interface IngestOptions {
+  /**
+   * Scopes the resulting knowledge to a project: it is tagged `project:<id>` so
+   * a thread in that project retrieves this codebase and not another's, and the
+   * checkout is cached under the project so re-ingesting refreshes in place.
+   */
+  projectId?: string
+}
+
+/** The tag that binds a knowledge item to a project. */
+export function projectKnowledgeTag(projectId: string): string {
+  return `project:${projectId}`
+}
+
 export class RepoIngestionService {
-  async ingest(source: string): Promise<RepoContext> {
+  async ingest(source: string, options: IngestOptions = {}): Promise<RepoContext> {
     const trimmedSource = source.trim()
     if (trimmedSource.length === 0) {
       throw new ValidationError('Invalid source: source is required')
     }
 
     const sourceIsGitUrl = isGitUrl(trimmedSource)
+
+    // Serialized per cache key rather than per call: two ingests of different
+    // projects are independent and still run concurrently.
+    return withCacheLock(repoCacheKey(trimmedSource, options.projectId), () =>
+      this.runIngest(trimmedSource, sourceIsGitUrl, options)
+    )
+  }
+
+  private async runIngest(
+    trimmedSource: string,
+    sourceIsGitUrl: boolean,
+    options: IngestOptions
+  ): Promise<RepoContext> {
     let repoPath = trimmedSource
-    let tempClonePath: string | null = null
 
     try {
       if (sourceIsGitUrl) {
-        tempClonePath = join(tmpdir(), `rdlo-${randomUUID()}`)
-        execSync(
-          `git clone --depth 1 ${shellQuote(trimmedSource)} ${shellQuote(tempClonePath)}`,
-          { stdio: 'pipe' }
-        )
-        repoPath = tempClonePath
+        // Kept on disk between ingests, unlike the previous throwaway clone: a
+        // project's codebase is read on every turn that retrieves from it, and
+        // re-cloning per read made that unaffordable.
+        repoPath = syncRepoCache(trimmedSource, repoCacheKey(trimmedSource, options.projectId))
       } else {
         repoPath = resolve(trimmedSource)
         if (!existsSync(repoPath)) {
@@ -541,7 +671,12 @@ export class RepoIngestionService {
           sourceType: sourceIsGitUrl ? SourceType.GIT_REPOSITORY : SourceType.FILE_SYSTEM,
           sourceIdentifier: trimmedSource,
           sourceUrl: sourceIsGitUrl ? trimmedSource : undefined,
-          tags: ['repo-context', repoMode],
+          // The project tag is what lets retrieval tell one project's codebase
+          // from another's — filters.tags is inclusion-only, so the binding has
+          // to be present on the item itself.
+          tags: options.projectId
+            ? ['repo-context', repoMode, projectKnowledgeTag(options.projectId)]
+            : ['repo-context', repoMode],
           confidence: 0.9,
           metadata: {
             title: trimmedSource,
@@ -561,18 +696,11 @@ export class RepoIngestionService {
         error: error instanceof Error ? error.message : String(error),
       })
       throw error instanceof Error ? error : new Error('Failed to ingest repository source')
-    } finally {
-      if (tempClonePath && existsSync(tempClonePath)) {
-        try {
-          rmSync(tempClonePath, { recursive: true, force: true })
-        } catch (cleanupError) {
-          logger.warn('Failed to cleanup temporary repository clone', {
-            tempClonePath,
-            error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
-          })
-        }
-      }
     }
+    // No cleanup block: the checkout is the cache now, and deleting it here is
+    // exactly what made every ingest pay for a fresh clone. syncRepoCache owns
+    // the directory's lifetime — it discards and re-clones one it cannot
+    // refresh.
   }
 
   private runStructuralAnalysis(repoPath: string): StructuralAnalysis {
