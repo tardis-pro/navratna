@@ -259,12 +259,22 @@ export class WorkflowExecutorService {
 
       if (step.type === 'toolCall') {
         if (!step.toolId) throw new Error(`toolCall step "${stepId}" has no toolId`);
-        // The arguments go through untouched. Whether this tool needs a project
-        // scope — and whether the one on the definition satisfies it — is decided
-        // by UnifiedToolRegistry, which alone knows the server's credential mode.
-        // Re-deciding it here would refuse self-credentialed servers the registry
-        // would have allowed.
-        const output = await this.runTool(step.toolId, step.arguments ?? {}, scope);
+        // Whether this tool needs a project scope — and whether the one on the
+        // definition satisfies it — is decided by UnifiedToolRegistry, which
+        // alone knows the server's credential mode. Re-deciding it here would
+        // refuse self-credentialed servers the registry would have allowed.
+        //
+        // Arguments used to go through completely untouched, which made the last
+        // step of a gather → reason → act workflow impossible: an agentTurn can
+        // see what earlier steps produced (withPriorEvidence) and a toolCall
+        // could not, so "file what the triage decided" could only ever file a
+        // hardcoded string. A step that appears to act on the run's findings and
+        // actually posts a constant is worse than no step at all.
+        const output = await this.runTool(
+          step.toolId,
+          this.resolveArguments(step.arguments ?? {}, priorOutcomes),
+          scope
+        );
         return { stepId, type: step.type, status: 'completed', output };
       }
 
@@ -352,6 +362,57 @@ export class WorkflowExecutorService {
    * read to the end and a bill nobody sanctioned. A run that needs more than this
    * wants a narrower gather step, not a bigger prompt.
    */
+  /**
+   * Let a toolCall's arguments reference what earlier steps produced.
+   *
+   * Two placeholders, resolved inside string values only:
+   *   {{steps.<stepId>.output}} — that step's output
+   *   {{previous.output}}       — the most recent completed step's output
+   *
+   * An UNKNOWN placeholder is left in place rather than replaced with an empty
+   * string. A task filed with a literal `{{steps.triage.output}}` in its body is
+   * visibly broken and gets fixed; one filed with a silently empty body reads as
+   * "the triage found nothing", which is exactly the kind of false all-clear this
+   * pipeline exists to stop producing.
+   */
+  private resolveArguments(
+    args: Record<string, unknown>,
+    priorOutcomes: StepOutcome[]
+  ): Record<string, unknown> {
+    const completed = priorOutcomes.filter(
+      (o) => o.status === 'completed' && o.output !== undefined
+    );
+    if (completed.length === 0) return args;
+
+    const asText = (value: unknown): string =>
+      typeof value === 'string' ? value : JSON.stringify(value);
+
+    const byId = new Map(completed.map((o) => [o.stepId, asText(o.output)]));
+    const previous = asText(completed[completed.length - 1].output);
+
+    const substitute = (value: unknown): unknown => {
+      if (typeof value === 'string') {
+        return value.replace(
+          /\{\{\s*(previous|steps\.[^.}\s]+)\.output\s*\}\}/g,
+          (whole: string, ref: string) => {
+            if (ref === 'previous') return previous;
+            const id = ref.slice('steps.'.length);
+            return byId.has(id) ? (byId.get(id) as string) : whole;
+          }
+        );
+      }
+      if (Array.isArray(value)) return value.map(substitute);
+      if (value && typeof value === 'object') {
+        return Object.fromEntries(
+          Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, substitute(v)])
+        );
+      }
+      return value;
+    };
+
+    return substitute(args) as Record<string, unknown>;
+  }
+
   private withPriorEvidence(prompt: string, priorOutcomes: StepOutcome[]): string {
     const completed = priorOutcomes.filter(
       (o) => o.status === 'completed' && o.output !== undefined

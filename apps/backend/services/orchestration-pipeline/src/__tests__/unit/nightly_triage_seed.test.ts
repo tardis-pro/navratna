@@ -151,7 +151,7 @@ describe('seedNightlyTriageWorkflow', () => {
     expect(row.trigger.kind).toBe('cron');
 
     const gathers = row.steps.filter((s) => s.type === 'toolCall');
-    expect(gathers).toHaveLength(5);
+    expect(gathers).toHaveLength(6); // 5 gathers + the create_task that files the digest
     // Every gather is an MCP tool, which is what makes the project scope load-bearing.
     expect(gathers.every((s) => s.toolId?.startsWith('mcp-'))).toBe(true);
     // code_quality was excluded only while tardis T2 did not exist — a step
@@ -164,6 +164,9 @@ describe('seedNightlyTriageWorkflow', () => {
     const quality = gathers.find((s) => s.toolId?.includes('code_quality'));
     expect(quality?.arguments?.severities).toBe('BLOCKER,CRITICAL');
 
-    expect(row.steps.at(-1)?.type).toBe('agentTurn');
+    expect(row.steps.at(-1)?.type).toBe('toolCall');
+    expect(row.steps.at(-1)?.toolId).toContain('create_task');
+    // The digest must reach the board, not a hardcoded string.
+    expect(row.steps.at(-1)?.arguments?.body).toContain('steps.triage.output');
   });
 });

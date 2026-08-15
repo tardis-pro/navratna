@@ -74,6 +74,31 @@ function steps(): Array<Record<string, unknown>> {
     // prompt then discards most of.
     gather('gather.quality', 'code_quality', { severities: 'BLOCKER,CRITICAL', limit: 30 }),
     { type: 'agentTurn', id: 'triage', prompt: TRIAGE_PROMPT },
+    // FILE IT, so there is something to accept or reject.
+    //
+    // A digest that only exists in a run record is a report nobody acts on. This
+    // puts the night's ranked list on the project's own board, where it can be
+    // approved, rejected, or turned into work like anything else — and where the
+    // outcome is recorded rather than remembered.
+    //
+    // One task carrying the whole digest, not one per finding: this executor runs
+    // a flat, ordered step list with no fan-out, so "a task per survivor" is not
+    // expressible here. Splitting it is a change to the engine, not to this seed,
+    // and pretending otherwise would produce a step that quietly files only the
+    // first item.
+    {
+      type: 'toolCall',
+      id: 'file',
+      toolId: `mcp-${TARDIS_SERVER}-create_task`,
+      arguments: {
+        title: `Nightly triage — ${TRIAGE_PROJECT_SLUG}`,
+        // Resolved by the executor from the reasoning step above. If this ever
+        // arrives on the board with the placeholder still in it, the wiring broke
+        // — which is the point of leaving unknown placeholders intact.
+        body: '{{steps.triage.output}}',
+        labels: ['auto-detected'],
+      },
+    },
   ];
 }
 
@@ -103,7 +128,16 @@ export async function seedNightlyTriageWorkflow(
   const row = {
     name: NIGHTLY_TRIAGE_NAME,
     description: `Nightly ranked digest of ${TRIAGE_PROJECT_SLUG} from its own runtime evidence`,
-    trigger: { kind: 'cron' as const, expr: '0 6 * * *', tz: process.env.TRIAGE_TZ ?? 'UTC' },
+    // The schedule is overridable because a workflow that can only run at 06:00
+    // can only be VERIFIED at 06:00. Proving this end to end — that the digest
+    // actually reaches the board — otherwise means either waiting for dawn or
+    // trusting that it works, and the second is how a nightly job runs broken for
+    // a fortnight.
+    trigger: {
+      kind: 'cron' as const,
+      expr: process.env.TRIAGE_CRON ?? '0 6 * * *',
+      tz: process.env.TRIAGE_TZ ?? 'UTC',
+    },
     steps: steps() as never,
     delivery: null,
     enabled: opts.enable ?? false,
