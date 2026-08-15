@@ -304,11 +304,30 @@ jobs:
             echo "quality gate: reported only — set repo variable TARDIS_SONAR_GATE=enforce to block on it"
             echo "               read the current verdict with: tardis quality"
           fi
+          # BOUNDED, because this is what actually runs the box out of memory.
+          #
+          # Build 200 died with exit 137 — and the TypeScript build was not the
+          # cause. The images built, the deploy ran, and the job was killed here,
+          # in the scanner: a JVM analysing a 262k-line monorepo across 33
+          # tsconfig files, with no heap ceiling, on a host with ~7GB free and its
+          # swap already exhausted. An unbounded JVM grows until something dies.
+          #
+          # --memory bounds the container so a runaway is contained rather than
+          # taken out of the host's hide, and -Xmx sits BELOW it so the JVM hits
+          # its own ceiling first and reports an OutOfMemoryError naming the
+          # analysis — which is diagnosable — instead of vanishing to SIGKILL,
+          # which is not.
+          #
+          # Note what this failure cost: the job went red AFTER a successful
+          # deploy, so "build-deploy failed" did not mean "the deploy did not
+          # happen". Worth remembering before reading a red build as an undeployed
+          # one.
           docker run --rm \
+            --memory=4g --memory-swap=6g \
             --volumes-from "$(cat /etc/hostname)" \
             -e SONAR_HOST_URL="${{ secrets.SONAR_HOST_URL }}" \
             -e SONAR_TOKEN="$SONAR_TOKEN" \
-            -e SONAR_SCANNER_OPTS="-Djavax.net.ssl.trustStore=/tmp/tardis-truststore.p12 -Djavax.net.ssl.trustStorePassword=changeit -Djavax.net.ssl.trustStoreType=PKCS12" \
+            -e SONAR_SCANNER_OPTS="-Xmx3g -Djavax.net.ssl.trustStore=/tmp/tardis-truststore.p12 -Djavax.net.ssl.trustStorePassword=changeit -Djavax.net.ssl.trustStoreType=PKCS12" \
             -v /etc/ssl/tardis/ca.crt:/tmp/tardis-ca.crt:ro \
             -w "$PWD" \
             --entrypoint sh \
