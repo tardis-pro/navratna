@@ -49,7 +49,11 @@ vi.mock('@uaip/shared-services/drizzle/control', () => ({
   projects: 'projects_table',
 }));
 
-import { seedNightlyTriageWorkflow, NIGHTLY_TRIAGE_NAME } from '../../seeds/nightly-triage-workflow.js';
+import {
+  seedNightlyTriageWorkflow,
+  NIGHTLY_TRIAGE_NAME,
+  TRIAGE_PROMPT,
+} from '../../seeds/nightly-triage-workflow.js';
 
 interface SeededRow {
   name: string;
@@ -62,6 +66,9 @@ interface SeededRow {
     toolId?: string;
     prompt?: string;
     arguments?: Record<string, unknown>;
+    // `forEach` only: the list an earlier step produced, and the bound on it.
+    itemsFrom?: string;
+    maxItems?: number;
   }>;
 }
 
@@ -151,7 +158,9 @@ describe('seedNightlyTriageWorkflow', () => {
     expect(row.trigger.kind).toBe('cron');
 
     const gathers = row.steps.filter((s) => s.type === 'toolCall');
-    expect(gathers).toHaveLength(6); // 5 gathers + the create_task that files the digest
+    // 5 gathers, and no longer a sixth toolCall: filing moved to a `forEach` so
+    // the night produces one task PER GROUP instead of one carrying the lot.
+    expect(gathers).toHaveLength(5);
     // Every gather is an MCP tool, which is what makes the project scope load-bearing.
     expect(gathers.every((s) => s.toolId?.startsWith('mcp-'))).toBe(true);
     // code_quality was excluded only while tardis T2 did not exist — a step
@@ -164,9 +173,51 @@ describe('seedNightlyTriageWorkflow', () => {
     const quality = gathers.find((s) => s.toolId?.includes('code_quality'));
     expect(quality?.arguments?.severities).toBe('BLOCKER,CRITICAL');
 
-    expect(row.steps.at(-1)?.type).toBe('toolCall');
-    expect(row.steps.at(-1)?.toolId).toContain('create_task');
-    // The digest must reach the board, not a hardcoded string.
-    expect(row.steps.at(-1)?.arguments?.body).toContain('steps.triage.output');
+    // The night ends by fanning out over the reasoning step's groups, one task
+    // each. A `toolCall` here would be the old single-digest behaviour returning.
+    const file = row.steps.at(-1);
+    expect(file?.type).toBe('forEach');
+    expect(file?.toolId).toContain('create_task');
+    // The groups must come from the reasoning step, not a hardcoded list.
+    expect(file?.itemsFrom).toContain('steps.triage.output');
+    // Every field the prompt promises must actually be wired, or a group's task
+    // arrives on the board with a literal placeholder in it.
+    expect(file?.arguments?.title).toBe('{{item.title}}');
+    expect(file?.arguments?.body).toBe('{{item.why}}');
+    // Without `key`, a second run in one day files every group again. This is
+    // the assertion that keeps the board idempotent.
+    expect(file?.arguments?.key).toBe('{{item.key}}');
+    // The step's bound must agree with the bound the prompt states. If these
+    // drift, the model is asked for one number and truncated at another.
+    expect(file?.maxItems).toBe(8);
+  });
+
+  it('asks for the JSON array shape the fan-out consumes, and permits the empty one', () => {
+    // The reasoning step's output stopped being prose for a human and became the
+    // INPUT to `forEach`, so these are contract assertions, not style ones.
+    const prompt = TRIAGE_PROMPT;
+
+    // Every key the forEach substitutes must be named in the format block.
+    expect(prompt).toContain('"title"');
+    expect(prompt).toContain('"why"');
+    expect(prompt).toContain('"key"');
+
+    // The dedupe key is only worth having if it survives a rewording, so the
+    // prompt must say that rather than merely asking for an id.
+    // Fragment, not the full sentence: the prompt is a line array joined with
+    // newlines, so an assertion spanning a line break can never match.
+    expect(prompt).toContain('the CAUSE and never the wording');
+
+    // `[]` is recorded as requested:0 and is NOT an error, so the model has to be
+    // told the empty answer is permitted — otherwise it pads to avoid looking
+    // unhelpful, which is the failure this bar exists to prevent.
+    expect(prompt).toContain('return exactly []');
+
+    // Unparseable output throws. The prompt must forbid prose explicitly rather
+    // than merely requesting JSON.
+    expect(prompt.toLowerCase()).toContain('prose fails the run');
+
+    // The clustering rule itself: a group is a unit of work, not a finding.
+    expect(prompt).toContain('NOT one finding');
   });
 });
