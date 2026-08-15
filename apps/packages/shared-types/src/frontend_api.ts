@@ -692,8 +692,17 @@ export interface ApprovalWorkflowCreate {
 }
 
 export interface ApprovalDecisionRequest {
-  decision: 'approve' | 'reject';
+  /**
+   * See APPROVAL_DECISIONS in security.ts. `approve_with_edits` approves — it
+   * differs from `approve` only in that it carries what the approver changed.
+   */
+  decision: 'approve' | 'approve_with_edits' | 'reject';
   reason?: string;
+  /** Required when decision is 'approve_with_edits', rejected otherwise. */
+  edits?: {
+    diff: string;
+    summary?: string;
+  };
 }
 
 export interface ApprovalListOptions {

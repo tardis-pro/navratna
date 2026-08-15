@@ -793,14 +793,86 @@ export const ApprovalWorkflowSchema = BaseEntitySchema.extend({
 
 export type ApprovalWorkflow = z.infer<typeof ApprovalWorkflowSchema>;
 
-export const ApprovalDecisionSchema = z.object({
-  workflowId: IDSchema,
-  approverId: IDSchema,
-  decision: z.enum(['approve', 'reject']),
-  conditions: z.array(z.string()).optional(),
-  feedback: z.string().optional(),
-  decidedAt: z.date(),
+/**
+ * THE DECISION VOCABULARY.
+ *
+ * Three values, not two, and the third is the one that carries the information.
+ *
+ * The overwhelmingly common real outcome of reviewing a machine-authored change
+ * is "approve, then change it before merging". Under a two-valued vocabulary
+ * that records as a clean `approve`, so the approval log says the proposal was
+ * right while the diff says it was nearly right in a specific, repeatable way.
+ * Anything later trained or ranked on that log inherits a record that
+ * systematically overstates its own accuracy — and unlike the proposal itself,
+ * the correction cannot be reconstructed after the fact, because merged code
+ * does not record what it used to say.
+ *
+ * `approve_with_edits` APPROVES. It is not a third outcome for gating purposes:
+ * the change proceeds exactly as `approve` does. It differs only in what it
+ * records. Use `isApprovingDecision` rather than comparing to `'approve'`, or
+ * an edited approval counts as neither approved nor rejected and its workflow
+ * hangs pending forever.
+ */
+export const APPROVAL_DECISIONS = ['approve', 'approve_with_edits', 'reject'] as const;
+
+export type ApprovalDecisionValue = (typeof APPROVAL_DECISIONS)[number];
+
+/**
+ * Does this decision let the operation proceed?
+ *
+ * The single place that question is answered. Every gate, filter and audit
+ * branch must go through here — a bare `=== 'approve'` is the bug this exists
+ * to prevent.
+ */
+export function isApprovingDecision(decision: string | null | undefined): boolean {
+  return decision === 'approve' || decision === 'approve_with_edits';
+}
+
+/**
+ * What the approver actually changed.
+ *
+ * The diff is required rather than a free-text reason, because the reason is
+ * the part that survives in someone's memory anyway and the diff is the part
+ * that does not. A summary is welcome and is never a substitute.
+ */
+export const ApprovalEditsSchema = z.object({
+  diff: z.string().min(1),
+  summary: z.string().max(1000).optional(),
 });
+
+export type ApprovalEdits = z.infer<typeof ApprovalEditsSchema>;
+
+export const ApprovalDecisionSchema = z
+  .object({
+    workflowId: IDSchema,
+    approverId: IDSchema,
+    decision: z.enum(APPROVAL_DECISIONS),
+    conditions: z.array(z.string()).optional(),
+    feedback: z.string().optional(),
+    edits: ApprovalEditsSchema.optional(),
+    decidedAt: z.date(),
+  })
+  .superRefine((value, ctx) => {
+    // The whole point of the class is the delta it carries. Allowing it without
+    // one would reintroduce the defect in a new spelling: a decision that claims
+    // an edit was made and cannot say what it was.
+    if (value.decision === 'approve_with_edits' && !value.edits) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['edits'],
+        message:
+          "decision 'approve_with_edits' requires `edits` — record the diff, " +
+          "or use 'approve' if nothing was changed",
+      });
+    }
+    if (value.decision !== 'approve_with_edits' && value.edits) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['edits'],
+        message: "`edits` is only meaningful with decision 'approve_with_edits'",
+      });
+    }
+  });
 
 export type ApprovalDecision = z.infer<typeof ApprovalDecisionSchema>;
 

@@ -14,7 +14,10 @@ import {
   ApprovalRequest,
   ApprovalWorkflowStatus,
   SecurityLevel,
+  APPROVAL_DECISIONS,
+  isApprovingDecision,
 } from '@uaip/types';
+import type { ApprovalDecisionValue } from '@uaip/types';
 import type {
   ApprovalDecisionAckEvent,
   ApprovalDecisionChannel,
@@ -217,6 +220,14 @@ export class ApprovalWorkflowService {
         metadata: {
           approvedVia: channel.approvedVia,
           ...(channel.jid ? { jid: channel.jid } : {}),
+          // WHAT THEY CHANGED, stored beside the decision that carried it.
+          //
+          // This is the half that cannot be reconstructed later: merged code
+          // does not record what it used to say, so a diff not captured at the
+          // moment of approval is gone. It lives on the decision row rather
+          // than the workflow because it belongs to one approver's judgement,
+          // and a multi-gate workflow can collect several.
+          ...(decision.edits ? { edits: decision.edits } : {}),
         },
       });
 
@@ -242,16 +253,18 @@ export class ApprovalWorkflowService {
 
       // Audit log
       await this.auditService.logEvent({
-        eventType:
-          decision.decision === 'approve'
-            ? AuditEventType.APPROVAL_GRANTED
-            : AuditEventType.APPROVAL_DENIED,
+        eventType: isApprovingDecision(decision.decision)
+          ? AuditEventType.APPROVAL_GRANTED
+          : AuditEventType.APPROVAL_DENIED,
         resourceType: 'approval_workflow',
         resourceId: workflow.id,
         details: {
           approverId: decision.approverId,
           decision: decision.decision,
           feedback: decision.feedback,
+          // The audit trail records THAT it was edited. The diff itself is on
+          // the decision row, not duplicated into the audit log.
+          edited: decision.decision === 'approve_with_edits',
           approvedVia: channel.approvedVia,
           jid: channel.jid,
         },
@@ -285,7 +298,13 @@ export class ApprovalWorkflowService {
 
       const decisions = await this.getApprovalDecisions(workflowId);
 
-      const approvedBy = decisions.filter((d) => d.decision === 'approve').map((d) => d.approverId);
+      // `isApprovingDecision`, not `=== 'approve'`: an edited approval approves.
+      // A bare equality here would leave it in neither list, so it would count
+      // as neither an approval nor a rejection and the workflow would sit
+      // pending forever with its approver believing they had decided it.
+      const approvedBy = decisions
+        .filter((d) => isApprovingDecision(d.decision))
+        .map((d) => d.approverId);
 
       const rejectedBy = decisions.filter((d) => d.decision === 'reject').map((d) => d.approverId);
 
@@ -1001,7 +1020,7 @@ export class ApprovalWorkflowService {
     }
     const currentApprovers = workflow.currentApprovers ?? [];
     if (
-      decision.decision === 'approve' &&
+      isApprovingDecision(decision.decision) &&
       decision.approverId &&
       !currentApprovers.includes(decision.approverId)
     ) {
@@ -1167,7 +1186,35 @@ export class ApprovalWorkflowService {
 
     return decisions.map((decision) => {
       const rawDecision = decision.decision;
-      const decisionValue: 'approve' | 'reject' = rawDecision === 'approve' ? 'approve' : 'reject';
+      /**
+       * Read back the value that was stored, rather than collapsing it.
+       *
+       * This used to be `rawDecision === 'approve' ? 'approve' : 'reject'`,
+       * which was harmless while there were only two values and actively
+       * destructive the moment there were three: an `approve_with_edits` would
+       * have been persisted correctly and then read back as a REJECTION,
+       * blocking the very change its approver had just accepted.
+       *
+       * An unrecognised value still degrades to 'reject' — fail closed, since
+       * the alternative is letting an unreadable decision authorise an
+       * operation — but it is logged rather than absorbed, because silently
+       * treating a value we do not understand as a refusal is how a vocabulary
+       * mismatch hides for a month.
+       */
+      const decisionValue: ApprovalDecisionValue = APPROVAL_DECISIONS.includes(
+        rawDecision as ApprovalDecisionValue
+      )
+        ? (rawDecision as ApprovalDecisionValue)
+        : 'reject';
+
+      if (decisionValue !== rawDecision) {
+        logger.warn('Unrecognised approval decision value read from storage; treating as reject', {
+          workflowId: decision.workflowId,
+          approverId: decision.approverId,
+          rawDecision,
+        });
+      }
+
       return {
         workflowId: decision.workflowId,
         approverId: decision.approverId,

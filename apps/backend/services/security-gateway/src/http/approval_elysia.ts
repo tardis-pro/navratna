@@ -5,7 +5,14 @@ import { withRequiredAuth, withOperatorGuard } from '@uaip/middleware';
 import { SecurityService } from '@uaip/shared-services';
 import { AuditService } from '../services/audit_service.js';
 import { getSharedApprovalWorkflowService } from '../services/approval_event_bridge.js';
-import { ApprovalStatus, SecurityLevel, AuditEventType } from '@uaip/types';
+import {
+  ApprovalStatus,
+  SecurityLevel,
+  AuditEventType,
+  APPROVAL_DECISIONS,
+  ApprovalEditsSchema,
+  isApprovingDecision,
+} from '@uaip/types';
 import type { UserContext } from '@uaip/types';
 import { getAuthUser } from './context_helpers.js';
 
@@ -32,12 +39,35 @@ const createWorkflowSchema = z.object({
   metadata: z.record(z.any()).optional(),
 });
 
-const approvalDecisionSchema = z.object({
-  workflowId: z.string(),
-  decision: z.enum(['approve', 'reject']),
-  conditions: z.array(z.string()).optional(),
-  feedback: z.string().max(1000).optional(),
-});
+const approvalDecisionSchema = z
+  .object({
+    workflowId: z.string(),
+    decision: z.enum(APPROVAL_DECISIONS),
+    conditions: z.array(z.string()).optional(),
+    feedback: z.string().max(1000).optional(),
+    edits: ApprovalEditsSchema.optional(),
+  })
+  .superRefine((value, ctx) => {
+    // Enforced at the edge as well as in the domain schema. A caller that says
+    // it edited the proposal but cannot produce the diff has recorded nothing
+    // useful, and the diff is the part that cannot be recovered afterwards.
+    if (value.decision === 'approve_with_edits' && !value.edits) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['edits'],
+        message:
+          "decision 'approve_with_edits' requires `edits` — record the diff, " +
+          "or use 'approve' if nothing was changed",
+      });
+    }
+    if (value.decision !== 'approve_with_edits' && value.edits) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['edits'],
+        message: "`edits` is only meaningful with decision 'approve_with_edits'",
+      });
+    }
+  });
 
 const queryWorkflowsSchema = z.object({
   status: z.nativeEnum(ApprovalStatus).optional(),
@@ -611,14 +641,15 @@ export function registerApprovalRoutes() {
           decision: parsed.data.decision,
           conditions: parsed.data.conditions,
           feedback: parsed.data.feedback,
+          ...(parsed.data.edits ? { edits: parsed.data.edits } : {}),
           decidedAt: new Date(),
         };
         const status = await approvalWorkflowService.processApprovalDecision(decisionInput);
         await auditService.logEvent({
-          eventType:
-            parsed.data.decision === 'approve'
-              ? AuditEventType.APPROVAL_GRANTED
-              : AuditEventType.APPROVAL_DENIED,
+          // An edited approval is an approval — see isApprovingDecision.
+          eventType: isApprovingDecision(parsed.data.decision)
+            ? AuditEventType.APPROVAL_GRANTED
+            : AuditEventType.APPROVAL_DENIED,
           userId: user.id,
           resourceType: 'approval_workflow',
           resourceId: parsed.data.workflowId,
@@ -655,9 +686,22 @@ export function registerApprovalRoutes() {
       }
     }, {
       body: t.Object({
-        decision: t.Union([t.Literal('approve'), t.Literal('reject')]),
+        decision: t.Union([
+          t.Literal('approve'),
+          t.Literal('approve_with_edits'),
+          t.Literal('reject'),
+        ]),
         conditions: t.Optional(t.Array(t.String())),
         feedback: t.Optional(t.String()),
+        // Shape only. The pairing rule — required with 'approve_with_edits',
+        // refused otherwise — is enforced by approvalDecisionSchema above,
+        // because Elysia's validator cannot express a cross-field dependency.
+        edits: t.Optional(
+          t.Object({
+            diff: t.String(),
+            summary: t.Optional(t.String()),
+          })
+        ),
       }),
       response: {
         200: t.Object({

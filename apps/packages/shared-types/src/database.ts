@@ -293,7 +293,10 @@ export const DbApprovalDecisionSchema = z.object({
   id: IDSchema,
   workflow_id: IDSchema,
   approver_id: IDSchema,
-  decision: z.enum(['approve', 'reject']),
+  // Three values — see APPROVAL_DECISIONS in security.ts. The column is `text`,
+  // not a Postgres enum, so widening it needs no migration; rows written before
+  // this carry only the original two and stay valid.
+  decision: z.enum(['approve', 'approve_with_edits', 'reject']),
   conditions: z.array(z.string()),
   feedback: z.string().nullable(),
   decided_at: z.date(),
