@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest';
 import { federatedToolSecurityLevel } from '../../utils/federated_tool_security.js';
 
 describe('federatedToolSecurityLevel', () => {
-  it.each(['find_anomalies', 'recent_errors', 'http_errors', 'release_history'])(
+  it.each(['find_anomalies', 'recent_errors', 'http_errors', 'release_history', 'code_quality'])(
     'registers the read-only evidence tool %s as low',
     (name) => {
       expect(federatedToolSecurityLevel(name)).toBe('low');

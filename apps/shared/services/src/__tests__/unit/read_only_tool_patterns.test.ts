@@ -35,6 +35,7 @@ describe('readOnlyToolPatterns', () => {
     'mcp-navratna-tardis-agent-http_errors',
     'mcp-navratna-tardis-agent-release_history',
     'mcp-navratna-find_anomalies',
+    'mcp-navratna-tardis-agent-code_quality',
   ])('matches the hyphen-delimited MCP id %s — the shape that is actually resolved', (name) => {
     expect(matchedByAny(name)).toBe(true);
   });
@@ -55,6 +56,6 @@ describe('readOnlyToolPatterns', () => {
   });
 
   it('covers both shapes for every name, so neither path can be half-fixed', () => {
-    expect(readOnlyToolPatterns()).toHaveLength(8);
+    expect(readOnlyToolPatterns()).toHaveLength(10);
   });
 });

@@ -1366,8 +1366,13 @@ export interface SecurityMetrics {
  * syncTools registers a tool — the durable half, since a re-sync would otherwise
  * restore the old level — and LowerReadOnlyFederationTools applies it to the rows
  * already stored, which syncTools cannot reach while every federated subdomain
- * fails to crawl. Two copies of these four strings would drift, and drift here
+ * fails to crawl. Two copies of these strings would drift, and drift here
  * quietly reopens the gap it was written to close.
+ *
+ * code_quality joined the list once tardis T2 landed and registered it: it is a
+ * static-analysis READ — ratings and issue counts — so it meets the same test as
+ * the other four. Without it the digest sees runtime symptoms and never the code
+ * that causes them.
  *
  * Write-capable tools on the same servers (create_task, restart, rollback,
  * write_dev_file) are deliberately absent: platform-initiated work resolves to
@@ -1379,4 +1384,5 @@ export const READ_ONLY_FEDERATION_TOOL_NAMES: readonly string[] = [
   'recent_errors',
   'http_errors',
   'release_history',
+  'code_quality',
 ];
