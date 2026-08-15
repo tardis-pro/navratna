@@ -119,12 +119,26 @@ jobs:
 
       - name: deploy stack via project agent
         run: |
+          # RETRY TRANSIENT FAILURES, BUT NEVER A SUPERSEDED ONE.
+          #
+          # The agent may be mid-rollout, so a retry is worth having. What a
+          # retry can never fix is losing the push race: if a newer commit has
+          # landed on this branch, the agent refuses this sha and will keep
+          # refusing it, because the head has moved permanently. Sitting in the
+          # loop then burns 50 seconds to arrive at a red build that means
+          # nothing — and a red build that means nothing is worse than none,
+          # because everything downstream reads CI as a signal.
           for attempt in 1 2 3 4 5; do
-            if curl -sS --fail-with-body -X POST "${{ secrets.TARDIS_AGENT_URL }}/api/stack/deploy" \
+            if OUT=$(curl -sS --fail-with-body -X POST "${{ secrets.TARDIS_AGENT_URL }}/api/stack/deploy" \
                  -H "Authorization: Bearer ${{ secrets.TARDIS_CAPABILITY }}" \
                  -H 'Content-Type: application/json' \
-                 --data-binary @/tmp/intent.json -k; then
-              echo; echo "deployed on attempt $attempt"; exit 0
+                 --data-binary @/tmp/intent.json -k); then
+              echo "$OUT"; echo "deployed on attempt $attempt"; exit 0
+            fi
+            echo "$OUT"
+            if printf '%s' "$OUT" | grep -q '"superseded"[[:space:]]*:[[:space:]]*true'; then
+              echo "a newer commit already owns this branch — nothing left to deploy, skipping"
+              exit 0
             fi
             echo "attempt $attempt failed; retrying in 10s"; sleep 10
           done
@@ -136,11 +150,11 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           SLUG=$(python3 -c "import json; print(json.load(open('.tardis/project.json'))['slug'])")
-          # --volumes-from because the checkout lives on a Docker VOLUME at
-          # /workspace that the daemon cannot bind by host path ($PWD does not
-          # exist in the daemon's view), and the CA import because the scanner
-          # image's JVM does not trust the homelab CA. Both fail silently —
-          # this step is non-blocking by design.
+          # See workflow.yml for why both flags are needed: --volumes-from because
+          # the checkout lives on a Docker volume at /workspace that the daemon
+          # cannot bind by path, and the CA import because the scanner image does
+          # not trust the homelab CA. Both fail silently — this step is
+          # non-blocking by design.
           docker run --rm \
             --volumes-from "$(cat /etc/hostname)" \
             -e SONAR_HOST_URL="${{ secrets.SONAR_HOST_URL }}" \
