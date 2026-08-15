@@ -235,6 +235,20 @@ export class McpConnectionResolver {
    * project's hostname pointed at it. Any project could have called any
    * registered server. A NULL owner still means "shared", which is how public
    * servers stay reachable from everywhere.
+   *
+   * `forbidden` here is NOT interchangeable with the `server_misconfigured` that
+   * resolve() raises a few lines later for a credential-requiring server with no
+   * provider. This check runs FIRST on purpose: it is a decision about the
+   * CALLER, and answering it before any configuration is inspected keeps a
+   * caller from another project from using the error code to probe how a server
+   * it may not touch is set up. `server_misconfigured` is an operator fault
+   * about the SERVER, and only a caller already entitled to see it ever does.
+   *
+   * Note the strict `=== null`. A nullish-but-not-null owner means the
+   * `project_id` column was never read — a caller of loadServer() that dropped
+   * it from the select, or a test fixture that never mentioned it — and denying
+   * is the only safe reading of "we do not know who owns this". It fails loud
+   * rather than open: every server is refused, which is the intended noise.
    */
   private assertProjectOwnership(
     serverKey: string,

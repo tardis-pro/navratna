@@ -61,6 +61,7 @@ const PROJECT_ID = '33333333-3333-4333-8333-333333333333';
 const AGENT_ID = '44444444-4444-4444-8444-444444444444';
 const ACTOR_ID = '55555555-5555-4555-8555-555555555555';
 const CATALOG_CONNECTION_ID = '66666666-6666-4666-8666-666666666666';
+const OTHER_PROJECT_ID = '77777777-7777-4777-8777-777777777777';
 
 const request = (overrides: Record<string, string> = {}) => ({
   serverKey: 'github',
@@ -70,6 +71,24 @@ const request = (overrides: Record<string, string> = {}) => ({
   ...overrides,
 });
 
+/**
+ * Mirrors EVERY column loadServer() selects, including the nullable ones.
+ *
+ * This fixture went stale when `project_id` and `headers` were added to the
+ * select, and the omission was not a quiet one: a real Postgres row always
+ * carries a nullable column as `null`, but an object literal that never mentions
+ * it yields `undefined`. assertProjectOwnership treats only `null` as "shared
+ * across projects" — deliberately, since anything nullish-but-not-null means the
+ * ownership column was never read and denying is the safe direction — so every
+ * server in this file looked owned by some other project and resolve() threw
+ * `forbidden` before reaching the check the test was actually about. That is why
+ * "refuses a credential-requiring server with no provider" reported
+ * `forbidden` instead of `server_misconfigured`: the product code was right, the
+ * row was not a row.
+ *
+ * Keep this in sync with loadServer()'s select list. A fixture that omits a
+ * selected column does not test less, it tests something else.
+ */
 const serverRow = (overrides: Record<string, unknown> = {}) => ({
   url: 'https://api.githubcopilot.com/mcp/',
   providerId: PROVIDER_ID,
@@ -79,6 +98,8 @@ const serverRow = (overrides: Record<string, unknown> = {}) => ({
   catalogConnectionId: null,
   enabled: true,
   transportType: 'streamable-http',
+  headers: null,
+  projectId: null,
   ...overrides,
 });
 
@@ -145,6 +166,69 @@ describe('server lookup', () => {
   it('refuses a credential-requiring server with no provider', async () => {
     setRows({ server: [serverRow({ providerId: null })] });
     await expectCode(resolver().resolve(request()), 'server_misconfigured');
+  });
+});
+
+/**
+ * The ownership boundary had NO deliberate coverage — the stale fixture made
+ * every test in this file trip it by accident, which reads like coverage and is
+ * the opposite of it. These four assert it on purpose.
+ */
+describe('project ownership', () => {
+  it('resolves a server owned by the calling project', async () => {
+    setRows({
+      server: [serverRow({ projectId: PROJECT_ID })],
+      binding: [{ connectionId: CONNECTION_ID, enabled: true }],
+      connection: [connectionRow()],
+    });
+
+    await expect(resolver().resolve(request())).resolves.toMatchObject({
+      connectionId: CONNECTION_ID,
+    });
+  });
+
+  it('refuses a server owned by a different project', async () => {
+    setRows({
+      server: [serverRow({ projectId: OTHER_PROJECT_ID })],
+      binding: [{ connectionId: CONNECTION_ID, enabled: true }],
+      connection: [connectionRow()],
+    });
+
+    await expectCode(resolver().resolve(request()), 'forbidden');
+  });
+
+  it('reads no credential for a server owned by a different project', async () => {
+    setRows({
+      server: [serverRow({ projectId: OTHER_PROJECT_ID })],
+      binding: [{ connectionId: CONNECTION_ID, enabled: true }],
+      connection: [connectionRow()],
+    });
+
+    await resolver().resolve(request()).catch(() => undefined);
+
+    expect(mocks.decrypt).not.toHaveBeenCalled();
+  });
+
+  it('keeps a NULL-owner server reachable from any project', async () => {
+    setRows({
+      server: [serverRow({ projectId: null, credentialMode: 'none', providerId: null })],
+    });
+
+    await expect(
+      resolver().resolve(request({ projectId: OTHER_PROJECT_ID }))
+    ).resolves.toMatchObject({ credentialMode: 'none' });
+  });
+
+  it('answers forbidden, not server_misconfigured, for an outsider calling a broken server', async () => {
+    // Ordering is the point: authorization is decided before configuration is
+    // inspected, so a caller from another project cannot use the error code to
+    // learn how a server it may not touch is set up. `forbidden` and
+    // `server_misconfigured` are therefore not interchangeable — one is a
+    // security outcome about the CALLER, the other an operator fault about the
+    // SERVER, and only a caller who passed the first check ever sees the second.
+    setRows({ server: [serverRow({ projectId: OTHER_PROJECT_ID, providerId: null })] });
+
+    await expectCode(resolver().resolve(request()), 'forbidden');
   });
 });
 

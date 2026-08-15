@@ -150,11 +150,40 @@ async function claimDecisionSlot(workflowId: string, approverId: string): Promis
  * the ones `getUserWorkflows(user.id)` returns for them. That decision lives
  * here, once, so neither path can quietly become the unscoped one.
  */
+/**
+ * The three shapes this listing answers with, stated explicitly.
+ *
+ * Not decoration — without it the BUILD fails while `tsc --noEmit` stays clean.
+ * With the body inline, Elysia inferred a type per `return` and matched each
+ * against the route's response map. Extracted into a shared function,
+ * TypeScript collapses the branches into one object with every property
+ * optional (`success?: undefined; data?: undefined; …`), which matches none of
+ * the declared shapes — so Elysia falls back to demanding a `Response` and the
+ * compile dies in a wall of assignability noise that never names the cause.
+ *
+ * The reason it reached CI: this package's `tsconfig.json` reports 0 errors and
+ * `tsconfig.build.json` — what the image build compiles with — reports 2. A
+ * clean `tsc --noEmit` here is not the same as a clean build.
+ */
+type WorkflowListResponse =
+  | { error: string; details?: unknown; message?: undefined; success?: undefined; data?: undefined }
+  | { error: string; message: string; details?: undefined; success?: undefined; data?: undefined }
+  | {
+      success: true;
+      message: string;
+      data: {
+        workflows: ApprovalWorkflowEntry[];
+        pagination: { total: number; limit: number; offset: number; hasMore: boolean };
+      };
+      error?: undefined;
+      details?: undefined;
+    };
+
 async function listApprovalWorkflows(
   user: UserContext,
   query: unknown,
   set: { status?: number | string }
-) {
+): Promise<WorkflowListResponse> {
   const parsed = queryWorkflowsSchema.safeParse(query);
   if (!parsed.success) {
     set.status = 400;
