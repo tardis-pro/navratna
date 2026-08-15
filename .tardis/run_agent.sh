@@ -21,11 +21,21 @@
 #     and "the change reached a branch" as two separately auditable facts.
 #   * swappable, which is why nothing above this file names jcode.
 #
-# ON THE DEFAULT COMMAND: jcode is not installed on this box yet, so the default
-# invocation below is UNVERIFIED against its actual CLI. Do not read it as the
-# documented flags. Override it with TARDIS_AGENT_CMD, which is the supported
-# way to point this at whatever the agent really wants — the placeholders
-# {prompt} and {workdir} are substituted, and nothing else is.
+# ON THE DEFAULT COMMAND: jcode takes its prompt as a STRING ARGUMENT —
+# `jcode run "…"` — and has no --prompt-file flag. An earlier version of this
+# file guessed `jcode run --prompt-file {prompt}` and said so honestly; the guess
+# was wrong, which is why it is now handled explicitly below rather than through
+# the template.
+#
+# That distinction is the whole reason jcode is special-cased. The {prompt}
+# placeholder substitutes a PATH, and a path is what most agents want. jcode
+# wants the CONTENT, and content cannot go through the template safely: the
+# command line is word-split before exec, so a multi-line prompt would arrive as
+# hundreds of separate arguments. Reading the file and passing it as one quoted
+# argument is the only correct way to hand it over.
+#
+# TARDIS_AGENT_CMD remains the supported override for anything else, with
+# {prompt} (path) and {workdir} substituted and nothing else.
 #
 # Run it EPHEMERALLY. `jcode run` per task, not `jcode serve`: the persistent
 # server holds embeddings, a file-watch graph and session state, which earns its
@@ -49,7 +59,7 @@ WORKDIR="${2:-$PWD}"
 # brace glued to its last argument, which is exactly the kind of failure that
 # looks like the agent mangling a path.
 AGENT_CMD="${TARDIS_AGENT_CMD:-}"
-[ -n "$AGENT_CMD" ] || AGENT_CMD='jcode run --prompt-file {prompt}'
+[ -n "$AGENT_CMD" ] || AGENT_CMD='jcode run {prompt}'
 BIN="${AGENT_CMD%% *}"
 
 # FAIL, DO NOT SKIP.
@@ -72,11 +82,18 @@ EOF
   exit 127
 fi
 
-CMD="${AGENT_CMD//\{prompt\}/$PROMPT}"
-CMD="${CMD//\{workdir\}/$WORKDIR}"
-
 echo "run_agent.sh: $BIN, working in $WORKDIR"
 cd "$WORKDIR"
+
+# jcode reads its prompt as one argument. Quoted deliberately: the prompt holds
+# newlines, code snippets and log excerpts, and any of those unquoted would be
+# split into separate arguments or, worse, interpreted.
+if [ "$BIN" = jcode ] && [ "$AGENT_CMD" = 'jcode run {prompt}' ]; then
+  exec jcode run "$(cat "$PROMPT")"
+fi
+
+CMD="${AGENT_CMD//\{prompt\}/$PROMPT}"
+CMD="${CMD//\{workdir\}/$WORKDIR}"
 # Deliberately word-split: AGENT_CMD is a command line, supplied by the operator
 # through CI configuration, not by anything the model produced.
 # shellcheck disable=SC2086
