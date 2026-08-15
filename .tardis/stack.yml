@@ -297,6 +297,16 @@ services:
       # Generate with `openssl rand -hex 32`. Rotating it invalidates nothing
       # stored; it only means every caller must be given the new secret.
       WORKFLOW_WEBHOOK_SECRET: "1a7ce3884913a23ae467be87efd1d8416f8c920cbd4839f55f7feb7d32273e8b"
+      # Authorises POST /api/v1/projects/provision, the service-credential path
+      # `tardis init` uses to mint a Navratna project. The route is only MOUNTED
+      # when this is set, and the handler compares the presented
+      # x-navratna-service-token against it in constant time, so an unset value
+      # means no route rather than an open one.
+      #
+      # This endpoint creates the row that owns MCP servers (mcp_servers.project_id),
+      # so it mints identity — treat the token as a credential, not a config knob.
+      # Generate with `openssl rand -hex 32`.
+      PROJECT_PROVISION_TOKEN: "00a9bc1b69d1ea35d602fa98f78896d5338b3c99656044a1d6e07dee94964f65"
       EMBEDDINGS_URL: "https://ai.tardis.digital/v1/embeddings"
       EMBEDDINGS_MODEL: "jina/jina-embeddings-v5-text-small"
       EMBEDDINGS_API_KEY: "sk-3909fbf385e370bc-c3b924-cfbfde2c"

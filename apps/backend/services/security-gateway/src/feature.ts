@@ -17,6 +17,7 @@ import { registerPersonaRoutes } from './http/persona_elysia.js'
 import { registerKnowledgeRoutes } from './http/knowledge_elysia.js'
 import { registerContactRoutes } from './http/contacts_elysia.js'
 import { registerProjectRoutes } from './http/projects_elysia.js'
+import { registerProjectProvisionRoutes } from './http/project_provision_elysia.js'
 import { registerToolPreferenceRoutes } from './http/tool_preferences_elysia.js'
 import { registerDashboardRoutes } from './http/dashboard_elysia.js'
 import { registerOIDCRoutes } from './http/oidc_elysia.js'
@@ -124,6 +125,17 @@ export const securityFeature: Feature = {
     app.use(registerKnowledgeRoutes())
     app.use(registerContactRoutes())
     app.use(registerProjectRoutes())
+    // Service-credential project provisioning for `tardis init`. Mounted only
+    // when the token exists, so an unconfigured deploy has NO route rather than
+    // one that refuses every call — the same shape as the webhook receivers.
+    // The handler verifies the token itself; the edge is not trusted for it.
+    if (process.env.PROJECT_PROVISION_TOKEN) {
+      app.use(registerProjectProvisionRoutes())
+    } else {
+      logger.warn(
+        'PROJECT_PROVISION_TOKEN not set — POST /api/v1/projects/provision is not mounted, so tardis init cannot mint a project'
+      )
+    }
     app.use(registerToolPreferenceRoutes())
     app.use(registerDashboardRoutes())
     app.use(registerOIDCRoutes())
