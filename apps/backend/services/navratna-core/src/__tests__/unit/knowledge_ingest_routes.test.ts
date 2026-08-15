@@ -58,6 +58,7 @@ vi.mock('../../services/repo_ingestion_service.js', () => ({
 
 import { registerKnowledgeIngestRoutes } from '../../routes/knowledge_ingest_routes.js';
 import { RepoIngestionService } from '../../services/repo_ingestion_service.js';
+import { logger } from '@uaip/utils';
 
 function buildApp() {
   return new Elysia().use(registerKnowledgeIngestRoutes());
@@ -126,6 +127,87 @@ describe('Knowledge Ingest Routes', () => {
       const body = await res.json();
       expect(body.success).toBe(true);
       expect(body.data).toMatchObject({ id: 'repo-ctx-1', repoMode: 'brownfield' });
+    });
+
+    /**
+     * The clone credential.
+     *
+     * A per-project Gitea bot token travels in the request body, because the
+     * alternative — putting it in the source URL — would have the first failed
+     * clone write it into the logs. That only holds if the token itself never
+     * reaches a log or a response, so these assert the containment rather than
+     * the wiring: the forwarding test would pass with a leak, the two after it
+     * would not.
+     */
+    describe('cloneToken', () => {
+      const TOKEN = 'gto_supersecret_clone_token_value';
+
+      it('forwards the token to the ingest service', async () => {
+        mockIngest.mockResolvedValue({ id: 'repo-ctx-1', source: 'https://git/x.git' });
+
+        await buildApp().handle(
+          new Request('http://localhost/api/v1/knowledge/ingest', {
+            method: 'POST',
+            headers: { ...authHeader(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source: 'https://git/x.git', cloneToken: TOKEN }),
+          })
+        );
+
+        expect(mockIngest).toHaveBeenCalledWith(
+          'https://git/x.git',
+          expect.objectContaining({ cloneToken: TOKEN })
+        );
+      });
+
+      it('omits the option entirely when no token is supplied', async () => {
+        mockIngest.mockResolvedValue({ id: 'repo-ctx-1', source: 'https://git/x.git' });
+
+        await buildApp().handle(
+          new Request('http://localhost/api/v1/knowledge/ingest', {
+            method: 'POST',
+            headers: { ...authHeader(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source: 'https://git/x.git' }),
+          })
+        );
+
+        expect(mockIngest.mock.calls[0][1]).not.toHaveProperty('cloneToken');
+      });
+
+      it('never writes the token to a log, even when the clone fails', async () => {
+        // A failed clone is the normal case while this is being set up, so the
+        // error path is precisely where a credential must not appear.
+        mockIngest.mockRejectedValue(new Error('Command failed: git clone --depth 1 ...'));
+
+        await buildApp().handle(
+          new Request('http://localhost/api/v1/knowledge/ingest', {
+            method: 'POST',
+            headers: { ...authHeader(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source: 'https://git/x.git', cloneToken: TOKEN }),
+          })
+        );
+
+        const everythingLogged = JSON.stringify([
+          vi.mocked(logger.error).mock.calls,
+          vi.mocked(logger.warn).mock.calls,
+          vi.mocked(logger.info).mock.calls,
+          vi.mocked(logger.debug).mock.calls,
+        ]);
+        expect(everythingLogged).not.toContain(TOKEN);
+      });
+
+      it('never returns the token in the response body', async () => {
+        mockIngest.mockRejectedValue(new Error('Command failed: git clone --depth 1 ...'));
+
+        const res = await buildApp().handle(
+          new Request('http://localhost/api/v1/knowledge/ingest', {
+            method: 'POST',
+            headers: { ...authHeader(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source: 'https://git/x.git', cloneToken: TOKEN }),
+          })
+        );
+
+        expect(JSON.stringify(await res.json())).not.toContain(TOKEN);
+      });
     });
 
     it('returns 400 for client input errors (invalid path)', async () => {

@@ -1,4 +1,5 @@
-import { execSync } from 'node:child_process'
+import { execFile, execSync } from 'node:child_process'
+import { promisify } from 'node:util'
 import { createHash, randomUUID } from 'node:crypto'
 import {
   existsSync,
@@ -71,6 +72,91 @@ function isGitUrl(source: string): boolean {
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`
+}
+
+/**
+ * The environment a git command runs in, carrying the clone credential if there
+ * is one.
+ *
+ * WHERE THE TOKEN IS NOT. Not in the URL: `source` is logged on the error path,
+ * and a failed clone is exactly what happens while this is being set up, so a
+ * credential in the URL would be written to the logs by the first thing that
+ * goes wrong. Not in argv either — `git -c http.extraHeader=...` would put it
+ * on the command line, where any process on the box can read it out of `ps`
+ * for the lifetime of the clone.
+ *
+ * `GIT_CONFIG_COUNT`/`KEY`/`VALUE` set the same config git would have taken
+ * from `-c`, through the environment instead. That is readable via
+ * /proc/<pid>/environ, but only by the same user or root, rather than by
+ * anything that can run `ps`.
+ *
+ * `GIT_TERMINAL_PROMPT=0` is set whether or not there is a token: without it a
+ * private repository with no credential does not fail, it BLOCKS waiting for a
+ * username on a terminal that will never answer.
+ */
+const execFileAsync = promisify(execFile)
+
+/** A clone of a large monorepo is minutes, not seconds. A hung one is forever. */
+const GIT_NETWORK_TIMEOUT_MS = Number(process.env.REPO_GIT_TIMEOUT_MS ?? 10 * 60 * 1000)
+
+/**
+ * Run a git command that talks to a remote, WITHOUT blocking the event loop.
+ *
+ * These used to be `execSync`. That blocks the whole process for the duration
+ * of the call, so while one ingest cloned, navratna-core served nothing at all
+ * — not other requests, not the triage workflow's MCP calls, not its own health
+ * checks. On a small repo that is a blip; on the navratna monorepo it is
+ * minutes of a service that looks dead to everything watching it.
+ *
+ * Two other properties come free from `execFile` with an argument array:
+ * no shell is spawned, so nothing in a path or URL can be interpreted as a
+ * shell metacharacter and `shellQuote` is not needed here; and a timeout is
+ * enforceable, so a clone that hangs on an unreachable remote fails instead of
+ * holding a request open forever.
+ */
+async function runGit(args: string[], env: NodeJS.ProcessEnv): Promise<void> {
+  await execFileAsync('git', args, {
+    env,
+    timeout: GIT_NETWORK_TIMEOUT_MS,
+    // git writes progress to stderr; the default 1MB is enough to truncate a
+    // long clone and turn a working command into an error.
+    maxBuffer: 10 * 1024 * 1024,
+  })
+}
+
+function gitEnv(cloneToken?: string): NodeJS.ProcessEnv {
+  const base: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: '0' }
+
+  /**
+   * Trust the homelab CA, when one is configured.
+   *
+   * Every git remote on this platform is `https://git.tardis.local`, signed by
+   * a private CA. The container's default bundle does not contain it, so a
+   * clone fails at TLS before it ever reaches authentication:
+   *
+   *   fatal: unable to access '...': server verification failed:
+   *   certificate signer not trusted. (CAfile: /etc/ssl/certs/ca-certificates.crt)
+   *
+   * `GIT_SSL_CAINFO` points git at the mounted CA instead. It is read from the
+   * environment rather than hardcoded because the path is a deployment
+   * decision, and unset simply means the system bundle — which is correct for
+   * a public remote.
+   *
+   * NOT `GIT_SSL_NO_VERIFY`. That would also make this error go away, by
+   * turning off certificate verification for every clone including public
+   * ones — trading a configuration gap for a permanent hole. If the CA is not
+   * mounted, the honest outcome is that the clone fails.
+   */
+  const caPath = process.env.GIT_SSL_CAINFO || process.env.TARDIS_CA_PATH
+  if (caPath) base.GIT_SSL_CAINFO = caPath
+
+  if (!cloneToken) return base
+  return {
+    ...base,
+    GIT_CONFIG_COUNT: '1',
+    GIT_CONFIG_KEY_0: 'http.extraHeader',
+    GIT_CONFIG_VALUE_0: `Authorization: token ${cloneToken}`,
+  }
 }
 
 function readFileSafe(filePath: string): string | null {
@@ -531,16 +617,24 @@ function withCacheLock<T>(key: string, run: () => Promise<T>): Promise<T> {
  * fresh rather than being reported as an error — a stale tree analysed as if it
  * were current is the worse failure.
  */
-function syncRepoCache(source: string, cacheKey: string): string {
+async function syncRepoCache(
+  source: string,
+  cacheKey: string,
+  cloneToken?: string
+): Promise<string> {
   const cachePath = join(REPO_CACHE_ROOT, cacheKey)
+  // The refresh path talks to the remote too, so it needs the credential for
+  // the same reason the clone does. Omitting it here would work on the first
+  // ingest and fail on every one after it, once the cache existed.
+  const env = gitEnv(cloneToken)
 
   if (existsSync(join(cachePath, '.git'))) {
     try {
-      execSync(`git -C ${shellQuote(cachePath)} fetch --depth 1 origin`, { stdio: 'pipe' })
-      execSync(`git -C ${shellQuote(cachePath)} reset --hard FETCH_HEAD`, { stdio: 'pipe' })
+      await runGit(['-C', cachePath, 'fetch', '--depth', '1', 'origin'], env)
+      await runGit(['-C', cachePath, 'reset', '--hard', 'FETCH_HEAD'], env)
       // Build artefacts and other untracked leftovers from a previous checkout
       // would otherwise be walked as if they were part of the repository.
-      execSync(`git -C ${shellQuote(cachePath)} clean -fdx`, { stdio: 'pipe' })
+      await runGit(['-C', cachePath, 'clean', '-fdx'], env)
 
       logger.info('Refreshed cached repository clone', { source, cachePath })
       return cachePath
@@ -558,7 +652,7 @@ function syncRepoCache(source: string, cacheKey: string): string {
   // Removed unconditionally: a directory that exists WITHOUT a .git is the
   // wreckage of an interrupted clone, and git refuses to clone into it.
   rmSync(cachePath, { recursive: true, force: true })
-  execSync(`git clone --depth 1 ${shellQuote(source)} ${shellQuote(cachePath)}`, { stdio: 'pipe' })
+  await runGit(['clone', '--depth', '1', source, cachePath], env)
 
   logger.info('Cloned repository into the cache', { source, cachePath })
   return cachePath
@@ -571,6 +665,21 @@ export interface IngestOptions {
    * checkout is cached under the project so re-ingesting refreshes in place.
    */
   projectId?: string
+
+  /**
+   * A token that authorises cloning THIS repository, and nothing else.
+   *
+   * Per-project by design: the provisioner already mints a Gitea bot token
+   * scoped to each project and stows it in that project's secret, so ingesting
+   * seven repositories uses seven credentials that each open one. The rejected
+   * alternative was a single workspace-wide token held by this service, which
+   * is the shape that made every project's SonarQube findings readable by
+   * everyone — isolation resting on the code remembering to ask narrowly,
+   * rather than on the credential being unable to answer broadly.
+   *
+   * Never logged, never placed in the URL, never passed in argv. See `gitEnv`.
+   */
+  cloneToken?: string
 }
 
 /** The tag that binds a knowledge item to a project. */
@@ -606,7 +715,11 @@ export class RepoIngestionService {
         // Kept on disk between ingests, unlike the previous throwaway clone: a
         // project's codebase is read on every turn that retrieves from it, and
         // re-cloning per read made that unaffordable.
-        repoPath = syncRepoCache(trimmedSource, repoCacheKey(trimmedSource, options.projectId))
+        repoPath = await syncRepoCache(
+          trimmedSource,
+          repoCacheKey(trimmedSource, options.projectId),
+          options.cloneToken
+        )
       } else {
         repoPath = resolve(trimmedSource)
         if (!existsSync(repoPath)) {

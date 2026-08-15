@@ -18,6 +18,26 @@ function parseSourceFromBody(body: unknown): string | null {
   return source.length > 0 ? source : null
 }
 
+/**
+ * The per-project token that authorises cloning this repository.
+ *
+ * Read like the parsers around it and then never named again: it is passed
+ * straight into the ingest options and appears in no log line, no error
+ * message and no response body. The only reason it travels in the request body
+ * at all is that the alternative — putting it in the source URL — would have
+ * it written to the logs by the first failed clone.
+ */
+function parseCloneTokenFromBody(body: unknown): string | null {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    return null
+  }
+  if (!('cloneToken' in body) || typeof body.cloneToken !== 'string') {
+    return null
+  }
+  const cloneToken = body.cloneToken.trim()
+  return cloneToken.length > 0 ? cloneToken : null
+}
+
 function parseProjectIdFromBody(body: unknown): string | null {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     return null
@@ -122,6 +142,7 @@ export function registerKnowledgeIngestRoutes() {
     }
   
     const projectId = parseProjectIdFromBody(ctx.body)
+    const cloneToken = parseCloneTokenFromBody(ctx.body)
 
     /**
      * Verified BEFORE the clone, not after: an unchecked id would tag another
@@ -147,6 +168,8 @@ export function registerKnowledgeIngestRoutes() {
     try {
       const repoContext = await repoIngestionService.ingest(source, {
         ...(projectId ? { projectId } : {}),
+        // Read once, handed straight down, never named again in this handler.
+        ...(cloneToken ? { cloneToken } : {}),
       })
       return {
         success: true,
