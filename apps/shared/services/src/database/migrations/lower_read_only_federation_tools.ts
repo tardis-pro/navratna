@@ -42,12 +42,31 @@ const logger = createLogger({
 });
 
 
+/**
+ * The same tool is registered under TWO id shapes by two different paths, and
+ * matching only one of them is a silent no-op:
+ *
+ *   federation:<subdomainId>:<toolName>   syncTools, colon-delimited
+ *   mcp-<serverName>-<toolName>           the MCP registration path, hyphens
+ *
+ * The first round of this migration matched `%:<name>` only. It updated 20 rows,
+ * logged a confident success, and changed nothing that mattered — the row the
+ * nightly triage actually resolves is `mcp-navratna-tardis-agent-find_anomalies`,
+ * which has no colon in it and stayed at 'medium'.
+ *
+ * The hyphen pattern is anchored on the `mcp-` prefix rather than a bare
+ * `%-<name>`, which would also swallow `federation:x:custom-find_anomalies`.
+ */
+export function readOnlyToolPatterns(): string[] {
+  return READ_ONLY_FEDERATION_TOOL_NAMES.flatMap((n) => [`%:${n}`, `mcp-%-${n}`]);
+}
+
 export class LowerReadOnlyFederationTools {
   async run(): Promise<{ updated: number }> {
     const client = await getControlPool().connect();
 
     try {
-      const patterns = READ_ONLY_FEDERATION_TOOL_NAMES.map((n) => `%:${n}`);
+      const patterns = readOnlyToolPatterns();
       const result = await client.query(
         `UPDATE tool_definitions
             SET security_level = 'low'
