@@ -4,5 +4,8 @@
   "slug": "navratna",
   "api": "https://navratna-dev.tardis.local",
   "repository": "https://git.tardis.local/bot-navratna/navratna",
-  "remote": "tardis"
+  "remote": "tardis",
+  "navratna": {
+    "projectId": "87da881f-63eb-4e30-9cb9-79583fc65789"
+  }
 }

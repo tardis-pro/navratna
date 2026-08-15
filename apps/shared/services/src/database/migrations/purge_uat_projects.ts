@@ -90,12 +90,20 @@ export class PurgeUatProjects {
     }));
 
     const candidates = all.filter((row) => !(row.slug && keep.has(row.slug)));
+
+    // What counts as "has real dependents" is a judgement, so it is spelled out.
+    //
+    // TASKS, MCP SERVERS and INTEGRATION CONNECTIONS block the delete: each
+    // represents work or configuration that exists independently of the project
+    // row, and cascading it away silently is how a cleanup turns into data loss.
+    //
+    // PROJECT_MEMBERS does NOT block it. A membership is the join between a
+    // project and a user — it has no meaning once the project is gone, the user
+    // row is untouched, and ON DELETE CASCADE on it is the intended behaviour
+    // rather than collateral. Blocking on it would have left every one of these
+    // UAT rows in place purely because someone was recorded as its creator.
     const skipped = candidates.filter(
-      (row) =>
-        row.taskCount > 0 ||
-        row.memberCount > 0 ||
-        row.integrationCount > 0 ||
-        row.mcpServerCount > 0
+      (row) => row.taskCount > 0 || row.integrationCount > 0 || row.mcpServerCount > 0
     );
     const deletable = candidates.filter((row) => !skipped.includes(row));
 
