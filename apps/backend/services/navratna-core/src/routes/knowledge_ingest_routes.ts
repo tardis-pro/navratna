@@ -34,6 +34,18 @@ function parseProjectIdFromBody(body: unknown): string | null {
 const SERVICE_TOKEN_HEADER = 'x-navratna-service-token'
 
 /**
+ * Strip any `user:password@` from a URL before it reaches a log.
+ *
+ * Deliberately string-based rather than URL-parsed: a malformed URL is exactly
+ * the case that reaches the error path, and `new URL()` throwing there would
+ * either lose the log line or fall back to printing the raw value — which is
+ * the thing being prevented.
+ */
+function redactUrlCredentials(value: string): string {
+  return value.replace(/\/\/[^/@\s]*@/g, '//<redacted>@')
+}
+
+/**
  * A caller that is a machine rather than a person.
  *
  * Ingest had exactly one door and it needed a human session behind it, which
@@ -142,7 +154,19 @@ export function registerKnowledgeIngestRoutes() {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to ingest repository source'
-      logger.error('Knowledge ingest route failed', { source, error: message })
+      // REDACTED BEFORE LOGGING, and this is not hypothetical caution.
+      //
+      // `source` is a clone URL, and the obvious way to make a private repo
+      // clonable is https://user:token@host/... — which would work immediately
+      // and put the credential in this log line on the FIRST failure. Failed
+      // clones are exactly what you get while ingest is being set up, so the
+      // credential would reach the logs before the feature ever reached working.
+      //
+      // Stripping userinfo here means that trap cannot be sprung by a later
+      // change somewhere else. The clone credential itself must NOT travel in
+      // the URL at all — it goes as an http.extraHeader — but a log line is the
+      // wrong place to rely on that being remembered.
+      logger.error('Knowledge ingest route failed', { source: redactUrlCredentials(source), error: message })
       ctx.set.status = isClientInputError(message) ? 400 : 500
       return {
         success: false,

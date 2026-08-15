@@ -101,7 +101,14 @@ RUN CORE_DIST=apps/backend/services/navratna-core/dist && \
 # ---------------------------------------------------------------------------
 FROM oven/bun:1 AS runtime
 
-RUN apt-get update && apt-get install -y libatomic1 && rm -rf /var/lib/apt/lists/*
+# `git` is a RUNTIME dependency of this image, not a build one: the knowledge
+# ingest at POST /api/v1/knowledge/ingest shells out to
+# `git clone --depth 1 <repo>` to fetch a repository before parsing it. Without
+# it the route authenticates, verifies the project, reaches the clone and then
+# fails with `/bin/sh: 1: git: not found` — a 500 that looks like a broken
+# ingest rather than a missing binary. The builder stage above has git via the
+# base image's toolchain; this minimal runtime stage did not.
+RUN apt-get update && apt-get install -y libatomic1 git && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --gid 1001 nodejs && \
     useradd --uid 1001 --gid nodejs --no-create-home uaip
