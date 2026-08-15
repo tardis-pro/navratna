@@ -1,4 +1,5 @@
 import { Elysia, t } from 'elysia';
+import { withRequiredAuth } from '@uaip/middleware';
 import { TaskController } from '../controllers/task_controller.js';
 
 const TaskQuerySchema = t.Object({
@@ -11,8 +12,27 @@ const TaskQuerySchema = t.Object({
   dueDateAfter: t.Optional(t.String()),
 })
 
+/**
+ * AUTHENTICATION IS MOUNTED HERE, ON THE WHOLE ROUTER.
+ *
+ * This file attached no middleware at all, which had two consequences that look
+ * opposite and share one cause: nothing populated `user`. Reads were therefore
+ * open to anyone who could reach the port, and mutations — which call
+ * `requireAuth(user?.id)` in the controller — refused EVERYONE, including
+ * legitimate signed-in callers, because the id they check was never attached.
+ *
+ * The board is where the nightly triage writes its evidence: finding titles,
+ * suspect releases, correlated log lines. An unauthenticated read of it is a
+ * read of the project's diagnostic surface.
+ *
+ * `withRequiredAuth` is `requireAuth(attachAuth(app))` — it attaches the user
+ * and then guards, so it closes the read hole and makes the mutations' existing
+ * check reachable in the same line. Mounted on the router rather than added per
+ * handler so that a route added later inherits it instead of being forgotten;
+ * the controller's own `requireAuth` calls stay as defence in depth.
+ */
 export function registerTaskRoutes(taskController: TaskController) {
-  return new Elysia()
+  return withRequiredAuth(new Elysia())
     .get(
       '/api/v1/projects/:projectId/tasks',
       (ctx) => taskController.getProjectTasks(ctx),

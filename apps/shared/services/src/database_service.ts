@@ -234,7 +234,10 @@ class DrizzleRepository<T extends ObjectLiteral> {
   }
 }
 
-class DrizzleQueryBuilder<T extends ObjectLiteral> {
+// Exported for its own tests. The empty-array refusal below is the kind of edge
+// that only shows up for a caller with zero of something, so it is worth pinning
+// directly rather than through whichever service happens to build a condition.
+export class DrizzleQueryBuilder<T extends ObjectLiteral> {
   private conditions: string[] = [];
   private params: SqlParameter[] = [];
   private orderClauses: string[] = [];
@@ -286,6 +289,28 @@ class DrizzleQueryBuilder<T extends ObjectLiteral> {
     for (const [key, val] of Object.entries(params)) {
       const idx = this.params.length + 1;
       if (Array.isArray(val)) {
+        /**
+         * An empty array has no safe compilation here, so it is refused rather
+         * than guessed at.
+         *
+         * It used to produce `IN ()`, which Postgres rejects as a syntax error —
+         * so this already failed, just opaquely and at the database rather than
+         * at the call site. It surfaces only for the caller with zero of
+         * something (no memberships, no tags, no assigned agents), which is
+         * exactly the case least likely to be covered by a test.
+         *
+         * Not silently rewritten to a match-nothing predicate: that would be
+         * right for `IN` and silently WRONG for `NOT IN`, where the empty set
+         * should match every row. The caller knows which it meant; this does
+         * not. Branch on the empty case before you build the condition.
+         */
+        if (val.length === 0) {
+          throw new Error(
+            `Query parameter ":${key}" was an empty array. An empty list cannot be ` +
+              `compiled into a SQL condition — branch on the empty case in the caller ` +
+              `and omit this condition entirely.`
+          );
+        }
         const placeholders = val.map((_v, i) => `$${idx + i}`);
         this.params.push(...val);
         result = result.replace(

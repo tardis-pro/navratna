@@ -258,17 +258,13 @@ export function registerProjectRoutes() {
          * justification, and it is the only one: nowhere else in this file does
          * a service credential get to skip a check.
          *
-         * Note what this does NOT widen. `listProjects()` below is passed no
-         * ownerId, so this route has never scoped its result to the caller — a
-         * signed-in person already receives rows from projects they do not
-         * belong to. Admitting the platform therefore changes nothing about what
-         * comes back; it only changes who may ask.
-         *
-         * That pre-existing hole for HUMAN callers is real and is left alone
-         * here on purpose: `listProjects` can filter only by ownerId, and
-         * filtering by owner would cut members off from projects they are
-         * members of. Closing it properly needs a membership-aware query in
-         * ProjectManagementService, not a patch at this handler.
+         * A PERSON IS SCOPED. This route used to return every project to any
+         * signed-in caller, including projects they had no part in. It is now
+         * scoped by `accessibleTo`, which is owner-OR-member rather than owner
+         * alone — filtering by owner would have cut members off from projects
+         * they belong to, which is exactly why the hole was left open rather
+         * than closed wrongly. The membership-aware query lives in
+         * ProjectManagementService where it belongs, not in this handler.
          */
         const service = await getProjectService();
         const parsed = projectQuerySchema.safeParse(query);
@@ -282,6 +278,10 @@ export function registerProjectRoutes() {
           offset,
           limit: parsed.data.limit,
           status: parsed.data.status,
+          // The platform is exempt and sees all; a person sees what they own or
+          // belong to. `user` is guaranteed present on the non-service path by
+          // the 401 above.
+          ...(serviceCall ? {} : { accessibleTo: user!.id }),
         });
   
         return { success: true, data: projects };

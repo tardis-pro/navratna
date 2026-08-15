@@ -222,6 +222,18 @@ export class ProjectManagementService {
   async listProjects(
     filters: {
       ownerId?: string;
+      /**
+       * Restrict the result to what one person may see: projects they own, plus
+       * projects they are a member of.
+       *
+       * Distinct from `ownerId`, and the distinction is the point. Filtering by
+       * owner alone would cut members off from projects they belong to, which is
+       * why this route was left unscoped rather than scoped wrongly — closing it
+       * needed a membership-aware query here rather than a patch at the handler.
+       *
+       * Omit for an unscoped list. Callers that serve a person must pass it.
+       */
+      accessibleTo?: string;
       status?: ProjectStatus;
       limit?: number;
       offset?: number;
@@ -232,6 +244,29 @@ export class ProjectManagementService {
 
       if (filters.ownerId) {
         qb.andWhere('project.ownerId = :ownerId', { ownerId: filters.ownerId });
+      }
+      if (filters.accessibleTo) {
+        const memberships = await this.memberRepository.find({
+          where: { userId: filters.accessibleTo },
+        });
+        const memberProjectIds = (memberships ?? [])
+          .map((m: { projectId?: string }) => m.projectId)
+          .filter((id: string | undefined): id is string => Boolean(id));
+
+        if (memberProjectIds.length > 0) {
+          qb.andWhere('(project.ownerId = :accessibleTo OR project.id IN (:memberProjectIds))', {
+            accessibleTo: filters.accessibleTo,
+            memberProjectIds,
+          });
+        } else {
+          /**
+           * The empty case is branched deliberately rather than folded into the
+           * clause above. An empty array compiles to `IN ()` — a syntax error,
+           * not an empty result — so a user who owns projects but belongs to no
+           * others would take down the whole listing instead of seeing their own.
+           */
+          qb.andWhere('project.ownerId = :accessibleTo', { accessibleTo: filters.accessibleTo });
+        }
       }
       if (filters.status) {
         qb.andWhere('project.status = :status', { status: filters.status });

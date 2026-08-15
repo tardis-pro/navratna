@@ -25,6 +25,21 @@ const PROJECT_ID = '87da881f-63eb-4e30-9cb9-79583fc65789';
 const TASK_ID = '44444444-4444-4444-8444-444444444444';
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 
+/**
+ * The router now carries `withRequiredAuth`, which attaches the user and guards.
+ * Only the ATTACHMENT is stubbed here — the seam this file cares about is
+ * everything above the database, and minting a JWT per request would test the
+ * auth library rather than the task API.
+ *
+ * The refusal itself is not left untested by that choice: task_routes_auth.test.ts
+ * runs the REAL middleware and asserts that an uncredentialed read is refused.
+ * Stubbing it in both places is how a security change quietly becomes untested.
+ */
+vi.mock('@uaip/middleware', () => ({
+  withRequiredAuth: (app: { derive: (fn: () => unknown) => unknown }) =>
+    app.derive(() => ({ user: { id: USER_ID, email: 'dev@example.com', role: 'admin' } })),
+}));
+
 const taskRow = (overrides: Record<string, unknown> = {}) => ({
   id: TASK_ID,
   projectId: PROJECT_ID,
@@ -44,11 +59,11 @@ const taskRow = (overrides: Record<string, unknown> = {}) => ({
 function buildApp(repository: Partial<ProjectTaskRepository>) {
   const service = new TaskService({ repository: repository as ProjectTaskRepository });
   const controller = new TaskController(service);
-  return new Elysia()
-    // The real routes carry no auth of their own; the gateway attaches `user`
-    // upstream, so the handlers that require it are given one here.
-    .derive(() => ({ user: { id: USER_ID, email: 'dev@example.com', role: 'admin' } }))
-    .use(registerTaskRoutes(controller));
+  // `user` arrives from the router's own auth middleware (stubbed above), which
+  // is where it comes from in production too. It used to be injected here by the
+  // test, standing in for a gateway attachment that never actually happened —
+  // which is why every mutation 401'd in production while these tests passed.
+  return new Elysia().use(registerTaskRoutes(controller));
 }
 
 describe('task routes', () => {
