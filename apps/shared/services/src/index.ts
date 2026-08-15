@@ -518,6 +518,7 @@ export {
   EnsureWorkflowDefinitionProjectScope,
   WORKFLOW_DEFINITION_PROJECT_STATEMENTS,
 } from './database/migrations/ensure_workflow_definition_project_scope';
+export { LowerReadOnlyFederationTools } from './database/migrations/lower_read_only_federation_tools';
 export { BackfillUserAgentAssignments } from './database/migrations/backfill_user_agent_assignments';
 export type { BackfillUserAgentAssignmentsResult } from './database/migrations/backfill_user_agent_assignments';
 export {

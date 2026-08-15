@@ -1,3 +1,5 @@
+import { READ_ONLY_FEDERATION_TOOL_NAMES } from '@uaip/types';
+
 /**
  * What security level a federated tool is registered at.
  *
@@ -20,12 +22,7 @@
  * act. Reaching those needs a run to carry a real owner identity, which is a
  * separate decision from this one.
  */
-const READ_ONLY_EVIDENCE_TOOLS: ReadonlySet<string> = new Set([
-  'find_anomalies',
-  'recent_errors',
-  'http_errors',
-  'release_history',
-]);
+const READ_ONLY_EVIDENCE_TOOLS: ReadonlySet<string> = new Set(READ_ONLY_FEDERATION_TOOL_NAMES);
 
 /**
  * Applied at sync time rather than to the stored rows, so a later re-sync cannot

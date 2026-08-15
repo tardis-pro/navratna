@@ -1357,3 +1357,26 @@ export interface SecurityMetrics {
   averageRiskScore: number;
   complianceScore: number;
 }
+
+/**
+ * Federated tools that only READ evidence, and are therefore registered at
+ * SecurityLevel.LOW rather than the 'medium' every other federated tool gets.
+ *
+ * ONE LIST, TWO READERS, ON PURPOSE. federatedToolSecurityLevel() applies it when
+ * syncTools registers a tool — the durable half, since a re-sync would otherwise
+ * restore the old level — and LowerReadOnlyFederationTools applies it to the rows
+ * already stored, which syncTools cannot reach while every federated subdomain
+ * fails to crawl. Two copies of these four strings would drift, and drift here
+ * quietly reopens the gap it was written to close.
+ *
+ * Write-capable tools on the same servers (create_task, restart, rollback,
+ * write_dev_file) are deliberately absent: platform-initiated work resolves to
+ * level 1 and cannot be raised, so lowering a write tool would let an
+ * unauthenticatable caller act rather than merely look.
+ */
+export const READ_ONLY_FEDERATION_TOOL_NAMES: readonly string[] = [
+  'find_anomalies',
+  'recent_errors',
+  'http_errors',
+  'release_history',
+];

@@ -34,6 +34,7 @@ import {
   PROJECT_TASK_TOOL_IDS,
   CALENDAR_TOOL_IDS,
   EnsureMcpServerProjectScope,
+  LowerReadOnlyFederationTools,
 } from '@uaip/shared-services'
 import { ToolCategory, SecurityLevel } from '@uaip/types'
 import { logger } from '@uaip/utils'
@@ -324,6 +325,23 @@ export const capabilityFeature: Feature = {
       logger.error(
         'Failed to ensure mcp_servers.project_id — MCP resolution WILL fail until this succeeds, ' +
           'because McpConnectionResolver selects that column. The rest of the registry continues.',
+        { error: error instanceof Error ? error.message : String(error) }
+      )
+    }
+
+    // Companion to federatedToolSecurityLevel(), which decides the level when
+    // syncTools registers a tool. That is the durable half, but it only runs on a
+    // successful crawl and every federated subdomain currently fails to crawl, so
+    // the rows already in the table would keep 'medium' indefinitely. Same
+    // containment as the migration above: a failure here costs read-only
+    // diagnostics to platform-initiated work, not the registry.
+    try {
+      const lowered = await new LowerReadOnlyFederationTools().run()
+      logger.info('Read-only federation tool levels aligned', lowered)
+    } catch (error) {
+      logger.error(
+        'Failed to lower read-only federation tools — scheduled runs will stay refused at ' +
+          '"Insufficient security level" for project diagnostics. Everything else continues.',
         { error: error instanceof Error ? error.message : String(error) }
       )
     }
