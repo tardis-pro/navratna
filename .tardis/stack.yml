@@ -307,6 +307,21 @@ services:
       # so it mints identity — treat the token as a credential, not a config knob.
       # Generate with `openssl rand -hex 32`.
       PROJECT_PROVISION_TOKEN: "00a9bc1b69d1ea35d602fa98f78896d5338b3c99656044a1d6e07dee94964f65"
+      # Writes the nightly triage definition (N2) at gateway boot. There is no
+      # exec path into this database, so a workflow_definitions row can only
+      # arrive with the code that runs it. Idempotent — upserted by name, so a
+      # redeploy updates the row instead of adding a second one.
+      #
+      # THE ROW IS WRITTEN DISABLED whatever this is set to. This flag decides
+      # only whether it exists; scheduling it is a separate, deliberate act, so
+      # a deploy can never put an unwatched workflow onto production cron.
+      SEED_NIGHTLY_TRIAGE: "true"
+      # Whose facts the triage gathers. Resolved to a project id by slug at seed
+      # time. If nothing matches, the seed writes NOTHING rather than a
+      # project-less row: every gather step is a project-scoped MCP tool, and a
+      # definition that exists is far easier to mistake for a working one than a
+      # definition that was never created.
+      TRIAGE_PROJECT_SLUG: "navratna"
       EMBEDDINGS_URL: "https://ai.tardis.digital/v1/embeddings"
       EMBEDDINGS_MODEL: "jina/jina-embeddings-v5-text-small"
       EMBEDDINGS_API_KEY: "sk-3909fbf385e370bc-c3b924-cfbfde2c"

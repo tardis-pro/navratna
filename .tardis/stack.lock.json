@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "stackSha256": "aca7fcd8eb637f5f139a06113c3fbeea73c4df84cfca4e9cb1af72b9ea9eee3e",
+  "stackSha256": "b067522e21f93c2d689d4846520c92e9ec594d14d6990b6202963e98e0596d33",
   "services": [
     {
       "id": "postgres",
@@ -239,6 +239,8 @@
         "MCP_SECRETS_KEY": "b3d8d03abacdd21490dc7ede6f742690d9964f512c82a970602c2e0b0017f455",
         "WORKFLOW_WEBHOOK_SECRET": "1a7ce3884913a23ae467be87efd1d8416f8c920cbd4839f55f7feb7d32273e8b",
         "PROJECT_PROVISION_TOKEN": "00a9bc1b69d1ea35d602fa98f78896d5338b3c99656044a1d6e07dee94964f65",
+        "SEED_NIGHTLY_TRIAGE": "true",
+        "TRIAGE_PROJECT_SLUG": "navratna",
         "EMBEDDINGS_URL": "https://ai.tardis.digital/v1/embeddings",
         "EMBEDDINGS_MODEL": "jina/jina-embeddings-v5-text-small",
         "EMBEDDINGS_API_KEY": "sk-3909fbf385e370bc-c3b924-cfbfde2c",
