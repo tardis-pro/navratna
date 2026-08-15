@@ -55,6 +55,7 @@ import {
   RotateCw,
 } from 'lucide-react';
 import { logger } from '@/utils/browser_logger';
+import { ProjectEndpointBoard } from './ProjectEndpointBoard';
 
 interface Screenshot {
   id: string;
@@ -538,6 +539,11 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
             </Button>
           </div>
         </div>
+
+        {/* Every tardis project's tools, one project at a time. These open in a
+            real tab: the homelab hosts all refuse cross-origin framing, and a
+            real tab is also what carries their existing sessions. */}
+        <ProjectEndpointBoard />
 
         {/* Quick Access Panel */}
         <div className="mt-4 p-3 bg-slate-800/30 rounded-lg border border-slate-700/50">
