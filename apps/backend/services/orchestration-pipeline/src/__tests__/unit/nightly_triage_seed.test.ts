@@ -56,7 +56,13 @@ interface SeededRow {
   enabled: boolean;
   projectId: string;
   trigger: { kind: string; expr: string };
-  steps: Array<{ type: string; id: string; toolId?: string; prompt?: string }>;
+  steps: Array<{
+    type: string;
+    id: string;
+    toolId?: string;
+    prompt?: string;
+    arguments?: Record<string, unknown>;
+  }>;
 }
 
 describe('seedNightlyTriageWorkflow', () => {
@@ -122,12 +128,18 @@ describe('seedNightlyTriageWorkflow', () => {
     expect(row.trigger.kind).toBe('cron');
 
     const gathers = row.steps.filter((s) => s.type === 'toolCall');
-    expect(gathers).toHaveLength(4);
+    expect(gathers).toHaveLength(5);
     // Every gather is an MCP tool, which is what makes the project scope load-bearing.
     expect(gathers.every((s) => s.toolId?.startsWith('mcp-'))).toBe(true);
-    // code_quality is tardis T2 and does not exist yet; a step naming an
-    // unresolvable tool fails, and a failed step ends the run.
-    expect(gathers.some((s) => s.toolId?.includes('code_quality'))).toBe(false);
+    // code_quality was excluded only while tardis T2 did not exist — a step
+    // naming an unresolvable tool fails, and a failed step ends the run. T2 has
+    // landed, so the assertion inverts: the static half must be gathered, or the
+    // triage sees runtime symptoms and never the code they came from.
+    expect(gathers.some((s) => s.toolId?.includes('code_quality'))).toBe(true);
+    // Bounded at the call. Unbounded, this one step would hand the reasoning
+    // turn thousands of issues.
+    const quality = gathers.find((s) => s.toolId?.includes('code_quality'));
+    expect(quality?.arguments?.severities).toBe('BLOCKER,CRITICAL');
 
     expect(row.steps.at(-1)?.type).toBe('agentTurn');
   });

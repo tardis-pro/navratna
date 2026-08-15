@@ -13,9 +13,13 @@
  * plan called worth having on its own — a ranked digest of a codebase nobody is
  * triaging — delivered rather than filed.
  *
- * `code_quality` is also absent. It is tardis T2 and does not exist yet; a step
- * naming a tool the registry cannot resolve fails, and a failed step ends the run,
- * so including it would take the four gather steps down with it.
+ * `code_quality` was absent for exactly as long as tardis T2 did not exist — a
+ * step naming a tool the registry cannot resolve fails, and a failed step ends
+ * the run, so it would have taken the four gather steps down with it. T2 has
+ * since landed and the tool is registered as
+ * `mcp-navratna-tardis-agent-code_quality`, so the gather step is in. It matters
+ * more than its one line suggests: without it this workflow sees only runtime
+ * symptoms, and "what is wrong with this code" is answered by the static half.
  *
  * SEEDED DISABLED. Same discipline as the OpenClaw import: nothing reaches
  * production cron before a human has watched it run once. Enable with
@@ -64,6 +68,11 @@ function steps(): Array<Record<string, unknown>> {
     gather('gather.errors', 'recent_errors'),
     gather('gather.http', 'http_errors'),
     gather('gather.releases', 'release_history'),
+    // Bounded at the call rather than in the prompt: tardis-navratna carries
+    // 3,670 open issues, 243 of them BLOCKER or CRITICAL, so asking for
+    // everything would spend the reasoning step's whole context on a list the
+    // prompt then discards most of.
+    gather('gather.quality', 'code_quality', { severities: 'BLOCKER,CRITICAL', limit: 30 }),
     { type: 'agentTurn', id: 'triage', prompt: TRIAGE_PROMPT },
   ];
 }
