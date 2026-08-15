@@ -89,6 +89,12 @@ vi.mock('@uaip/shared-services', () => ({
       unassignServer: async (): Promise<number> => 0,
     }),
   },
+  // capabilityFeature.initialize() runs this before anything touches the DB, so
+  // the mcp_servers.project_id column exists for McpConnectionResolver. Stubbed
+  // to a no-op — these tests have no Postgres.
+  EnsureMcpServerProjectScope: class {
+    async run(): Promise<void> {}
+  },
   // registerNativeTools() asserts at boot that every statically-known tool id has a
   // danger_tool_list classification, and reads these two lists to do it. The real
   // values matter — mocking them empty would make the assertion vacuous here.

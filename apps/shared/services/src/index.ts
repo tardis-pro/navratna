@@ -510,6 +510,10 @@ export {
   EnsureAgentChatProjects,
   AGENT_CHAT_PROJECT_STATEMENTS,
 } from './database/migrations/ensure_agent_chat_projects';
+export {
+  EnsureMcpServerProjectScope,
+  MCP_SERVER_PROJECT_STATEMENTS,
+} from './database/migrations/ensure_mcp_server_project_scope';
 export { BackfillUserAgentAssignments } from './database/migrations/backfill_user_agent_assignments';
 export type { BackfillUserAgentAssignmentsResult } from './database/migrations/backfill_user_agent_assignments';
 export {

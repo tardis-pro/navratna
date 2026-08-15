@@ -29,7 +29,12 @@ import { probeKeyPair, importSigningKey } from './services/execution_mesh/coding
 import { createProductionAuditSink } from './services/execution_mesh/coding_session_audit_sink.js'
 import type { RedisClient } from './services/execution_mesh/coding_session_store.js'
 import { getRedisClient } from '@uaip/infra'
-import { getControlDb, PROJECT_TASK_TOOL_IDS, CALENDAR_TOOL_IDS } from '@uaip/shared-services'
+import {
+  getControlDb,
+  PROJECT_TASK_TOOL_IDS,
+  CALENDAR_TOOL_IDS,
+  EnsureMcpServerProjectScope,
+} from '@uaip/shared-services'
 import { ToolCategory, SecurityLevel } from '@uaip/types'
 import { logger } from '@uaip/utils'
 
@@ -298,6 +303,16 @@ export const capabilityFeature: Feature = {
   name: 'capability-registry',
 
   async initialize(deps) {
+    // FIRST, before anything resolves an MCP connection. McpConnectionResolver
+    // selects mcp_servers.project_id, and against a database that predates the
+    // column every resolution errors — catalog discovery and every tool call
+    // alike. Shipping the DDL with the code that reads it is the whole point;
+    // the alternative (a manual migration step) is how a live database ends up
+    // out of step with the image running against it.
+    //
+    // Idempotent and multi-instance safe (advisory lock + IF NOT EXISTS).
+    await new EnsureMcpServerProjectScope().run()
+
     const federation = FederationRegistryService.getInstance()
     await federation.initialize({ eventBusService: deps?.eventBusService })
 
