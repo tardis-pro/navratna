@@ -6,6 +6,7 @@ import { SecurityService } from '@uaip/shared-services';
 import { AuditService } from '../services/audit_service.js';
 import { getSharedApprovalWorkflowService } from '../services/approval_event_bridge.js';
 import { ApprovalStatus, SecurityLevel, AuditEventType } from '@uaip/types';
+import type { UserContext } from '@uaip/types';
 import { getAuthUser } from './context_helpers.js';
 
 let auditServiceSingleton: AuditService | null = null;
@@ -131,6 +132,91 @@ async function claimDecisionSlot(workflowId: string, approverId: string): Promis
     .claimApprovalCode(workflowId, { consumedAt: new Date(), consumedBy: approverId });
   return claimed !== null;
 }
+
+/**
+ * The one implementation of "list approval workflows for this caller".
+ *
+ * It exists as a function rather than inline in a handler because the surface is
+ * addressed at TWO paths and they must not drift. `/api/v1/approvals/workflows`
+ * is what this module always served; `/api/v1/approvals` — the collection root,
+ * which is what every client actually calls (see `approvalsAPI.list()` in the
+ * frontend, and the platform's merge gate) — was never defined at all and
+ * returned a bare 404 from Elysia's router. A second copy of this body under the
+ * root would have been a second listing rule to keep in sync with the scoping
+ * below, which is exactly the kind of duplicate approval mechanism this codebase
+ * already warns against.
+ *
+ * SCOPING. An admin/security-admin sees every workflow; anybody else sees only
+ * the ones `getUserWorkflows(user.id)` returns for them. That decision lives
+ * here, once, so neither path can quietly become the unscoped one.
+ */
+async function listApprovalWorkflows(
+  user: UserContext,
+  query: unknown,
+  set: { status?: number | string }
+) {
+  const parsed = queryWorkflowsSchema.safeParse(query);
+  if (!parsed.success) {
+    set.status = 400;
+    return { error: 'Validation Error', details: parsed.error.flatten() };
+  }
+  try {
+    const { approvalWorkflowService } = await getServices();
+    let workflows: ApprovalWorkflowEntry[];
+    const role = (user.role || '').toLowerCase();
+    if (role === 'admin' || role === 'security_admin' || role === 'security-admin') {
+      workflows = await approvalWorkflowService.getUserWorkflows('', parsed.data.status);
+    } else {
+      workflows = await approvalWorkflowService.getUserWorkflows(user.id, parsed.data.status);
+    }
+    let filtered = workflows;
+    const { operationType, securityLevel, startDate, endDate, limit, offset } = parsed.data;
+    if (operationType)
+      filtered = filtered.filter((w) => w.metadata?.operationType === operationType);
+    if (securityLevel)
+      filtered = filtered.filter((w) => w.metadata?.securityLevel === securityLevel);
+    if (startDate) filtered = filtered.filter((w) => w.createdAt && w.createdAt >= new Date(startDate));
+    if (endDate) filtered = filtered.filter((w) => w.createdAt && w.createdAt <= new Date(endDate));
+    const total = filtered.length;
+    const page = filtered.slice(Number(offset), Number(offset) + Number(limit));
+    return {
+      success: true,
+      data: {
+        workflows: page,
+        pagination: {
+          total,
+          limit: Number(limit),
+          offset: Number(offset),
+          hasMore: Number(offset) + Number(limit) < total,
+        },
+      },
+      message: 'Approval workflows retrieved successfully',
+    };
+  } catch {
+    set.status = 500;
+    return { error: 'Internal Server Error', message: 'Failed to query workflows' };
+  }
+}
+
+const WorkflowListSchema = {
+  response: {
+    200: t.Object({
+      success: t.Literal(true),
+      data: t.Object({
+        workflows: t.Any(),
+        pagination: t.Object({
+          total: t.Number(),
+          limit: t.Number(),
+          offset: t.Number(),
+          hasMore: t.Boolean(),
+        }),
+      }),
+      message: t.String(),
+    }),
+    400: ValidationErrorSchema,
+    500: ErrorSchema,
+  },
+};
 
 export function registerApprovalRoutes() {
   return new Elysia().group('/api/v1/approvals', (app) => withRequiredAuth(app)
@@ -272,72 +358,32 @@ export function registerApprovalRoutes() {
         },
       })
     )
-    .get('/workflows', async (ctx) => {
-      const user = getAuthUser(ctx);
-      const { set, query } = ctx;
-      const parsed = queryWorkflowsSchema.safeParse(query);
-      if (!parsed.success) {
-        set.status = 400;
-        return { error: 'Validation Error', details: parsed.error.flatten() };
-      }
-      try {
-        const { approvalWorkflowService } = await getServices();
-        let workflows: ApprovalWorkflowEntry[];
-        const role = (user.role || '').toLowerCase();
-        if (role === 'admin' || role === 'security_admin' || role === 'security-admin') {
-          workflows = await approvalWorkflowService.getUserWorkflows('', parsed.data.status);
-        } else {
-          workflows = await approvalWorkflowService.getUserWorkflows(
-            user.id,
-            parsed.data.status
-          );
-        }
-        let filtered = workflows;
-        const { operationType, securityLevel, startDate, endDate, limit, offset } = parsed.data;
-        if (operationType)
-          filtered = filtered.filter((w) => w.metadata?.operationType === operationType);
-        if (securityLevel)
-          filtered = filtered.filter((w) => w.metadata?.securityLevel === securityLevel);
-        if (startDate) filtered = filtered.filter((w) => w.createdAt && w.createdAt >= new Date(startDate));
-        if (endDate) filtered = filtered.filter((w) => w.createdAt && w.createdAt <= new Date(endDate));
-        const total = filtered.length;
-        const page = filtered.slice(Number(offset), Number(offset) + Number(limit));
-        return {
-          success: true,
-          data: {
-            workflows: page,
-            pagination: {
-              total,
-              limit: Number(limit),
-              offset: Number(offset),
-              hasMore: Number(offset) + Number(limit) < total,
-            },
-          },
-          message: 'Approval workflows retrieved successfully',
-        };
-      } catch {
-        set.status = 500;
-        return { error: 'Internal Server Error', message: 'Failed to query workflows' };
-      }
-    }, {
-      response: {
-        200: t.Object({
-          success: t.Literal(true),
-          data: t.Object({
-            workflows: t.Any(),
-            pagination: t.Object({
-              total: t.Number(),
-              limit: t.Number(),
-              offset: t.Number(),
-              hasMore: t.Boolean(),
-            }),
-          }),
-          message: t.String(),
-        }),
-        400: ValidationErrorSchema,
-        500: ErrorSchema,
-      },
-    })
+    /**
+     * THE COLLECTION ROOT — the route whose absence made the whole approvals
+     * surface look like it did not exist.
+     *
+     * `GET /api/v1/approvals` answered 404 from the gateway, and the natural
+     * reading of that was "the module is not mounted". It is mounted (via
+     * `securityFeature.routes()`, and again in navratna-gateway's `app.ts`), and
+     * has been all along: the group only ever declared sub-paths — `/workflows`,
+     * `/pending`, `/stats`, `/:workflowId`, `/:workflowId/decisions`,
+     * `/:workflowId/cancel` — so a request for the bare collection matched
+     * nothing and Elysia's router 404'd it. `/:workflowId` does not catch it
+     * either; an empty segment is not a parameter.
+     *
+     * Every client addresses the collection, not `/workflows`: the frontend's
+     * `approvalsAPI.list()` is `approvals.get()`, and the platform's merge gate
+     * polls the same path. So this is the listing endpoint, and `/workflows`
+     * stays as the alias it now is.
+     *
+     * Approving or rejecting one is NOT re-implemented here. That already exists
+     * at `POST /api/v1/approvals/:workflowId/decisions`, which authorises the
+     * caller and then takes the atomic decision claim (see `claimDecisionSlot`).
+     * A second decide-here shortcut on the collection would be precisely the
+     * duplicate approval mechanism that claim was added to prevent.
+     */
+    .get('/', (ctx) => listApprovalWorkflows(getAuthUser(ctx), ctx.query, ctx.set), WorkflowListSchema)
+    .get('/workflows', (ctx) => listApprovalWorkflows(getAuthUser(ctx), ctx.query, ctx.set), WorkflowListSchema)
     .get('/pending', async (ctx) => {
       const user = getAuthUser(ctx);
       const { set } = ctx;

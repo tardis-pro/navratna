@@ -20,6 +20,38 @@ import {
 import { GitHubIntegrationService } from '../services/github_integration_service.js';
 import { AuditService } from '../services/audit_service.js';
 import { OAuthProviderService } from '../services/oauth_provider_service.js';
+import { verifyServiceToken } from './project_provision_elysia.js';
+
+const SERVICE_TOKEN_HEADER = 'x-navratna-service-token';
+
+/**
+ * A caller that is the platform rather than a person.
+ *
+ * `tardis init` mints a project through POST /api/v1/projects/provision and then
+ * had nowhere else to go: every other route on this collection is gated on a
+ * session, the provisioner has no user to be, and so `GET /api/v1/projects`
+ * answered a flat 401 to the one caller that created the rows it lists. The
+ * platform could create projects it was then unable to read back.
+ *
+ * `verifyServiceToken` is IMPORTED, not re-written. It is the reviewed check
+ * from project_provision_elysia.ts in this same package — constant-time,
+ * length-compared first because timingSafeEqual throws on a mismatch and the
+ * throw itself leaks length, and closed when PROJECT_PROVISION_TOKEN is unset.
+ * navratna-core reimplements the same twelve lines only because it must not
+ * depend on security-gateway; inside this package there is no such excuse, and a
+ * third copy would be a third thing to get wrong.
+ *
+ * The routes keep `withOptionalAuth`, which attaches a session when there is one
+ * but refuses nobody, so the HANDLER is the wall — the shape knowledge ingest
+ * uses. A service call is deliberately NOT turned into a synthetic user: nothing
+ * downstream should be able to mistake the platform for a person.
+ */
+function isServiceCall(request: Request): boolean {
+  return verifyServiceToken(
+    request.headers.get(SERVICE_TOKEN_HEADER),
+    process.env.PROJECT_PROVISION_TOKEN
+  ).valid;
+}
 
 /**
  * Winston serializes a bare Error to `{}` (its fields are non-enumerable), so
@@ -205,12 +237,39 @@ const chatSettingsSchema = z.object({
 export function registerProjectRoutes() {
   return new Elysia().group('/api/v1/projects', (app) => withOptionalAuth(app)
     // List projects
-    .get('/', async ({ query, set, user }) => {
+    .get('/', async ({ query, set, user, request }) => {
       try {
-        if (!user) {
+        /**
+         * A caller must be either an authenticated person or the platform.
+         * Neither is still 401 with the identical body it returned before, so
+         * nothing that was refused yesterday is admitted today.
+         */
+        const serviceCall = isServiceCall(request);
+        if (!user && !serviceCall) {
           set.status = 401;
           return { error: 'Authentication required' };
         }
+
+        /**
+         * SCOPING FOR A SERVICE CALL — explicitly unscoped, and deliberately so.
+         *
+         * The platform provisions every project on the box; a list it cannot see
+         * all of is not an answer to the question it is asking. That is the
+         * justification, and it is the only one: nowhere else in this file does
+         * a service credential get to skip a check.
+         *
+         * Note what this does NOT widen. `listProjects()` below is passed no
+         * ownerId, so this route has never scoped its result to the caller — a
+         * signed-in person already receives rows from projects they do not
+         * belong to. Admitting the platform therefore changes nothing about what
+         * comes back; it only changes who may ask.
+         *
+         * That pre-existing hole for HUMAN callers is real and is left alone
+         * here on purpose: `listProjects` can filter only by ownerId, and
+         * filtering by owner would cut members off from projects they are
+         * members of. Closing it properly needs a membership-aware query in
+         * ProjectManagementService, not a patch at this handler.
+         */
         const service = await getProjectService();
         const parsed = projectQuerySchema.safeParse(query);
         if (!parsed.success) {
@@ -234,18 +293,43 @@ export function registerProjectRoutes() {
     })
   
     // Get project by ID
-    .get('/:projectId', async ({ params, set, user }) => {
+    .get('/:projectId', async ({ params, set, user, request }) => {
       try {
-        const denied = await assertProjectAccess(params.projectId, user?.id, set);
-        if (denied) return denied;
+        const serviceCall = isServiceCall(request);
+        if (!user && !serviceCall) {
+          set.status = 401;
+          return { success: false, error: 'Authentication required' };
+        }
+
+        /**
+         * SCOPING FOR A SERVICE CALL — unscoped membership, but the row must
+         * still exist.
+         *
+         * `getProject(id, undefined)` skips `userCanAccessProject`, which is
+         * correct for the platform (it owns none of these projects and belongs
+         * to none of them, yet provisioned all of them) and correct for nobody
+         * else. The lookup itself still runs, so a service token cannot turn an
+         * id that does not exist into a 200 — the same 404 a person gets, and
+         * the same rule knowledge ingest applies before it will tag a repo onto
+         * a project id.
+         *
+         * `assertProjectAccess` is intentionally NOT taught about service calls.
+         * It also guards PUT, DELETE, member and tool mutation, and
+         * `link-github`/`link-git`, which dereference `user!.id` and would throw
+         * on a caller that has no user. Widening it would hand the platform
+         * write access to every project as a side effect of wanting to read one.
+         */
         const service = await getProjectService();
-        const project = await service.getProject(params.projectId, user?.id);
-  
+        const project = await service.getProject(
+          params.projectId,
+          serviceCall ? undefined : user?.id
+        );
+
         if (!project) {
           set.status = 404;
           return { success: false, error: 'Project not found' };
         }
-  
+
         return { success: true, data: project };
       } catch (error) {
         logger.error('Failed to get project', { error: describeError(error), projectId: params.projectId });
