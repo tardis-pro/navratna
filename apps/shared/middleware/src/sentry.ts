@@ -59,6 +59,32 @@ export function initSentry(config: SentryConfig): void {
         delete event.request.headers['authorization'];
         delete event.request.headers['cookie'];
         delete event.request.headers['x-api-key'];
+        // The platform's own service credential. It authorises provisioning and
+        // knowledge ingest, and it was not on this list.
+        delete event.request.headers['x-navratna-service-token'];
+      }
+      /**
+       * THE REQUEST BODY IS DROPPED WHOLESALE, and it must stay that way.
+       *
+       * `event.request.data` is where Sentry puts the parsed body, and the
+       * request-data integration includes it by default. This scrub list named
+       * cookies and three headers and never touched it, so every service — this
+       * runs from BaseService, so that is all of them — could ship request
+       * bodies to GlitchTip on any captured error.
+       *
+       * What was in reach: `POST /auth/login` and `/auth/change-password` carry
+       * a plaintext `password`, and `POST /api/v1/knowledge/ingest` now carries
+       * a per-project `cloneToken`. An error on any of those paths is exactly
+       * when an event gets captured.
+       *
+       * Deleted rather than filtered by key name. A denylist of secret-ish
+       * field names is a list someone has to remember to extend every time a
+       * route gains a credential, and the failure is silent and retroactive —
+       * the leak is already in the error tracker by the time anyone notices the
+       * name was missing. The debugging value of a body does not outweigh that.
+       */
+      if (event.request?.data !== undefined) {
+        delete event.request.data;
       }
       return event;
     },
