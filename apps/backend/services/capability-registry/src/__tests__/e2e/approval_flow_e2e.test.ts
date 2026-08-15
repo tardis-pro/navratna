@@ -33,56 +33,23 @@ const mockLogger = {
   debug: vi.fn(),
 };
 
-vi.mock('../services/danger_tool_list.js', () => ({
-  toolRequiresApproval: vi.fn((toolId: string) => {
-    const dangerTools = [
-      'file.write',
-      'process.run',
-      'database.delete',
-      'system.exec',
-      'network.request',
-    ];
-    return dangerTools.includes(toolId);
-  }),
-  getDangerToolConfig: vi.fn((toolId: string) => {
-    const configs: Record<string, unknown> = {
-      'file.write': {
-        toolId: 'file.write',
-        name: 'Write File',
-        categories: ['FILE_SYSTEM'],
-        riskLevel: 'HIGH',
-        reason: 'Can write arbitrary files to filesystem',
-        requiresApproval: 'USER_CONSENT',
-      },
-      'process.run': {
-        toolId: 'process.run',
-        name: 'Run Process',
-        categories: ['PROCESS_EXECUTION'],
-        riskLevel: 'CRITICAL',
-        reason: 'Can execute arbitrary shell commands',
-        requiresApproval: 'ADMIN',
-      },
-      'database.delete': {
-        toolId: 'database.delete',
-        name: 'Delete Database Records',
-        categories: ['DATABASE_DELETE'],
-        riskLevel: 'CRITICAL',
-        reason: 'Can permanently delete data',
-        requiresApproval: 'ADMIN',
-      },
-    };
-    return configs[toolId] || null;
-  }),
-  getRequiredApprovalLevel: vi.fn((toolId: string) => {
-    const levels: Record<string, string> = {
-      'file.write': 'USER_CONSENT',
-      'process.run': 'ADMIN',
-      'database.delete': 'ADMIN',
-    };
-    return levels[toolId] || 'NONE';
-  }),
-  toolRequiresAudit: vi.fn(() => true),
-}));
+// The approval-request event is only published when the workflow feature is on
+// (config.tools.enableApprovalWorkflow, default false). Blocking happens either
+// way — the flag only chooses whether the refusal also raises a reviewable
+// request — and the "should emit tool.approval.required" cases below are about
+// exactly that branch, so the flag has to be on for this file. Set before the
+// coordinator module is imported in beforeAll, since config is read at module
+// evaluation time.
+process.env.ENABLE_APPROVAL_WORKFLOW = 'true';
+
+// NOTE: this file used to vi.mock('../services/danger_tool_list.js') with a
+// hand-written classification table. Two things were wrong with that. The path
+// was wrong — vi.mock resolves relative to *this* file, so '../services/…' meant
+// src/__tests__/services/…, which does not exist, and the mock silently never
+// applied. And had it applied it would have been worse: an approval-flow E2E
+// that replaces the module deciding what needs approval is asserting its own
+// fixture, not the platform's policy. The real danger_tool_list is used here on
+// purpose; its rows for file.write / process.run are what these cases assert.
 
 describe('E2E Approval Flow: LLM→plan→approval→execution', () => {
   let ToolExecutionCoordinator: unknown;
@@ -90,11 +57,39 @@ describe('E2E Approval Flow: LLM→plan→approval→execution', () => {
   beforeAll(async () => {
     const module = await import('../../services/tool_execution_coordinator_service.ts');
     ToolExecutionCoordinator = (module as Record<string, unknown>).ToolExecutionCoordinator;
-    const { toolRequiresApproval } = await import('../../services/danger_tool_list.ts');
+  });
 
-    expect(toolRequiresApproval('file.read')).toBe(false);
-    expect(toolRequiresApproval('http.get')).toBe(false);
-    expect(toolRequiresApproval('math.add')).toBe(false);
+  describe('danger-tool classification is fail-closed', () => {
+    it('demands approval for ids no DANGER_TOOLS row matches', async () => {
+      const { toolRequiresApproval, getRequiredApprovalLevel, isToolClassified } = await import(
+        '../../services/danger_tool_list.js'
+      );
+
+      // These three ids describe tools that do not exist in this service. The
+      // original version of this test asserted they need NO approval, which was
+      // true back when an unmatched id returned null and every caller read null
+      // as "safe" — the hole that let shell-exec reach execAsync unapproved.
+      // classifyTool now falls back to UNCLASSIFIED_TOOL, so an id nobody has
+      // classified is the most restricted thing in the system, not the least.
+      for (const unknownToolId of ['file.read', 'http.get', 'math.add']) {
+        expect(isToolClassified(unknownToolId)).toBe(false);
+        expect(toolRequiresApproval(unknownToolId)).toBe(true);
+        expect(getRequiredApprovalLevel(unknownToolId)).toBe('SECURITY_TEAM');
+      }
+    });
+
+    it('lets explicitly-classified harmless tools through without approval', async () => {
+      const { toolRequiresApproval, isToolClassified } = await import(
+        '../../services/danger_tool_list.js'
+      );
+
+      // The counterpart to the above: "no approval needed" must come from a
+      // reviewed LOW/NONE row, never from the absence of a row.
+      for (const safeToolId of ['file-reader', 'math-calculator', 'web-search']) {
+        expect(isToolClassified(safeToolId)).toBe(true);
+        expect(toolRequiresApproval(safeToolId)).toBe(false);
+      }
+    });
   });
 
   describe('ToolExecutionCoordinator.checkAndEnforceApproval', () => {
@@ -137,7 +132,10 @@ describe('E2E Approval Flow: LLM→plan→approval→execution', () => {
       expect(result.approvalRequestId).toContain('approval_');
     });
 
-    it('should allow execution when tool does not require approval (math.add)', async () => {
+    // 'math-calculator', not 'math.add': the id has to be one the real
+    // danger-tool table classifies LOW/NONE. 'math.add' is not in the table at
+    // all, and an unclassified id is now refused rather than waved through.
+    it('should allow execution when tool does not require approval (math-calculator)', async () => {
       const mockCoordinator = {
         eventBus: mockEventBus,
         logger: mockLogger,
@@ -155,7 +153,7 @@ describe('E2E Approval Flow: LLM→plan→approval→execution', () => {
         ToolExecutionCoordinator.prototype.checkAndEnforceApproval.bind(mockCoordinator);
 
       const event = {
-        toolId: 'math.add',
+        toolId: 'math-calculator',
         requestId: generateId(),
         userId: 'user-123',
         agentId: 'agent-456',

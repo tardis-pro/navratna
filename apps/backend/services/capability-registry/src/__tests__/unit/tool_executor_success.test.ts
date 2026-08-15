@@ -13,9 +13,12 @@ vi.mock('@uaip/shared-services', () => ({
   },
 }));
 
-vi.mock('../services/execution_mesh/tool_runtime_resolver.js', () => ({
-  resolveToolDescriptor: vi.fn(),
-}));
+// Removed: vi.mock('../services/execution_mesh/tool_runtime_resolver.js').
+// It was dead twice over — vi.mock resolves relative to this file, so
+// '../services/…' meant src/__tests__/services/…, and the module it named was
+// renamed to execution_mesh/descriptor.js besides. It never applied, so these
+// cases have always run against the real resolveToolDescriptor; leaving the
+// line in only advertised a stub that does not exist.
 
 import { ToolExecutor } from '../../services/tool_executor.js';
 

@@ -7,6 +7,10 @@ export default mergeConfig(
   defineProject({
     test: {
       name: '@uaip/capability-registry',
+      // Supplies the fail-fast env vars `@uaip/config` demands at import time.
+      // Without it, any test that transitively imports shared config dies during
+      // collection rather than running — see src/__tests__/setup.ts.
+      setupFiles: ['./src/__tests__/setup.ts'],
       testTimeout: 30_000,
       coverage: {
         include: ['src/**/*.ts'],
