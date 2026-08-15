@@ -179,6 +179,26 @@ interface ExecutionContext {
   parameters?: Record<string, unknown>;
 }
 
+/**
+ * The identifier a tool is actually dispatched on.
+ *
+ * `tool.id` is the DB primary key — a generated UUID. Execution routes on the
+ * semantic NAME ('shell-exec', 'mcp-<server>-<tool>', 'oauth-<provider>-<action>'),
+ * because that is what BaseToolExecutor switches on and what the mcp-/oauth-
+ * prefix routing parses.
+ *
+ * EXCEPTION — federated tools: their registry id `federation:<sub>:<tool>` IS the
+ * routing key (it carries the producer binding), while their `name` is the bare
+ * producer-local tool name, which would resolve to native and dead-end.
+ *
+ * Shared by the security gate and the executor ON PURPOSE. The bug this file was
+ * fixed for was a gate and a dispatcher keyed on different identifiers; deriving
+ * both from one function is what stops that recurring.
+ */
+export function toolDispatchKey(tool: { id?: string; name?: string }): string {
+  return tool.id?.startsWith('federation:') ? tool.id : tool.name || tool.id || '';
+}
+
 interface ToolExecutor {
   execute(
     operation: string,
@@ -726,14 +746,22 @@ export class UnifiedToolRegistry {
     const { classifyTool, isToolClassified, toolRequiresApproval, getRequiredApprovalLevel } =
       await import('./danger_tool_list.js');
 
-    // classifyTool never returns null. An id with no DANGER_TOOLS row resolves to
+    // Classify the DISPATCH KEY — the same value executeStandard hands to the
+    // executor — not tool.id. tool.id is the DB primary key, a generated UUID,
+    // while dispatch happens on the semantic name ('shell-exec'). Gating on the
+    // uuid would guard a different identifier from the one that actually runs,
+    // which is precisely the mismatch this whole fix exists to remove; it would
+    // also make every tool unclassified and therefore refused.
+    const dispatchKey = toolDispatchKey(tool);
+
+    // classifyTool never returns null. A key with no DANGER_TOOLS row resolves to
     // UNCLASSIFIED_TOOL (SECURITY_TEAM), so the branch below refuses it instead of
     // waving it through — the previous `if (dangerConfig)` skipped the entire check
     // for exactly the tools nobody had classified, 'shell-exec' among them.
-    const dangerConfig = classifyTool(tool.id);
+    const dangerConfig = classifyTool(dispatchKey);
 
-    if (toolRequiresApproval(tool.id)) {
-      const requiredApproval = getRequiredApprovalLevel(tool.id);
+    if (toolRequiresApproval(dispatchKey)) {
+      const requiredApproval = getRequiredApprovalLevel(dispatchKey);
       const hasApproval = context.securityContext?.hasApproval === true;
       const approvedLevel = context.securityContext?.approvalStatus?.approvalLevel;
 
@@ -744,15 +772,16 @@ export class UnifiedToolRegistry {
       const hasSufficientApproval = userIndex >= requiredIndex;
 
       if (!hasApproval || !hasSufficientApproval) {
-        if (!isToolClassified(tool.id)) {
+        if (!isToolClassified(dispatchKey)) {
           logger.error('Refusing an unclassified tool', {
+            dispatchKey,
             toolId: tool.id,
             userId: context.userId,
             agentId: context.agentId,
           });
         }
         throw new ValidationError(
-          `Tool '${tool.id}' is classified as ${dangerConfig.riskLevel} risk and requires ${requiredApproval} approval. ` +
+          `Tool '${dispatchKey}' is classified as ${dangerConfig.riskLevel} risk and requires ${requiredApproval} approval. ` +
             `Current approval status: ${hasApproval ? `approved (${approvedLevel})` : 'not approved'}`
         );
       }
@@ -760,6 +789,7 @@ export class UnifiedToolRegistry {
 
     // Log security check for danger tools
     logger.debug('Danger tool validation passed', {
+      dispatchKey,
       toolId: tool.id,
       riskLevel: dangerConfig.riskLevel,
       categories: dangerConfig.categories,
@@ -885,8 +915,7 @@ export class UnifiedToolRegistry {
       // EXCEPTION — federated tools: their registry id `federation:<sub>:<tool>` IS
       // the routing key (it carries the producer binding); their `name` is the bare
       // producer-local tool name, which would resolve to native and dead-end.
-      const dispatchKey = tool.id?.startsWith('federation:') ? tool.id : tool.name || tool.id;
-      return await this.executeViaMesh(dispatchKey, parameters, context);
+      return await this.executeViaMesh(toolDispatchKey(tool), parameters, context);
     } catch (error) {
       logger.error('Standard execution failed', { error, toolId: tool.id, operation });
       throw error;

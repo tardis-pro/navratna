@@ -104,3 +104,52 @@ describe('danger tool classification', () => {
     }
   });
 });
+
+const { toolDispatchKey } = await import('../../services/unified_tool_registry');
+
+/**
+ * The near-miss these cover: validateToolExecution originally classified
+ * `tool.id`, which is the DB primary key — a generated UUID — while
+ * executeStandard dispatches on the semantic NAME. Gating on the uuid would have
+ * guarded a different identifier from the one that actually runs: every tool
+ * would resolve to UNCLASSIFIED and be refused, including math-calculator. That
+ * is the same shape as the original bug (danger list keyed on ids nothing
+ * dispatched), so both sides now derive the key from toolDispatchKey.
+ */
+describe('dispatch key', () => {
+  it('prefers the name over the generated uuid id', () => {
+    expect(
+      toolDispatchKey({ id: '7f3a1c92-4b21-4d3e-9c77-2a5b8e1f0d64', name: 'shell-exec' })
+    ).toBe('shell-exec');
+  });
+
+  it('keeps a federation id, which IS the routing key', () => {
+    expect(
+      toolDispatchKey({ id: 'federation:sub-1:remote-tool', name: 'remote-tool' })
+    ).toBe('federation:sub-1:remote-tool');
+  });
+
+  it('falls back to the id when there is no name', () => {
+    expect(toolDispatchKey({ id: 'shell-exec' })).toBe('shell-exec');
+  });
+
+  it('classifies a DB-registered native tool by the key it dispatches on', () => {
+    const tool = { id: '7f3a1c92-4b21-4d3e-9c77-2a5b8e1f0d64', name: 'shell-exec' };
+    const key = toolDispatchKey(tool);
+
+    // Classified and gated via the dispatch key...
+    expect(isToolClassified(key)).toBe(true);
+    expect(getRequiredApprovalLevel(key)).toBe('ADMIN');
+    // ...whereas the raw uuid is unclassified, which is what would have refused
+    // every tool in the system had the gate kept using tool.id.
+    expect(isToolClassified(tool.id)).toBe(false);
+  });
+
+  it('leaves a harmless DB-registered tool runnable', () => {
+    const key = toolDispatchKey({
+      id: 'c1d2e3f4-a5b6-4789-9abc-def012345678',
+      name: 'math-calculator',
+    });
+    expect(toolRequiresApproval(key)).toBe(false);
+  });
+});
