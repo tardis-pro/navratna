@@ -1,0 +1,224 @@
+# tardis fix — the coding agent, as a CI job.
+#
+# THE RUNNER IS THE SANDBOX. It already checks out, installs, tests, builds,
+# pushes and deploys, inside a rootless Docker daemon, and costs nothing while
+# idle. A per-task Kubernetes Job or a Coder workspace would be a worse
+# re-implementation of a thing that already works here, which is also why
+# exec-node-coding stays quarantined — it is a Fly machine driver with a
+# GitHub-only clone regex, and both are disqualifying on this platform.
+#
+# What this job does NOT do is merge. It proposes: a branch, a pull request, and
+# a note on the task. Every gate between here and main stays exactly where it
+# was, and a human still says yes.
+name: tardis-fix
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'task number to work on'
+        required: true
+      base:
+        description: 'branch to open the PR against'
+        required: false
+        default: main
+
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: refuse to pile up
+        env:
+          AGENT: ${{ secrets.TARDIS_AGENT_URL }}
+          CAP: ${{ secrets.TARDIS_CAPABILITY }}
+        run: |
+          # BOUNDED FROM DAY ONE.
+          #
+          # An unattended loop that can open pull requests will open pull
+          # requests, and a review queue nobody can face is the same as no review
+          # at all. Five open machine PRs is the cap; the sixth waits until one is
+          # merged or closed. This is deliberately checked BEFORE any model is
+          # paid for — the cheapest place to stop is at the start.
+          OPEN=$(curl -sS -k -H "Authorization: Bearer $CAP" "$AGENT/api/pr?limit=50" \
+            | python3 -c "import json,sys; print(sum(1 for p in json.load(sys.stdin) if (p.get('head') or '').startswith('fix/')))" 2>/dev/null || echo 0)
+          echo "open machine PRs: $OPEN"
+          if [ "$OPEN" -ge 5 ]; then
+            echo "::error::5 machine-authored pull requests are already open — review or close one before queueing another"
+            exit 1
+          fi
+
+      - name: gather the task and its evidence
+        env:
+          AGENT: ${{ secrets.TARDIS_AGENT_URL }}
+          CAP: ${{ secrets.TARDIS_CAPABILITY }}
+          TASK: ${{ github.event.inputs.task }}
+        run: |
+          mkdir -p /tmp/ctx
+          # The task itself. A task that cannot be found is a hard stop: working
+          # on "whatever was in the list" is how a machine change becomes
+          # unattributable.
+          curl -sS -k -H "Authorization: Bearer $CAP" "$AGENT/api/tasks?state=all" -o /tmp/ctx/tasks.json
+          python3 - "$TASK" <<'PY'
+          import json, sys
+          want = str(sys.argv[1]).lstrip('#')
+          tasks = json.load(open('/tmp/ctx/tasks.json'))
+          hit = next((t for t in tasks if str(t.get('number')) == want), None)
+          if not hit:
+              print(f"::error::task {want} is not on this project's board")
+              raise SystemExit(1)
+          json.dump(hit, open('/tmp/ctx/task.json', 'w'), indent=2)
+          print(f"task {hit['number']}: {hit['title']}")
+          PY
+
+          # Evidence. Each of these is allowed to be missing — a project without
+          # Sonar or without a failed build still has a task worth working on —
+          # but a FAILURE to fetch is reported rather than swallowed, because
+          # "the agent worked without evidence" and "there was no evidence" are
+          # different facts.
+          if ! curl -sS -k -f -H "Authorization: Bearer $CAP" "$AGENT/api/quality?limit=50" -o /tmp/ctx/quality.json 2>/dev/null; then
+            echo "::warning::no code quality data available for this project"
+            echo '{}' > /tmp/ctx/quality.json
+          fi
+          if ! curl -sS -k -f -H "Authorization: Bearer $CAP" "$AGENT/api/ci/logs?tail=120" -o /tmp/ctx/ci.json 2>/dev/null; then
+            echo "no failing build to learn from"
+            echo '{}' > /tmp/ctx/ci.json
+          fi
+
+      - name: injected context from the code graph
+        run: |
+          # INJECT, NEVER CRAWL — the largest of the four levers on token cost.
+          # `codegraph explore` emits the relevant symbols, what calls them, and
+          # which tests cover them; paying a model to rediscover that by reading a
+          # 260k-line repo is the cost model, not an optimisation.
+          #
+          # If codegraph is absent the job still runs, because a task is still
+          # workable without it — but it says so loudly, in the log AND in the
+          # prompt, because the difference is a large and otherwise invisible
+          # bill.
+          if command -v codegraph >/dev/null 2>&1; then
+            TITLE=$(python3 -c "import json; print(json.load(open('/tmp/ctx/task.json'))['title'])")
+            codegraph explore "$TITLE" > /tmp/ctx/graph.txt 2>/dev/null || echo "(codegraph explore returned nothing)" > /tmp/ctx/graph.txt
+            echo "injected $(wc -l < /tmp/ctx/graph.txt) lines of graph context"
+          else
+            echo "::warning::codegraph is not installed on this runner — the agent will read files instead, which costs substantially more"
+            echo "(no code graph available on this runner)" > /tmp/ctx/graph.txt
+          fi
+
+      - name: compose the prompt
+        run: |
+          python3 - <<'PY'
+          import json
+          task = json.load(open('/tmp/ctx/task.json'))
+          quality = json.load(open('/tmp/ctx/quality.json'))
+          ci = json.load(open('/tmp/ctx/ci.json'))
+          graph = open('/tmp/ctx/graph.txt').read()
+
+          issues = quality.get('issues') or []
+          lines = [
+              "# Task",
+              f"#{task['number']} — {task['title']}",
+              "",
+              (task.get('body') or '(no description)').strip(),
+              "",
+              "# What you may change",
+              "Write files only. Do not run git, do not push, do not open a pull request —",
+              "the harness does all of that. Make the smallest change that resolves the task.",
+              "If you cannot do it safely, change nothing and say why.",
+              "",
+              "# Code graph (relevant symbols, callers, covering tests)",
+              graph.strip() or "(none)",
+          ]
+          if issues:
+              lines += ["", "# Open code-quality issues in this project"]
+              lines += [f"- {i['severity']} {i['file']}:{i.get('line')} {i['message']}" for i in issues[:40]]
+          if ci.get('log'):
+              lines += ["", "# The last failing CI job", "```", ci['log'][-4000:], "```"]
+          text = "\n".join(lines)
+          open('/tmp/ctx/prompt.md', 'w').write(text)
+          # Not an f-string with a backslash in the expression: that is a syntax
+          # error before Python 3.12 and the runner's version is not ours to pick.
+          print("prompt: {} characters".format(len(text)))
+          PY
+
+      - name: run the coding agent
+        env:
+          TARDIS_AGENT_CMD: ${{ secrets.TARDIS_AGENT_CMD }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          # The seam. Everything about which model and which CLI lives in
+          # .tardis/run_agent.sh, and a missing agent fails here rather than
+          # producing an empty green run.
+          [ -f .tardis/run_agent.sh ] || {
+            echo "::error::.tardis/run_agent.sh is missing — run 'tardis ci refresh' to stamp it"
+            exit 1
+          }
+          bash .tardis/run_agent.sh /tmp/ctx/prompt.md "$PWD"
+
+      - name: branch, commit, push
+        id: push
+        env:
+          TASK: ${{ github.event.inputs.task }}
+        run: |
+          # AN AGENT THAT CHANGED NOTHING IS A FAILURE, NOT A PASS.
+          #
+          # This is the single most important line in the file. A run that edits
+          # no files and exits green is indistinguishable from a run that fixed
+          # the task, and that ambiguity is exactly how a loop convinces everyone
+          # it is working while doing nothing at all.
+          if git diff --quiet && [ -z "$(git status --porcelain)" ]; then
+            echo "::error::the coding agent made no changes — there is nothing to propose"
+            exit 1
+          fi
+          BRANCH="fix/task-${TASK}"
+          git config user.name "tardis agent"
+          git config user.email "agent@tardis.local"
+          git checkout -b "$BRANCH"
+          git add -A
+          # Two -m flags rather than one multi-line string: an embedded newline
+          # would have to sit at column 0 to reach git unindented, and that
+          # terminates the YAML block scalar this whole step lives in.
+          git commit -m "fix: task #${TASK} - proposed by the tardis coding agent" \
+                     -m "Opened for review by tardis-fix. Nothing here has been merged, and the same gates apply as to any other branch: tests, the coverage ratchet, and the post-deploy health check."
+          git push -u origin "$BRANCH" --force
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: open the pull request
+        env:
+          AGENT: ${{ secrets.TARDIS_AGENT_URL }}
+          CAP: ${{ secrets.TARDIS_CAPABILITY }}
+          TASK: ${{ github.event.inputs.task }}
+          BRANCH: ${{ steps.push.outputs.branch }}
+          BASE: ${{ github.event.inputs.base }}
+        run: |
+          # Built in a heredoc rather than an inline -c string: the body carries
+          # newlines and the task title is arbitrary text, and threading both
+          # through two levels of shell quoting is how a title with an apostrophe
+          # takes down the last step of the job.
+          python3 - <<'PY' > /tmp/ctx/pr-request.json
+          import json, os
+          task = json.load(open('/tmp/ctx/task.json'))
+          body = (
+              "Proposed by the tardis coding agent for task #{}.\n\n{}\n\n"
+              "Not merged, and not mergeable by a machine. Review the diff: the agent was "
+              "given the task, the code graph around it, the open quality issues and the "
+              "last failing CI log, and told to make the smallest change that resolves it."
+          ).format(task['number'], task.get('url', ''))
+          print(json.dumps({
+              'title': "fix: {}".format(task['title']),
+              'head': os.environ['BRANCH'],
+              'base': os.environ['BASE'] or 'main',
+              'body': body,
+          }))
+          PY
+          curl -sS -k -f -X POST "$AGENT/api/pr" -H "Authorization: Bearer $CAP" \
+            -H 'Content-Type: application/json' --data-binary @/tmp/ctx/pr-request.json -o /tmp/ctx/pr.json
+          python3 - <<'PY'
+          import json
+          p = json.load(open('/tmp/ctx/pr.json'))
+          print(("opened" if p['created'] else "already open") + ": #{} {}".format(p['number'], p['url']))
+          PY
