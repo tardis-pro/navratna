@@ -220,6 +220,11 @@ export function registerMCPRoutes() {
             pid: s.pid,
             toolCount: s.tools?.length || 0,
             lastHealthCheck: s.lastHealthCheck,
+            // Present on a row whose stored config could not be decoded. The
+            // listing degrades that entry rather than 500ing the whole endpoint
+            // (see getConfiguredServers), so this is how the caller learns which
+            // server is broken and why. Never contains secret material.
+            error: s.error,
           })),
         };
       })

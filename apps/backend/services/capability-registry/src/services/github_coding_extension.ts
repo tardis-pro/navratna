@@ -1,3 +1,12 @@
+/**
+ * QUARANTINED — NOT ON ANY LIVE PATH (2026-08-15).
+ *
+ * GitHubCodingExtension is never instantiated. It is GitHub-specific in a
+ * Gitea-hosted deployment, and belongs to the coding tier described in
+ * apps/backend/services/exec-node-coding/AGENTS.md, which is unusable here.
+ *
+ * Do not wire this up on the strength of it looking complete.
+ */
 import { logger } from '@uaip/utils';
 import { WorkspaceManager } from './workspace_manager_service.js';
 

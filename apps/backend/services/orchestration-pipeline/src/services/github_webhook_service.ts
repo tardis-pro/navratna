@@ -11,6 +11,16 @@ import type {
   WebhookValidationResult,
 } from '@uaip/types'
 
+/**
+ * Bus topics the verified GitHub webhook fans out to.
+ *
+ * These are a deliberate public surface, not internal handoffs: a workflow
+ * definition with `trigger: { kind: 'event', expr: 'github.ci.check' }` binds to
+ * one directly (see WorkflowEngineService.registerEventTrigger), so a publish
+ * here has a real subscription path even when nothing happens to be listening
+ * right now. That is what separates them from the `rdlo.*` topics that were
+ * removed — those addressed components that do not exist.
+ */
 const GITHUB_EVENT_TOPIC_MAP: Record<string, string> = {
   push: 'github.push',
   pull_request: 'github.pr',

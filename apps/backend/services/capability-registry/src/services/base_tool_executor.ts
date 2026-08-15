@@ -43,6 +43,26 @@ function asString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
+/**
+ * Every tool id this executor dispatches by name.
+ *
+ * Kept beside the switch below and asserted against DANGER_TOOLS at boot
+ * (assertToolsClassified). Adding a `case` here without adding a row to
+ * danger_tool_list.ts stops the service from starting — which is the point.
+ * Dynamically-discovered families (mcp-*, oauth-*, project/task, calendar) are
+ * resolved in the `default:` arm and covered by wildcard rows instead.
+ */
+export const BASE_TOOL_EXECUTOR_TOOL_IDS = [
+  'math-calculator',
+  'text-analysis',
+  'time-utility',
+  'id-generator',
+  'file-reader',
+  'web-search',
+  'shell-exec',
+  'http-request',
+] as const;
+
 export class BaseToolExecutor {
   async execute(toolId: string, parameters: Record<string, unknown>): Promise<unknown> {
     logger.info(`Executing tool: ${toolId}`, { parameters });

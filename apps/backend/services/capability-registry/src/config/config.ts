@@ -43,6 +43,9 @@ const serviceSpecificConfig: CapabilityRegistrySpecificConfig = {
   tools: {
     defaultExecutionTimeout: parseInt(process.env.TOOL_EXECUTION_TIMEOUT || '30000'), // 30 seconds
     maxConcurrentExecutions: parseInt(process.env.MAX_CONCURRENT_EXECUTIONS || '10'),
+    // NOT a kill switch for the danger-tool gate. Dangerous tools are refused
+    // without approval regardless of this value; it only decides whether the
+    // refusal also raises a reviewable tool.approval.required request.
     enableApprovalWorkflow: process.env.ENABLE_APPROVAL_WORKFLOW === 'true',
     defaultCostLimit: parseFloat(process.env.DEFAULT_COST_LIMIT || '100.0'),
   },

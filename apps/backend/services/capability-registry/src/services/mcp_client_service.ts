@@ -11,7 +11,7 @@ import { ToolGraphDatabase, SecurityLevel, ToolService, AgentService, MCPOutputV
 import type { NewMCPServer } from '@uaip/shared-services/drizzle/control';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra';
-import { encryptHeaders, decryptHeaders, resolveEnvRefs } from '../utils/mcp_secrets.js';
+import { encryptHeaders, decryptHeaders, resolveEnvRefs } from '@uaip/shared-services';
 import { buildMcpToolRegistration } from '../utils/mcp_tool_key.js';
 import { McpRepository } from '../database/index.js';
 
@@ -1507,6 +1507,20 @@ export class MCPClientService extends EventEmitter {
     return Array.from(this.servers.values());
   }
 
+  /**
+   * Every configured server, one entry per row.
+   *
+   * PER-ROW FAILURE IS CONTAINED. entityToConfig() decrypts that row's stored
+   * headers, and decryptHeaders throws on a row it cannot read (wrong or rotated
+   * MCP_SECRETS_KEY, truncated ciphertext). This used to be a plain .map(), so a
+   * single undecryptable row threw out of the whole function and
+   * `GET /api/v1/mcp/servers` returned 500 — an endpoint listing every server
+   * taken out by one server's credential, with nothing in the response saying
+   * which one.
+   *
+   * A row that cannot be decoded now degrades to a status:'error' entry carrying
+   * the reason, and the rest of the list is returned intact.
+   */
   async getConfiguredServers(): Promise<MCPServerState[]> {
     if (!this.mcpRepo) return this.getAllServers();
 
@@ -1517,22 +1531,47 @@ export class MCPClientService extends EventEmitter {
       const running = this.servers.get(name);
       if (running) return running;
 
-      const config = this.entityToConfig(entity);
-      return {
-        name,
-        config,
-        transportType: config.transportType ?? 'stdio',
-        httpUrl: config.httpUrl,
-        status: 'stopped',
-        logs: [],
-        stats: {
-          totalRequests: 0,
-          successfulRequests: 0,
-          failedRequests: 0,
-          averageResponseTime: 0,
-          uptime: 0,
-        },
+      const emptyStats = {
+        totalRequests: 0,
+        successfulRequests: 0,
+        failedRequests: 0,
+        averageResponseTime: 0,
+        uptime: 0,
       };
+
+      try {
+        const config = this.entityToConfig(entity);
+        return {
+          name,
+          config,
+          transportType: config.transportType ?? 'stdio',
+          httpUrl: config.httpUrl,
+          status: 'stopped' as const,
+          logs: [],
+          stats: emptyStats,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error('MCP server row could not be decoded; degrading this entry', {
+          serverName: name,
+          error: message,
+        });
+        return {
+          name,
+          // No config could be built — notably no decrypted headers, which is
+          // the usual cause. Left minimal rather than guessed.
+          config: { args: [] },
+          transportType:
+            record.transportType === 'http' || record.transportType === 'streamable-http'
+              ? record.transportType
+              : ('stdio' as const),
+          httpUrl: typeof record.url === 'string' ? record.url : undefined,
+          status: 'error' as const,
+          error: `Configuration could not be read: ${message}`,
+          logs: [],
+          stats: emptyStats,
+        };
+      }
     });
   }
 
@@ -1563,22 +1602,43 @@ export class MCPClientService extends EventEmitter {
     await Promise.allSettled(stopPromises);
   }
 
+  /**
+   * Configs for every enabled server.
+   *
+   * Same per-row containment as getConfiguredServers, and for a sharper reason:
+   * the try/catch used to wrap the whole loop and return `{ mcpServers: {} }` on
+   * any failure, logged at warn. So one row with undecryptable headers meant
+   * startAllServers() saw zero servers and started none of them — every MCP
+   * server silently absent because of one bad credential, with a single warn line
+   * as the only trace.
+   */
   private async loadAllConfigs(): Promise<{ mcpServers: Record<string, MCPServerConfig> }> {
+    if (!this.mcpRepo) return { mcpServers: {} };
+
+    let entities: Awaited<ReturnType<typeof this.mcpRepo.getAllServers>>;
     try {
-      if (!this.mcpRepo) return { mcpServers: {} };
-      const mcpService = this.mcpRepo;
-      const entities = await mcpService.getAllServers();
-      const mcpServers: Record<string, MCPServerConfig> = {};
-      for (const entity of entities) {
-        if (entity.enabled) {
-          mcpServers[entity.name] = this.entityToConfig(entity);
-        }
-      }
-      return { mcpServers };
+      entities = await this.mcpRepo.getAllServers();
     } catch (error) {
-      logger.warn('Failed to load MCP configs from DB, using empty config:', error);
+      // The query itself failed — there is no per-row work to salvage.
+      logger.error('Failed to read MCP servers from the database', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return { mcpServers: {} };
     }
+
+    const mcpServers: Record<string, MCPServerConfig> = {};
+    for (const entity of entities) {
+      if (!entity.enabled) continue;
+      try {
+        mcpServers[entity.name] = this.entityToConfig(entity);
+      } catch (error) {
+        logger.error('Skipping MCP server whose stored config could not be decoded', {
+          serverName: entity.name,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    return { mcpServers };
   }
 
   private entityToConfig(entity: unknown): MCPServerConfig {

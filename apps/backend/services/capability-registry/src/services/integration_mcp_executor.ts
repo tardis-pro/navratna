@@ -268,6 +268,10 @@ export class IntegrationMcpExecutor {
       authHeaderName: connection.authHeaderName,
       authScheme: connection.authScheme,
       credential: connection.credential,
+      // A credentialMode:'none' server authenticates with these and nothing
+      // else. Dropping them here is what made catalog discovery fail for the
+      // one server that had them stored.
+      staticHeaders: connection.staticHeaders,
     });
   }
 }

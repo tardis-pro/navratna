@@ -139,12 +139,14 @@ describe('task-list', () => {
   it('scopes to a single project when projectId is supplied', async () => {
     const { service, repo } = makeService();
 
+    // 'pending' is a legacy spelling; the tool now normalises it to 'backlog'
+    // rather than rejecting callers written against the old vocabulary.
     await service.execute('task-list', USER_ID, { projectId: PROJECT_ID, status: 'pending' });
 
     expect(repo.userCanAccessProject).toHaveBeenCalledWith(USER_ID, PROJECT_ID);
     expect(repo.findTasksByProject).toHaveBeenCalledWith(
       PROJECT_ID,
-      expect.objectContaining({ status: 'pending' })
+      expect.objectContaining({ status: 'backlog' })
     );
     expect(repo.findTasksByProjectIds).not.toHaveBeenCalled();
   });
@@ -248,13 +250,14 @@ describe('task-create', () => {
 });
 
 describe('task-update', () => {
-  it('stamps completedAt when the status becomes completed', async () => {
+  it('stamps completedAt when the status becomes done', async () => {
     const { service, repo } = makeService();
 
+    // Legacy 'completed' normalises to canonical 'done'.
     await service.execute('task-update', USER_ID, { taskId: TASK_ID, status: 'completed' });
 
     const patch = repo.updateTask.mock.calls[0][1];
-    expect(patch.status).toBe('completed');
+    expect(patch.status).toBe('done');
     expect(patch.completedAt).toBeInstanceOf(Date);
   });
 

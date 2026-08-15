@@ -1,3 +1,4 @@
+import type { StoryStatus } from './board-provider';
 import { z } from 'zod';
 import { BaseEntitySchema, IDSchema } from './common.js';
 import { ExecutionPlanSchema } from './agent';
@@ -1140,7 +1141,13 @@ export interface TaskEntity {
   description?: string;
   taskNumber: string;
   projectId: string;
-  status: TaskStatus;
+  /**
+   * Canonical StoryStatus, not the legacy TaskStatus. The two vocabularies were
+   * both being written into the single `tasks.status` column; StoryStatus won
+   * (see board-provider.ts). TaskStatus is retained only so pre-migration values
+   * can still be recognised by toStoryStatus().
+   */
+  status: StoryStatus;
   priority: TaskPriority;
   type: TaskType;
   assigneeType?: AssigneeType;

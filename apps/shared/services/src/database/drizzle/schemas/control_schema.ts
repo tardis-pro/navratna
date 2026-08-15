@@ -52,6 +52,7 @@ import type {
   LLMProviderUsageType,
   IntegrationAuthKind,
   McpCredentialMode,
+  StoryStatus,
 } from '@uaip/types';
 import {
   SecurityLevel,
@@ -945,6 +946,21 @@ export const mcpServers = pgTable(
     // IMMUTABLE once set: discovered tool ids are `mcp-<serverKey>-<toolName>`, so
     // changing it orphans every agent binding that references those tools.
     serverKey: varchar('server_key', { length: 100 }).unique(),
+    /**
+     * The project this server belongs to, or NULL for a server shared across all
+     * projects (public docs servers and the like).
+     *
+     * Registration used to be entirely global, keyed only by URL, so
+     * `navratna-tardis-agent` served exactly one project by accident of hostname
+     * — nothing in the data said which project, and a second project's agent
+     * would have been indistinguishable. This column is the ownership boundary:
+     * McpConnectionResolver.resolve() refuses a call whose request.projectId does
+     * not match a project-scoped row.
+     *
+     * NOT part of identity: server_key stays globally unique, because tool ids
+     * (`mcp-<serverKey>-<toolName>`) are global and must keep resolving.
+     */
+    projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     credentialMode: text('credential_mode').$type<McpCredentialMode>().notNull().default('none'),
     authHeaderName: varchar('auth_header_name', { length: 100 }),
     authScheme: varchar('auth_scheme', { length: 50 }),
@@ -1100,7 +1116,12 @@ export const tasks = pgTable('tasks', {
     .references(() => projects.id, { onDelete: 'cascade' }),
   title: varchar('title', { length: 255 }).notNull(),
   description: text('description'),
-  status: varchar('status', { length: 50 }).notNull().default('pending'),
+  // Canonical vocabulary is StoryStatus (see shared-types/board-provider.ts).
+  // This column previously defaulted to 'pending' — a value NO writer produced —
+  // while TaskService wrote todo/in_progress/... and InternalBoardAdapter wrote
+  // backlog/in-progress/... into the same column. Use toStoryStatus() on read
+  // for rows written before the migration.
+  status: varchar('status', { length: 50 }).$type<StoryStatus>().notNull().default('backlog'),
   priority: varchar('priority', { length: 50 }).notNull().default('medium'),
   assigneeId: uuid('assignee_id').references(() => users.id, { onDelete: 'set null' }),
   dueAt: timestamp('due_at'),

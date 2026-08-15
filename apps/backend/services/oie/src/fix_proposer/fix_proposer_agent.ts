@@ -30,7 +30,11 @@ function getRedisOptions() {
   };
 }
 
-function routeByConfidence(confidence: number): FixRoutingDecision {
+/**
+ * Genuine routing policy, kept exported so it survives proposeFix() being
+ * unimplemented — a real fix proposer will still need exactly this decision.
+ */
+export function routeByConfidence(confidence: number): FixRoutingDecision {
   if (confidence >= CONFIDENCE_THRESHOLD) return 'auto_pr';
   if (confidence >= 0.5) return 'shadow_jury';
   return 'jira_comment_only';
@@ -57,6 +61,20 @@ export class FixProposerAgent {
     logger.info('FixProposerAgent started', { confidenceThreshold: CONFIDENCE_THRESHOLD });
   }
 
+  /**
+   * NOT IMPLEMENTED.
+   *
+   * This used to publish a FixProposal onto the `oie.fix` queue carrying
+   * `diff: ''`, a hardcoded `confidence: 0.0`, and the explanation
+   * "[STUB] Fix proposal not yet implemented" — then log
+   * "FixProposerAgent: proposal published". Downstream consumers had no way to
+   * tell that apart from a real proposal with low confidence, so the queue filled
+   * with empty diffs presented as work product.
+   *
+   * Throwing fails the BullMQ job instead, which the 'failed' handler registered
+   * in start() already logs. A failed job is the truthful state: an analysis
+   * arrived and no fix was produced for it.
+   */
   private async proposeFix(job: Job): Promise<void> {
     const analysis = job.data as RootCauseAnalysis;
 
@@ -65,21 +83,12 @@ export class FixProposerAgent {
       return;
     }
 
-    const confidence = 0.0;
-    const routing = routeByConfidence(confidence);
-
-    const proposal: FixProposal = {
-      incidentId: analysis.incidentId,
-      diff: '',
-      explanation: '[STUB] Fix proposal not yet implemented',
-      affectedFiles: analysis.affectedComponents,
-      confidence,
-      routing,
-      proposedAt: new Date(),
-    };
-
-    await this.outputQueue?.add('oie.fix', proposal, { jobId: `fix:${analysis.incidentId}` });
-    logger.info('FixProposerAgent: proposal published', { incidentId: analysis.incidentId, routing });
+    throw new Error(
+      `FixProposerAgent.proposeFix is not implemented (incident ${analysis.incidentId}, ` +
+        `components: ${analysis.affectedComponents.join(', ') || 'none'}). It previously ` +
+        `published an empty diff at confidence 0.0 onto the oie.fix queue as though it ` +
+        `were a real proposal.`
+    );
   }
 
   async stop(): Promise<void> {

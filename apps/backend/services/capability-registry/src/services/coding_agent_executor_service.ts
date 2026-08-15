@@ -1,3 +1,13 @@
+/**
+ * QUARANTINED — NOT ON ANY LIVE PATH (2026-08-15).
+ *
+ * CodingAgentExecutor is never constructed anywhere in the codebase. It belongs
+ * to the coding tier, which cannot run on this deployment: the only machine
+ * backend is Fly.io and the clone path is hardcoded to github.com while this
+ * homelab runs Gitea. See apps/backend/services/exec-node-coding/AGENTS.md.
+ *
+ * Do not wire this up on the strength of it looking complete.
+ */
 import { EventEmitter } from 'events';
 import { logger, NotFoundError } from '@uaip/utils';
 import { WorkspaceManager } from './workspace_manager_service.js';

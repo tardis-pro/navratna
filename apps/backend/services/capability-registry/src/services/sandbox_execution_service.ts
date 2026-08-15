@@ -154,7 +154,24 @@ export class SandboxExecutionService {
       return this.executeInDocker(execution, runtime, timeoutMs);
     }
 
-    logger.warn('Docker unavailable, using local execution fallback', {
+    // Docker is the sandbox. Without it there is no --memory, no --cpus, no
+    // --network none, and no container boundary: executeLocally() is a bare
+    // execAsync on the host with the full process.env. Falling through to it
+    // turned "run this untrusted thing in a sandbox" into "run this untrusted
+    // thing", silently, with the caller still told sandbox: true.
+    //
+    // Fail instead. SANDBOX_ALLOW_LOCAL_FALLBACK exists for local development
+    // where there is no Docker daemon and the risk is understood; it must be set
+    // deliberately, and the downgrade is logged as an error, not a warning.
+    if (process.env.SANDBOX_ALLOW_LOCAL_FALLBACK !== 'true') {
+      throw new ExternalServiceError(
+        'Sandboxed execution requires Docker, and the Docker daemon is not reachable. ' +
+          'Refusing to run unsandboxed on the host. Start Docker, or set ' +
+          'SANDBOX_ALLOW_LOCAL_FALLBACK=true to explicitly accept unsandboxed local execution.'
+      );
+    }
+
+    logger.error('SANDBOX DOWNGRADED: Docker unavailable and local fallback explicitly enabled', {
       executionId: execution.id,
       toolId: execution.toolId,
     });

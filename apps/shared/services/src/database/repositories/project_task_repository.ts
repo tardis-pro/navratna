@@ -1,17 +1,20 @@
 import { getControlDb } from '../drizzle/clients/index';
 import { projects, projectMembers, tasks } from '../drizzle/schemas/control_schema';
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import type { StoryStatus } from '@uaip/types';
 
 export type ProjectRow = typeof projects.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 
 export interface ProjectListFilters {
+  // A PROJECT status (ProjectStatus), not a task's StoryStatus — different
+  // vocabulary on a different column.
   status?: string;
   limit?: number;
 }
 
 export interface TaskListFilters {
-  status?: string;
+  status?: StoryStatus;
   priority?: string;
   assigneeId?: string;
   limit?: number;
@@ -21,7 +24,7 @@ export interface CreateTaskInput {
   projectId: string;
   title: string;
   description?: string;
-  status?: string;
+  status?: StoryStatus;
   priority?: string;
   assigneeId?: string;
   dueAt?: Date;
@@ -31,7 +34,7 @@ export interface CreateTaskInput {
 export interface UpdateTaskInput {
   title?: string;
   description?: string;
-  status?: string;
+  status?: StoryStatus;
   priority?: string;
   assigneeId?: string | null;
   dueAt?: Date | null;
@@ -148,7 +151,7 @@ export class ProjectTaskRepository {
         projectId: input.projectId,
         title: input.title,
         description: input.description ?? null,
-        status: input.status ?? 'pending',
+        status: input.status ?? 'backlog',
         priority: input.priority ?? 'medium',
         assigneeId: input.assigneeId ?? null,
         dueAt: input.dueAt ?? null,

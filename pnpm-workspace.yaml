@@ -64,7 +64,11 @@ catalogs:
     '@sentry/react': ^9.27.0
     axios: ^1.13.0
   backend:
-    bullmq: ^5.56.0
+    # v6 dropped the uuid dependency entirely (it uses crypto.randomUUID), which
+    # removes the ESM/CJS class of failure at the source rather than pinning
+    # around it. It also removed the legacy repeatable-job API — see
+    # workflow_engine_service.ts, which now uses Job Schedulers.
+    bullmq: ^6.1.1
     drizzle-orm: ^0.45.2
     socket.io: ^4.8.3
     ioredis: ^5.8.2
@@ -182,6 +186,16 @@ overrides:
   lodash@<=4.17.23: '>=4.18.0'
   simple-git: '>=3.36.0'
   tmp: '>=0.2.6'
-  uuid: '>=11.1.1'
+  # Upper bound is load-bearing, not cosmetic. This override exists for a
+  # security floor, but left open-ended pnpm resolves it to uuid@14, which is
+  # ESM-only ("type": "module", no `require` condition in exports). bullmq
+  # depends on uuid@11.1.0 and does `require('uuid')` from
+  # classes/flow-producer.js, so under Bun every gateway start threw
+  #   TypeError: require() async module ".../uuid@14.0.0/dist-node/index.js"
+  #   is unsupported. use "await import()" instead.
+  # and crash-looped. uuid@11.1.1 clears the same floor and still ships
+  # dist/cjs. Do not widen past <12 without confirming bullmq imports it
+  # asynchronously.
+  uuid: '>=11.1.1 <12.0.0'
   vite: '>=8.0.5'
   ws: '>=8.20.1'

@@ -1,4 +1,5 @@
 import { ProjectTaskRepository, type ProjectRow, type TaskRow } from '../database/repositories/project_task_repository';
+import { STORY_STATUSES, toStoryStatus, type StoryStatus } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
 export const PROJECT_TASK_TOOL_IDS = [
@@ -77,7 +78,16 @@ const toTaskSummary = (row: TaskRow): TaskSummary => ({
   updatedAt: row.updatedAt,
 });
 
-const TASK_STATUSES = ['pending', 'in_progress', 'blocked', 'completed', 'cancelled'];
+/**
+ * A THIRD status vocabulary used to live here — ['pending','in_progress',
+ * 'blocked','completed','cancelled'] — exposed as the MCP tool surface, so every
+ * agent calling task-create/task-update wrote values that matched neither
+ * TaskService's nor InternalBoardAdapter's. All three now agree on StoryStatus.
+ *
+ * Callers still sending a legacy spelling are accepted and normalised by
+ * optionalStoryStatus rather than rejected, so existing agent prompts keep
+ * working.
+ */
 const TASK_PRIORITIES = ['low', 'medium', 'high', 'critical'];
 
 function requireString(params: Record<string, unknown>, key: string): string {
@@ -96,6 +106,26 @@ function optionalString(params: Record<string, unknown>, key: string): string | 
 function optionalNumber(params: Record<string, unknown>, key: string): number | undefined {
   const value = params[key];
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+/**
+ * Reads a status parameter, accepting either the canonical StoryStatus or any
+ * legacy spelling, and returns the canonical value.
+ */
+function optionalStoryStatus(
+  params: Record<string, unknown>,
+  key: string
+): StoryStatus | undefined {
+  const value = optionalString(params, key);
+  if (value === undefined) return undefined;
+  const normalized = toStoryStatus(value);
+  if (!normalized) {
+    throw new ProjectTaskToolError(
+      `Parameter "${key}" must be one of: ${STORY_STATUSES.join(', ')}`,
+      'INVALID_PARAMS'
+    );
+  }
+  return normalized;
 }
 
 function optionalEnum(
@@ -204,7 +234,7 @@ export class ProjectTaskToolService {
 
   private async listTasks(userId: string, params: Record<string, unknown>) {
     const filters = {
-      status: optionalEnum(params, 'status', TASK_STATUSES),
+      status: optionalStoryStatus(params, 'status'),
       priority: optionalEnum(params, 'priority', TASK_PRIORITIES),
       assigneeId: optionalString(params, 'assigneeId'),
       limit: optionalNumber(params, 'limit'),
@@ -238,7 +268,7 @@ export class ProjectTaskToolService {
       projectId,
       title: requireString(params, 'title'),
       description: optionalString(params, 'description'),
-      status: optionalEnum(params, 'status', TASK_STATUSES),
+      status: optionalStoryStatus(params, 'status'),
       priority: optionalEnum(params, 'priority', TASK_PRIORITIES),
       assigneeId: optionalString(params, 'assigneeId'),
       dueAt: optionalDate(params, 'dueAt'),
@@ -250,7 +280,7 @@ export class ProjectTaskToolService {
     const taskId = requireString(params, 'taskId');
     await this.assertTaskAccess(userId, taskId);
 
-    const status = optionalEnum(params, 'status', TASK_STATUSES);
+    const status = optionalStoryStatus(params, 'status');
     const row = await this.repository.updateTask(taskId, {
       title: optionalString(params, 'title'),
       description: optionalString(params, 'description'),
@@ -258,7 +288,7 @@ export class ProjectTaskToolService {
       priority: optionalEnum(params, 'priority', TASK_PRIORITIES),
       assigneeId: optionalString(params, 'assigneeId'),
       dueAt: optionalDate(params, 'dueAt'),
-      completedAt: status === 'completed' ? new Date() : undefined,
+      completedAt: status === 'done' ? new Date() : undefined,
     });
     if (!row) throw new ProjectTaskToolError('Task not found', 'NOT_FOUND');
     return toTaskSummary(row);

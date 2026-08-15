@@ -18,6 +18,7 @@ import { registerDevLoopRoutes } from './routes/dev_loop_routes.js'
 import { registerOperationRoutes } from './routes/operation_routes.js'
 import { registerTaskRoutes } from './routes/task_routes.js'
 import { registerWorkflowRoutes } from './routes/workflow_routes.js'
+import { registerWorkflowHookRoutes } from './routes/workflow_hook_routes.js'
 import { registerGitHubWebhookRoutes } from './routes/github_webhook_routes.js'
 import { registerJiraWebhookRoutes } from './routes/jira_webhook_routes.js'
 import { importOpenClawWorkflows } from './seeds/openclaw-workflow-import.js'
@@ -94,6 +95,16 @@ export const orchestrationFeature: Feature = {
   routes(app) {
     app.use(registerTaskRoutes(taskController))
     app.use(registerWorkflowRoutes(workflowEngineService, workflowExecutorService))
+    // Ingress for trigger.kind === 'webhook' definitions. Same reasoning as the
+    // GitHub receiver below: only mount it when the shared secret exists, so an
+    // unconfigured deploy has no route rather than one that 401s on every call.
+    if (process.env.WORKFLOW_WEBHOOK_SECRET) {
+      app.use(registerWorkflowHookRoutes(workflowEngineService, workflowExecutorService))
+    } else {
+      logger.warn(
+        'WORKFLOW_WEBHOOK_SECRET not set — workflow webhook triggers will register but cannot fire'
+      )
+    }
     app.use(registerOperationRoutes(orchestrationEngine))
     app.use(registerDevLoopRoutes(devLoopServices))
     // GitHub webhook receiver (push/PR/check_run → CI monitor). HMAC-SHA256

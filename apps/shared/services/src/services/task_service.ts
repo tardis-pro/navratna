@@ -1,6 +1,5 @@
 import {
   TaskEntity,
-  TaskStatus,
   TaskType,
   AssigneeType,
   TaskActivityEntry,
@@ -9,6 +8,13 @@ import {
   TaskFilters,
   TaskAssignmentRequest,
   TaskAssignmentSuggestion,
+} from '@uaip/types';
+import {
+  STORY_STATUSES,
+  STORY_STATUS_TRANSITIONS,
+  canTransitionStoryStatus,
+  toStoryStatus,
+  type StoryStatus,
 } from '@uaip/types';
 import { ProjectEntity } from '../entities/project_entity';
 import { UserEntity } from '../entities/user_entity';
@@ -211,14 +217,39 @@ export class TaskService {
       const changes: Record<string, { old: unknown; new: unknown }> = {};
 
       // Handle status changes
+      //
+      // GUARDED. Status is otherwise a free PUT: any value could replace any
+      // other, so a task could go 'backlog' → 'done' having never been worked, or
+      // a completed task could be silently reopened. Both the stored value and
+      // the requested one are normalised first, because rows written before the
+      // StoryStatus migration still carry the TaskService vocabulary
+      // (todo/in_progress/...) or the old 'pending' default.
       if (request.status && request.status !== task.status) {
-        changes.status = { old: task.status, new: request.status };
+        const from = toStoryStatus(task.status);
+        const to = toStoryStatus(request.status);
+
+        if (!to) {
+          throw new Error(
+            `Unknown task status '${String(request.status)}'. Valid statuses: ${STORY_STATUSES.join(', ')}`
+          );
+        }
+        // An unrecognised stored value cannot constrain anything, so it is
+        // treated as unblocked rather than trapping the task permanently.
+        if (from && !canTransitionStoryStatus(from, to)) {
+          throw new Error(
+            `Illegal task status transition '${from}' → '${to}'. Allowed from '${from}': ` +
+              `${STORY_STATUS_TRANSITIONS[from].join(', ')}`
+          );
+        }
+
+        changes.status = { old: task.status, new: to };
+        request.status = to;
 
         // Update timing fields based on status
-        if (request.status === TaskStatus.IN_PROGRESS && !task.startedAt) {
+        if (to === 'in-progress' && !task.startedAt) {
           task.startedAt = new Date();
         }
-        if (request.status === TaskStatus.COMPLETED && !task.completedAt) {
+        if (to === 'done' && !task.completedAt) {
           task.completedAt = new Date();
         }
       }
@@ -445,13 +476,13 @@ export class TaskService {
       if (filters.isOverdue) {
         queryBuilder.andWhere('task.dueDate < :now AND task.status != :completedStatus', {
           now: new Date(),
-          completedStatus: TaskStatus.COMPLETED,
+          completedStatus: 'done' satisfies StoryStatus,
         });
       }
 
       if (filters.isBlocked) {
         queryBuilder.andWhere('(task.status = :blockedStatus OR task.blockedBy IS NOT NULL)', {
-          blockedStatus: TaskStatus.BLOCKED,
+          blockedStatus: 'blocked' satisfies StoryStatus,
         });
       }
     }
@@ -637,7 +668,7 @@ export class TaskService {
     return await this.taskRepository.count({
       where: {
         assignedToUserId: userId,
-        status: TaskStatus.IN_PROGRESS,
+        status: 'in-progress' satisfies StoryStatus,
       },
     });
   }
@@ -646,7 +677,7 @@ export class TaskService {
     return await this.taskRepository.count({
       where: {
         assignedToAgentId: agentId,
-        status: TaskStatus.IN_PROGRESS,
+        status: 'in-progress' satisfies StoryStatus,
       },
     });
   }
@@ -704,11 +735,15 @@ export class TaskService {
     };
 
     // Auto-update status based on completion
-    if (completionPercentage >= 100 && task.status !== TaskStatus.COMPLETED) {
-      task.status = TaskStatus.COMPLETED;
+    // Compared through toStoryStatus so a row still holding a legacy value
+    // ('completed', 'todo', or the old 'pending' default) is judged on what it
+    // means, not on its spelling.
+    const currentStatus = toStoryStatus(task.status);
+    if (completionPercentage >= 100 && currentStatus !== 'done') {
+      task.status = 'done';
       task.completedAt = new Date();
-    } else if (completionPercentage > 0 && task.status === TaskStatus.TODO) {
-      task.status = TaskStatus.IN_PROGRESS;
+    } else if (completionPercentage > 0 && currentStatus === 'backlog') {
+      task.status = 'in-progress';
       task.startedAt = new Date();
     }
 

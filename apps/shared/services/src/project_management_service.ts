@@ -1,6 +1,7 @@
 import { DatabaseService } from './database_service';
 import { EventBusService } from './event_bus_service';
 import { logger } from '@uaip/utils';
+import { toStoryStatus } from '@uaip/types';
 import {
   ProjectEntity,
   ProjectStatus,
@@ -442,7 +443,9 @@ export class ProjectManagementService {
 
     if (!this.taskRepository) throw new Error('Project Management Service is not initialized');
     const tasks: Task[] = await this.taskRepository.find({ where: { projectId } });
-    const completedTasks = tasks.filter((task) => task.status === 'completed' || task.status === 'done');
+    // toStoryStatus, not a literal compare: rows written before the StoryStatus
+    // migration still hold 'completed', which is the same state under a different name.
+    const completedTasks = tasks.filter((task) => toStoryStatus(task.status) === 'done');
     const taskCompletionRate = tasks.length === 0 ? 0 : completedTasks.length / tasks.length;
     const durations = completedTasks
       .map((task) => task.completedAt && task.createdAt
@@ -464,7 +467,7 @@ export class ProjectManagementService {
           if (!task.assigneeId) return agents;
           const current = agents.get(task.assigneeId) ?? { tasksCompleted: 0, totalTasks: 0 };
           current.totalTasks += 1;
-          if (task.status === 'completed' || task.status === 'done') current.tasksCompleted += 1;
+          if (toStoryStatus(task.status) === 'done') current.tasksCompleted += 1;
           agents.set(task.assigneeId, current);
           return agents;
         }, new Map<string, { tasksCompleted: number; totalTasks: number }>())

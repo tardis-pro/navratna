@@ -7,7 +7,7 @@ import type {
   HealingDiagnosis,
   HealingFix,
 } from '@uaip/types'
-import { logger } from '@uaip/utils'
+import { logger, InternalServerError } from '@uaip/utils'
 
 const HEALING_DIAGNOSIS_EVENT = 'rdlo.healing.diagnosis'
 const HEALING_FIX_APPLIED_EVENT = 'rdlo.healing.fix.applied'
@@ -89,31 +89,27 @@ export class HealingAgentService {
     return diagnosis
   }
 
+  /**
+   * NOT IMPLEMENTED.
+   *
+   * This used to push a strategy label onto the diagnosis, publish
+   * `rdlo.healing.fix.applied`, log "HealingAgent fixes applied", and return
+   * `true` — without writing a single file, touching a repository, or opening
+   * anything. Every consumer of that event, and every caller reading the boolean,
+   * was told a fix had landed when nothing had changed on disk.
+   *
+   * diagnose() above is real: it classifies CI failures and proposes fixes. The
+   * missing half is applying them, which needs a source-control write path
+   * (checkout, patch, commit, push) that does not exist here.
+   */
   async applyFixes(diagnosis: HealingDiagnosis): Promise<boolean> {
-    if (diagnosis.action === 'escalate') {
-      logger.warn('Cannot apply fixes for escalated diagnosis', {
-        diagnosisId: diagnosis.id,
-      })
-      return false
-    }
-
-    diagnosis.attemptedStrategies.push(`apply-${diagnosis.classification.type}-fixes`)
-
-    await this.eventBusService.publish(HEALING_FIX_APPLIED_EVENT, {
-      diagnosisId: diagnosis.id,
-      prUrl: diagnosis.prUrl,
-      fixCount: diagnosis.fixes.length,
-      action: diagnosis.action,
-      confidence: diagnosis.confidence,
-    })
-
-    logger.info('HealingAgent fixes applied', {
-      diagnosisId: diagnosis.id,
-      fixCount: diagnosis.fixes.length,
-      action: diagnosis.action,
-    })
-
-    return true
+    throw new InternalServerError(
+      `HealingAgentService.applyFixes is not implemented (diagnosis ${diagnosis.id}, ` +
+        `${diagnosis.fixes.length} proposed fix(es)). It previously published ` +
+        `${HEALING_FIX_APPLIED_EVENT} and returned true while writing no files. ` +
+        `The diagnosis itself is real — read diagnosis.fixes and apply them through a ` +
+        `source-control path that actually commits.`
+    )
   }
 
   private classifyFailure(ciOutput: string): CIFailureClassification {

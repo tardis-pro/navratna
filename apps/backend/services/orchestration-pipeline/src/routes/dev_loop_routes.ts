@@ -9,11 +9,13 @@ import { HealingAgentService } from '../services/healing_agent_service.js';
 /**
  * Deliberately narrow surface.
  *
- * HealingAgentService.applyFixes() publishes `rdlo.healing.fix.applied` and returns
- * true without writing a single file, and DevAgentService.executeStory() opens a pull
- * request for a branch it never creates or pushes. Exposing either as an endpoint would
- * report success for work that did not happen, so only genuinely-performed capabilities
- * are routed here: CI failure diagnosis (real classification) and dev-loop state reads.
+ * HealingAgentService.applyFixes() and DevAgentService.executeStory() are not
+ * implemented and now throw rather than reporting success for work that never
+ * happened — applyFixes used to publish `rdlo.healing.fix.applied` and return true
+ * without writing a file, and executeStory used to open a pull request for a branch
+ * it never created or pushed. They remain unrouted: an endpoint that reliably 500s
+ * is not worth exposing. Only genuinely-performed capabilities are routed here:
+ * CI failure diagnosis (real classification) and dev-loop state reads.
  */
 
 const ErrorSchema = t.Object({ success: t.Literal(false), error: t.String() });

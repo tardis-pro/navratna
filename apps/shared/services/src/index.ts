@@ -219,6 +219,7 @@ export {
   type McpResolvedConnection,
   type McpResolvedCredential,
 } from './services/mcp_connection_resolver';
+export { encryptHeaders, decryptHeaders, resolveEnvRefs } from './services/mcp_secrets';
 export {
   AgentMcpToolAssignmentService,
   type AgentMcpToolAssignment,

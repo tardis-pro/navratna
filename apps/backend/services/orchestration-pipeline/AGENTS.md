@@ -1,70 +1,143 @@
 # orchestration-pipeline — @uaip/orchestration-pipeline
 
-**Port**: 3002 | **Entry**: `src/index.ts` | **Status**: 🔄 Legacy (consolidating into navratna-gateway)
+**Not a running service.** This is a FeatureFactory module imported by
+**navratna-gateway** (port 3002) via `feature.ts`. It has no port and no
+independent lifecycle. `src/index.ts` exists but the gateway is the entry point.
 
-Workflow execution engine. Multi-step operations with state management, resource allocation, saga-pattern compensation (rollback), task/project management, BullMQ background jobs.
+**Last verified against the tree: 2026-08-15.**
+
+Workflow and operation execution: multi-step operations with state management,
+resource allocation, saga-pattern compensation, scheduled/triggered workflows,
+task management, and BullMQ-backed background work.
+
+> This file was materially wrong before 2026-08-15 — it described
+> `engine/orchestrationEngine.ts`, `routes/projectRoutes.ts`, a `sops/`
+> directory, and stated "No event bus publish/subscribe topics." None of those
+> matched the tree, and the event bus is used heavily. In a codebase whose
+> central failure mode is "looks wired, isn't", a stale map is an active hazard,
+> so please re-verify rather than extend on trust.
 
 ## STRUCTURE
 
+File naming is **snake_case** throughout (repo-wide rule for backend `.ts`).
+
 ```
 src/
-├── index.ts                     # OrchestrationPipelineService extends BaseService
+├── feature.ts                       # FeatureFactory module: routes + wiring (the real entry)
+├── index.ts
+├── orchestration_engine.ts          # Operation lifecycle: state → resource → execute → compensate
 ├── engine/
-│   └── orchestrationEngine.ts   # Core engine: state → resource → execute → compensate
+│   ├── workflow_orchestrator.ts     # Topological (Kahn) step ordering; runs each group concurrently
+│   ├── step_execution_manager.ts    # Per-step execution, timeout race, retry backoff
+│   └── operation_validator.ts       # Zod schemas for operations and steps
 ├── routes/
-│   ├── taskRoutes.ts            # Task CRUD + assignment + status transitions
-│   └── projectRoutes.ts         # Project CRUD
-├── services/                    # stepExecutorService, resourceManagerService, etc.
-├── sops/                        # Standard Operating Procedures (workflow definitions)
-├── workflows/                   # Workflow definition files (gray-matter parsed)
+│   ├── operation_routes.ts
+│   ├── task_routes.ts
+│   ├── workflow_routes.ts           # Workflow definition CRUD + manual execute
+│   ├── workflow_hook_routes.ts      # HMAC-verified ingress for 'webhook' triggers
+│   ├── dev_loop_routes.ts           # Deliberately narrow — see the file header
+│   ├── github_webhook_routes.ts     # Mounted only when GITHUB_WEBHOOK_SECRET is set
+│   └── jira_webhook_routes.ts       # Mounted only when the Jira secret is set
+├── services/                        # workflow_engine_service, workflow_executor_service,
+│                                    # healing_agent_service, github_ci_monitor_service, …
+├── adapters/                        # board providers: internal, github, jira, linear
 ├── controllers/
+├── seeds/
+├── workflows/
 └── __tests__/
-    ├── unit/orchestrationEngine.test.ts
-    └── utils/mockServices.ts
 ```
+
+There is **no `sops/` directory** and no `gray-matter` frontmatter parsing.
 
 ## ENDPOINTS
 
-| Method              | Path                            | Purpose                   |
-| ------------------- | ------------------------------- | ------------------------- | ------- | ------------------- |
-| GET/POST            | `/api/v1/operations`            | List/create operations    |
-| GET                 | `/api/v1/operations/:id/status` | Operation state           |
-| POST                | `/api/v1/operations/:id/pause   | resume                    | cancel` | Operation lifecycle |
-| GET/POST/PUT/DELETE | `/api/v1/tasks`                 | Task management           |
-| PUT                 | `/api/v1/tasks/:id/assign`      | Assign task to agent/user |
-| GET/POST/PUT/DELETE | `/api/v1/projects`              | Project CRUD              |
+Verify against `feature.ts` `routes()` — that is the authoritative list.
 
-## CORE PATTERN: Saga/Compensation
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET/POST | `/api/v1/operations` | List / create operations |
+| GET | `/api/v1/operations/:id/status` | Operation state |
+| POST | `/api/v1/operations/:id/pause`, `/resume`, `/cancel` | Operation lifecycle |
+| GET/POST | `/api/v1/projects/:projectId/tasks` | Tasks, scoped to a project |
+| GET | `/api/v1/projects/:projectId/tasks/statistics` | Task statistics |
+| GET/POST/PUT/DELETE | `/api/v1/workflows` | Workflow definition CRUD |
+| POST | `/api/v1/workflows/:id/execute` | Run a definition now |
+| GET | `/api/v1/workflows/:id/executions` | Run history (an `operations` row per run) |
+| POST | `/api/v1/workflows/hooks/:routingKey` | Inbound hook for `webhook` triggers (HMAC) |
+| POST | `/api/v1/webhooks/github`, `/api/v1/webhooks/jira` | Provider webhooks (HMAC) |
+| POST/GET | `/api/v1/dev-loop/...` | Diagnose + read/cancel loop state only |
+
+**Project CRUD is NOT here.** It lives in security-gateway
+(`http/projects_elysia.ts`, mounted at `/api/v1/projects`).
+
+## CORE PATTERN: Saga / Compensation
 
 ```
 Operation → Steps → Execute (each step)
                   → Compensate (on failure, reverse completed steps)
 ```
 
-`OrchestrationEngine` coordinates:
+`OrchestrationEngine` coordinates `StateManagerService`, `ResourceManagerService`,
+`StepExecutorService` and `CompensationService` (the latter three live in
+shared-services).
 
-- `StateManagerService` — operation/step state persistence
-- `ResourceManagerService` — resource allocation and locking
-- `StepExecutorService` — individual step execution (tool calls, LLM, etc.)
-- `CompensationService` — saga rollback for failed multi-step operations
+Concurrency comes from `dependsOn` groups: `WorkflowOrchestrator.determineExecutionOrder`
+does a real topological sort and runs each group concurrently. **Step type
+`parallel` is not implemented and throws** — it used to report every branch
+successful without executing any of them.
 
-## WORKFLOWS
+## EVENT BUS
 
-Workflow definitions in `src/workflows/` use YAML/Markdown with frontmatter (parsed via `gray-matter`). SOPs in `src/sops/` define standard agent operating procedures.
+The previous claim that there are none was wrong. Published:
+
+`operation.started` · `operation.completed` · `operation.failed` ·
+`operation.paused` · `operation.resumed` · `operation.cancelled` ·
+`operation.suspended` · `operation.state.updated` · `operation.step.completed` ·
+`operation.step.failed` · `approval.requested` · `project.workspace.ready` ·
+`project.workspace.failed` · `rdlo.board.status.sync` · `rdlo.code.rollback` ·
+`rdlo.repo.ingest` · `telescope.notification.stale-pr` ·
+`workflow.definition.trigger`
+
+Subscribed: `rdlo.story.status.changed`, and `workflow.definition.trigger`
+(consumed by `WorkflowExecutorService`).
+
+Before adding a publish, check that something consumes it. Five topics
+(`rdlo.code.generate`, `rdlo.ci.heal`, `rdlo.gate4.trigger`,
+`rdlo.healing.trigger`, plus the dev-agent PR topic) were removed on 2026-08-15
+because they had publishers and no subscribers, while their log lines announced
+that work had been handed off.
+
+## WORKFLOW TRIGGERS
+
+Every `TriggerKind` has a real registration path in `WorkflowEngineService`, and
+an unregistrable definition raises rather than being silently skipped:
+
+- `cron` / `every` → a BullMQ **Job Scheduler** on `workflow.definition.trigger`
+- `event` → a bus subscription on `trigger.expr`, enqueuing on match
+- `webhook` → a routing key resolved by `POST /api/v1/workflows/hooks/:routingKey`,
+  which requires `x-navratna-signature-256` and `WORKFLOW_WEBHOOK_SECRET`
+
+**bullmq is v6.** The legacy repeatable-job API (`repeat` on `Queue#add`,
+`getRepeatableJobs`, `removeRepeatableByKey`) no longer exists — use
+`upsertJobScheduler` / `getJobSchedulers` / `removeJobScheduler`.
 
 ## BACKGROUND JOBS
 
-`bull` queue for async background job processing. Long-running operations are enqueued and reported via WebSocket (`ws`) streaming updates to clients.
+BullMQ (**not** `bull`) over Redis, via `EventBusService` in `@uaip/infra`.
 
 ## COMMANDS
 
 ```bash
-pnpm --filter @uaip/orchestration-pipeline dev
-pnpm --filter @uaip/orchestration-pipeline build
-pnpm --filter @uaip/orchestration-pipeline test   # 75% coverage, 15s timeout
+pnpm --filter @uaip/orchestration-pipeline typecheck
+pnpm --filter @uaip/orchestration-pipeline test
 ```
 
 ## NOTES
 
-- v3.0 target: task/project routes imported by `navratna-gateway`
-- No event bus publish/subscribe topics — communicates via HTTP from client side
+- Task status uses the canonical `StoryStatus` vocabulary
+  (`backlog | in-progress | in-review | done | blocked | needs-triage`) and
+  transitions are guarded. Legacy values are normalised by `toStoryStatus`.
+- `DevAgentService.executeStory` and `HealingAgentService.applyFixes` are **not
+  implemented and throw**. `HealingAgentService.diagnose` is real.
+- `github_ci_monitor_service` and `github_pr_automation_service` are hardcoded to
+  `api.github.com` and do not work against a Gitea-backed deployment.

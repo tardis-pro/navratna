@@ -269,42 +269,49 @@ export class DevLoopOrchestrator {
     }
   }
 
+  /**
+   * NOT IMPLEMENTED.
+   *
+   * This published `rdlo.code.generate` once per story and logged "Code
+   * generation requested", then returned — and the stage was marked complete.
+   * Nothing anywhere subscribes to `rdlo.code.generate`; the publish went into
+   * the void. The component that would answer it is DevAgentService.executeStory,
+   * which does not generate code either (it now throws rather than opening a pull
+   * request for a branch it never created).
+   *
+   * The publish is removed rather than left dangling: an event with no consumer
+   * is not a handoff, it is a no-op that reads like one.
+   */
   private async stageCodeGeneration(state: DevLoopState): Promise<void> {
-    for (let i = 0; i < state.config.stories.length; i++) {
-      const story = state.config.stories[i]
-      const complexity = state.complexityResults[i]
-      const storyId = state.storyIds[i]
-
-      await this.eventBusService.publish('rdlo.code.generate', {
-        loopId: state.id,
-        storyId,
-        story,
-        complexity,
-        repoUrl: state.config.repoUrl,
-        tier: complexity?.tier ?? 'execute',
-      })
-
-      logger.info('Code generation requested', {
-        loopId: state.id,
-        storyTitle: story.title,
-        tier: complexity?.tier ?? 'execute',
-      })
-    }
+    throw new InternalServerError(
+      `Dev loop ${state.id} reached the 'code-generation' stage, which is not implemented. ` +
+        `It previously published rdlo.code.generate (a topic with no subscriber) for ` +
+        `${state.config.stories.length} story/stories and reported the stage complete without ` +
+        `generating anything.`
+    )
   }
 
+  /**
+   * NOT IMPLEMENTED. Same shape as stageCodeGeneration above: it published
+   * `rdlo.ci.heal` — no subscriber — and logged "CI healing stage completed".
+   * HealingAgentService.diagnose() is real, but applyFixes() is not, so there is
+   * nothing on the other end of that topic to do the healing.
+   *
+   * The autoHeal opt-out is preserved: a loop that never asked for healing still
+   * skips this stage cleanly instead of failing.
+   */
   private async stageCiHealing(state: DevLoopState): Promise<void> {
     if (!state.config.autoHeal) {
       logger.info('Auto-healing disabled, skipping CI healing stage', { loopId: state.id })
       return
     }
 
-    await this.eventBusService.publish('rdlo.ci.heal', {
-      loopId: state.id,
-      prUrls: state.prUrls,
-      confidenceThreshold: state.config.healingConfidenceThreshold,
-    })
-
-    logger.info('CI healing stage completed', { loopId: state.id })
+    throw new InternalServerError(
+      `Dev loop ${state.id} reached the 'ci-healing' stage with autoHeal enabled, and that ` +
+        `stage is not implemented. It previously published rdlo.ci.heal (a topic with no ` +
+        `subscriber) for ${state.prUrls.length} PR(s) and reported the stage complete. ` +
+        `Set autoHeal: false to skip it, or implement HealingAgentService.applyFixes.`
+    )
   }
 
   private async compensate(state: DevLoopState, failedStageIndex: number): Promise<void> {

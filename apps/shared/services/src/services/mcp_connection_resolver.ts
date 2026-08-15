@@ -10,6 +10,7 @@ import {
   projectMembers,
 } from '../database/drizzle/schemas/control_schema';
 import { decryptOAuthSecret } from './oauth_token_resolver';
+import { decryptHeaders, resolveEnvRefs } from './mcp_secrets';
 
 export type McpConnectionErrorCode =
   | 'server_not_found'
@@ -46,6 +47,8 @@ export interface McpIntegrationServerSummary {
   serverKey: string;
   credentialMode: McpCredentialMode;
   enabled: boolean;
+  /** Owning project, or null for a server shared across all projects. */
+  projectId: string | null;
 }
 
 export interface McpResolvedConnection {
@@ -57,6 +60,21 @@ export interface McpResolvedConnection {
   connectionId: string;
   providerId?: string;
   credential?: McpResolvedCredential;
+  /**
+   * The server's OWN standing credential, decrypted from the `headers` column of
+   * its `mcp_servers` row.
+   *
+   * This is how a `credentialMode: 'none'` server authenticates: it carries no
+   * per-caller connection, so whatever it needs (an Authorization header, a
+   * project capability token) is stored encrypted on the row itself.
+   *
+   * It was missing entirely — loadServer() did not even select the `headers`
+   * column, and this interface had nowhere to put it — so every resolved
+   * connection went out header-less. Servers with no stored headers were
+   * unaffected, which is why only the one server that HAD them failed, with
+   * "missing or invalid project capability" from the far end.
+   */
+  staticHeaders?: Record<string, string>;
 }
 
 /**
@@ -102,6 +120,7 @@ export class McpConnectionResolver {
         serverKey: mcpServers.serverKey,
         credentialMode: mcpServers.credentialMode,
         enabled: mcpServers.enabled,
+        projectId: mcpServers.projectId,
       })
       .from(mcpServers)
       .where(isNotNull(mcpServers.serverKey));
@@ -112,6 +131,7 @@ export class McpConnectionResolver {
         serverKey: row.serverKey,
         credentialMode: row.credentialMode,
         enabled: row.enabled,
+        projectId: row.projectId,
       }));
   }
 
@@ -133,6 +153,7 @@ export class McpConnectionResolver {
         credentialMode: 'none',
         connectionId: PUBLIC_CONNECTION_ID,
         providerId: server.providerId ?? undefined,
+        staticHeaders: this.readStaticHeaders(serverKey, server.headers),
       };
     }
 
@@ -167,6 +188,7 @@ export class McpConnectionResolver {
 
   async resolve(request: McpExecutionRequest): Promise<McpResolvedConnection> {
     const server = await this.loadServer(request.serverKey);
+    this.assertProjectOwnership(request.serverKey, server.projectId, request.projectId);
 
     if (server.credentialMode === 'none') {
       return {
@@ -175,6 +197,7 @@ export class McpConnectionResolver {
         credentialMode: 'none',
         connectionId: PUBLIC_CONNECTION_ID,
         providerId: server.providerId ?? undefined,
+        staticHeaders: this.readStaticHeaders(request.serverKey, server.headers),
       };
     }
 
@@ -204,6 +227,54 @@ export class McpConnectionResolver {
     };
   }
 
+  /**
+   * Refuses a call for a server owned by a different project.
+   *
+   * Before mcp_servers.project_id existed, registration was global and keyed by
+   * URL: `navratna-tardis-agent` served one project purely because only one
+   * project's hostname pointed at it. Any project could have called any
+   * registered server. A NULL owner still means "shared", which is how public
+   * servers stay reachable from everywhere.
+   */
+  private assertProjectOwnership(
+    serverKey: string,
+    ownerProjectId: string | null,
+    callerProjectId: string
+  ): void {
+    if (ownerProjectId === null) return;
+    if (ownerProjectId === callerProjectId) return;
+    throw new McpConnectionError(
+      `MCP server "${serverKey}" belongs to another project`,
+      'forbidden'
+    );
+  }
+
+  /**
+   * Decrypts the standing headers stored on a server row, resolving any
+   * ${ENV_VAR} references at read time.
+   *
+   * Undecryptable headers are a hard failure, not an empty object: sending the
+   * request without them produces a confusing rejection from the far end (the
+   * tardis agent answers "missing or invalid project capability", which reads
+   * like a bug on its side) instead of naming the real problem here.
+   */
+  private readStaticHeaders(
+    serverKey: string,
+    stored: string | null | undefined
+  ): Record<string, string> | undefined {
+    if (typeof stored !== 'string' || stored.length === 0) return undefined;
+    try {
+      const headers = resolveEnvRefs(decryptHeaders(stored));
+      return Object.keys(headers).length > 0 ? headers : undefined;
+    } catch (error) {
+      throw new McpConnectionError(
+        `MCP server "${serverKey}" has stored headers that could not be decrypted — ` +
+          `check MCP_SECRETS_KEY (${error instanceof Error ? error.message : String(error)})`,
+        'credential_unreadable'
+      );
+    }
+  }
+
   private async loadServer(serverKey: string) {
     const [row] = await this.db
       .select({
@@ -215,6 +286,12 @@ export class McpConnectionResolver {
         catalogConnectionId: mcpServers.catalogConnectionId,
         enabled: mcpServers.enabled,
         transportType: mcpServers.transportType,
+        // The server's own standing credential, encrypted. Omitting this column
+        // is what made credentialMode:'none' servers unauthenticated.
+        headers: mcpServers.headers,
+        // NULL = shared across projects. Non-null = owned by that project, and
+        // assertProjectOwnership refuses calls from any other.
+        projectId: mcpServers.projectId,
       })
       .from(mcpServers)
       .where(eq(mcpServers.serverKey, serverKey))

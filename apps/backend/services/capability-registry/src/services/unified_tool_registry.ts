@@ -723,38 +723,47 @@ export class UnifiedToolRegistry {
 
     // P5 Security: Danger tool validation
     // Import danger tool functions dynamically to avoid circular dependencies
-    const { getDangerToolConfig, toolRequiresApproval, getRequiredApprovalLevel } =
+    const { classifyTool, isToolClassified, toolRequiresApproval, getRequiredApprovalLevel } =
       await import('./danger_tool_list.js');
 
-    const dangerConfig = getDangerToolConfig(tool.id);
-    if (dangerConfig) {
-      // Check if tool requires approval
-      if (toolRequiresApproval(tool.id)) {
-        const requiredApproval = getRequiredApprovalLevel(tool.id);
-        const hasApproval = context.securityContext?.hasApproval === true;
-        const approvedLevel = context.securityContext?.approvalStatus?.approvalLevel;
+    // classifyTool never returns null. An id with no DANGER_TOOLS row resolves to
+    // UNCLASSIFIED_TOOL (SECURITY_TEAM), so the branch below refuses it instead of
+    // waving it through — the previous `if (dangerConfig)` skipped the entire check
+    // for exactly the tools nobody had classified, 'shell-exec' among them.
+    const dangerConfig = classifyTool(tool.id);
 
-        // Check if approval level is sufficient
-        const approvalHierarchy = ['NONE', 'USER_CONSENT', 'MANAGER', 'ADMIN', 'SECURITY_TEAM'];
-        const userIndex = approvedLevel ? approvalHierarchy.indexOf(approvedLevel) : -1;
-        const requiredIndex = approvalHierarchy.indexOf(requiredApproval);
-        const hasSufficientApproval = userIndex >= requiredIndex;
+    if (toolRequiresApproval(tool.id)) {
+      const requiredApproval = getRequiredApprovalLevel(tool.id);
+      const hasApproval = context.securityContext?.hasApproval === true;
+      const approvedLevel = context.securityContext?.approvalStatus?.approvalLevel;
 
-        if (!hasApproval || !hasSufficientApproval) {
-          throw new ValidationError(
-            `Tool '${tool.id}' is classified as ${dangerConfig.riskLevel} risk and requires ${requiredApproval} approval. ` +
-              `Current approval status: ${hasApproval ? `approved (${approvedLevel})` : 'not approved'}`
-          );
+      // Check if approval level is sufficient
+      const approvalHierarchy = ['NONE', 'USER_CONSENT', 'MANAGER', 'ADMIN', 'SECURITY_TEAM'];
+      const userIndex = approvedLevel ? approvalHierarchy.indexOf(approvedLevel) : -1;
+      const requiredIndex = approvalHierarchy.indexOf(requiredApproval);
+      const hasSufficientApproval = userIndex >= requiredIndex;
+
+      if (!hasApproval || !hasSufficientApproval) {
+        if (!isToolClassified(tool.id)) {
+          logger.error('Refusing an unclassified tool', {
+            toolId: tool.id,
+            userId: context.userId,
+            agentId: context.agentId,
+          });
         }
+        throw new ValidationError(
+          `Tool '${tool.id}' is classified as ${dangerConfig.riskLevel} risk and requires ${requiredApproval} approval. ` +
+            `Current approval status: ${hasApproval ? `approved (${approvedLevel})` : 'not approved'}`
+        );
       }
-
-      // Log security check for danger tools
-      logger.debug('Danger tool validation passed', {
-        toolId: tool.id,
-        riskLevel: dangerConfig.riskLevel,
-        categories: dangerConfig.categories,
-      });
     }
+
+    // Log security check for danger tools
+    logger.debug('Danger tool validation passed', {
+      toolId: tool.id,
+      riskLevel: dangerConfig.riskLevel,
+      categories: dangerConfig.categories,
+    });
 
     // Approval requirement check (existing logic)
     if (tool.requiresApproval && !context.securityContext?.hasApproval) {

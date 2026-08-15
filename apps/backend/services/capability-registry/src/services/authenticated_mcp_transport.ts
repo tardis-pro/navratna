@@ -20,6 +20,13 @@ export interface AuthenticatedMcpClientOptions {
   authHeaderName?: string;
   authScheme?: string;
   credential?: McpCredential;
+  /**
+   * The server's own standing headers, already decrypted by
+   * McpConnectionResolver. This is the ONLY credential a `credentialMode: 'none'`
+   * server has — it holds no per-caller connection, so `credential` is undefined
+   * and buildAuthHeaders would otherwise return {}.
+   */
+  staticHeaders?: Record<string, string>;
   clientName?: string;
   clientVersion?: string;
   fetchImpl?: typeof fetch;
@@ -68,14 +75,33 @@ export function serializeSessionKey(key: McpSessionKey): string {
   ].join(KEY_SEPARATOR);
 }
 
+/**
+ * Headers for an outbound MCP request.
+ *
+ * Two independent sources, and it used to honour only the first:
+ *  - `credential` — a per-caller or catalog OAuth token, formatted with the
+ *    server's authHeaderName/authScheme.
+ *  - `staticHeaders` — the server's own standing credential, stored encrypted on
+ *    its `mcp_servers` row and used by `credentialMode: 'none'` servers.
+ *
+ * With only the first honoured, `if (!options.credential) return {}` sent a
+ * 'none'-mode server a completely unauthenticated request, and the far end
+ * answered with an auth error that named its own check rather than this gap.
+ *
+ * A resolved `credential` wins on key collision: it is caller-scoped and
+ * per-request, so it is the more specific of the two.
+ */
 export function buildAuthHeaders(options: AuthenticatedMcpClientOptions): Record<string, string> {
-  if (!options.credential) return {};
+  const headers: Record<string, string> = { ...(options.staticHeaders ?? {}) };
 
-  const headerName = options.authHeaderName || DEFAULT_AUTH_HEADER_NAME;
-  const scheme = options.authScheme ?? DEFAULT_AUTH_SCHEME;
-  const token = options.credential.accessToken;
+  if (options.credential) {
+    const headerName = options.authHeaderName || DEFAULT_AUTH_HEADER_NAME;
+    const scheme = options.authScheme ?? DEFAULT_AUTH_SCHEME;
+    const token = options.credential.accessToken;
+    headers[headerName] = scheme ? `${scheme} ${token}` : token;
+  }
 
-  return { [headerName]: scheme ? `${scheme} ${token}` : token };
+  return headers;
 }
 
 export async function createAuthenticatedMcpClient(

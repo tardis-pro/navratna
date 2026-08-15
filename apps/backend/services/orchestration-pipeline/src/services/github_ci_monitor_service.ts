@@ -1,5 +1,4 @@
 import { logger, ValidationError } from '@uaip/utils'
-import { EventBusService } from '@uaip/infra'
 import type {
   GitHubCheckRunPayload,
   GitHubCheckSuitePayload,
@@ -51,26 +50,36 @@ export function evaluateCheckSuite(payload: GitHubCheckSuitePayload): CICheckRes
   }
 }
 
+/**
+ * Records the outcome of a CI check.
+ *
+ * The pass/fail classification above is genuine, and this function used to fork
+ * on it correctly — publishing `rdlo.gate4.trigger` on success and
+ * `rdlo.healing.trigger` on failure, then logging "Gate 4 triggered" / "Healing
+ * triggered". Neither topic has a subscriber anywhere in the codebase, so both
+ * branches published into the void while the logs described work being handed
+ * off. Nothing was triggered.
+ *
+ * The publishes are removed. Consumers that want CI outcomes should subscribe to
+ * `github.ci.check` / `github.ci.suite`, which routeGitHubWebhookEvent publishes
+ * from the verified webhook and which a workflow definition can now bind to with
+ * a trigger of kind 'event'. That is a real subscription path; these two were
+ * not.
+ */
 export async function handleCIResult(result: CICheckResult): Promise<void> {
-  const eventBus = EventBusService.getInstance()
-
   if (result.passed) {
-    await eventBus.publish('rdlo.gate4.trigger', {
+    logger.info('CI passed', {
       sha: result.sha,
-      checkName: result.name,
+      name: result.name,
       prNumbers: result.prNumbers,
-      timestamp: new Date().toISOString(),
     })
-    logger.info('CI passed — Gate 4 triggered', { sha: result.sha, name: result.name })
   } else {
-    await eventBus.publish('rdlo.healing.trigger', {
+    logger.warn('CI failed', {
       sha: result.sha,
-      checkName: result.name,
+      name: result.name,
       conclusion: result.conclusion,
       prNumbers: result.prNumbers,
-      timestamp: new Date().toISOString(),
     })
-    logger.info('CI failed — Healing triggered', { sha: result.sha, conclusion: result.conclusion })
   }
 }
 

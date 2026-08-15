@@ -28,7 +28,7 @@
     "format:check": "pnpm -r format:check"
   },
   "dependencies": {
-    "bullmq": "^5.71.1",
+    "bullmq": "catalog:backend",
     "ioredis": "catalog:backend"
   },
   "devDependencies": {

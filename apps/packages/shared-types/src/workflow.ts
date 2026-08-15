@@ -4,11 +4,10 @@ export type StepType = 'agentTurn' | 'bash' | 'httpCall'
 
 export type DeliveryType = 'webhook' | 'email' | 'slack' | 'whatsapp'
 
-export interface RepeatableJob {
-  key: string
-  name: string
-  id?: string | null
-}
+// RepeatableJob was the shape returned by bullmq's Queue#getRepeatableJobs(),
+// which v6 removed along with the rest of the legacy repeatable-job API. Job
+// Schedulers replace it (see WorkflowEngineService), so the type described an
+// API that no longer exists and has been dropped.
 
 export interface RepeatOptions {
   pattern?: string

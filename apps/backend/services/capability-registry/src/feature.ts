@@ -16,6 +16,8 @@ import { McpRepository } from './database/mcp_repository.js'
 import { ToolExecutionCoordinator } from './services/tool_execution_coordinator_service.js'
 import { ToolRegistry } from './services/tool_registry.js'
 import { UnifiedToolRegistry } from './services/unified_tool_registry.js'
+import { BASE_TOOL_EXECUTOR_TOOL_IDS } from './services/base_tool_executor.js'
+import { assertToolsClassified } from './services/danger_tool_list.js'
 import { CodingSessionStore } from './services/execution_mesh/coding_session_store.js'
 import { CodingNodeClient } from './services/execution_mesh/coding_node_client.js'
 import { CodingSessionCoordinator } from './services/execution_mesh/coding_session_coordinator.js'
@@ -27,7 +29,7 @@ import { probeKeyPair, importSigningKey } from './services/execution_mesh/coding
 import { createProductionAuditSink } from './services/execution_mesh/coding_session_audit_sink.js'
 import type { RedisClient } from './services/execution_mesh/coding_session_store.js'
 import { getRedisClient } from '@uaip/infra'
-import { getControlDb } from '@uaip/shared-services'
+import { getControlDb, PROJECT_TASK_TOOL_IDS, CALENDAR_TOOL_IDS } from '@uaip/shared-services'
 import { ToolCategory, SecurityLevel } from '@uaip/types'
 import { logger } from '@uaip/utils'
 
@@ -135,9 +137,18 @@ async function buildCodingCoordinator(): Promise<CodingSessionCoordinator> {
 
 /**
  * Native execution primitives the mesh runs in-process (or dispatches to an exec node):
- * shell-exec runs a command, http-request performs an HTTP call. Both are securityLevel
- * 'low' + requiresApproval:false so the bus path (no securityContext) can execute them.
- * Registered at boot so tool.execute.request can resolve them by id.
+ * shell-exec runs a command, http-request performs an HTTP call. Registered at boot so
+ * tool.execute.request can resolve them by id.
+ *
+ * These were previously ALL registered securityLevel 'low' + requiresApproval:false,
+ * with the stated reason that the bus path carries no securityContext and would
+ * otherwise be unable to run them. That is the bypass, written down: it made the
+ * convenience of the caller the reason a shell primitive was unguarded. The
+ * registration now states what each tool actually is, and the bus path is expected to
+ * carry approval for the dangerous ones rather than be exempted from needing it.
+ *
+ * The authoritative classification lives in danger_tool_list.ts. These fields are the
+ * registry's own second check, not a substitute for it.
  */
 async function registerNativeTools(registry: UnifiedToolRegistry): Promise<void> {
   const tools: Array<Parameters<typeof registry.registerTool>[0]> = [
@@ -157,8 +168,9 @@ async function registerNativeTools(registry: UnifiedToolRegistry): Promise<void>
         required: ['command'],
       },
       returnType: { type: 'object' },
-      securityLevel: SecurityLevel.LOW,
-      requiresApproval: false,
+      // Executes arbitrary commands in this process with the full process.env.
+      securityLevel: SecurityLevel.CRITICAL,
+      requiresApproval: true,
       isEnabled: true,
       author: 'system',
       tags: ['shell', 'native'],
@@ -244,7 +256,10 @@ async function registerNativeTools(registry: UnifiedToolRegistry): Promise<void>
         required: ['url'],
       },
       returnType: { type: 'object' },
-      securityLevel: SecurityLevel.LOW,
+      // Reaches arbitrary URLs from inside the cluster — an SSRF surface, not a
+      // 'low' primitive. Approval is not required (workflow httpCall and webhook
+      // delivery depend on it) but the calls are audited; see danger_tool_list.ts.
+      securityLevel: SecurityLevel.MEDIUM,
       requiresApproval: false,
       isEnabled: true,
       author: 'system',
@@ -253,6 +268,17 @@ async function registerNativeTools(registry: UnifiedToolRegistry): Promise<void>
       examples: [],
     },
   ]
+
+  // Refuse to boot on a tool this service can dispatch but nobody has classified.
+  // Covers the BaseToolExecutor switch (the set that actually reaches an executor)
+  // plus whatever is being registered here, so the two cannot drift apart silently
+  // the way 'shell-exec' did.
+  assertToolsClassified([
+    ...BASE_TOOL_EXECUTOR_TOOL_IDS,
+    ...PROJECT_TASK_TOOL_IDS,
+    ...CALENDAR_TOOL_IDS,
+    ...tools.map((tool) => tool.id),
+  ])
 
   for (const tool of tools) {
     try {

@@ -19,7 +19,7 @@ Three convergent products:
 - **Telescope/Cognitive Shell**: Ambient-first UX with intent-driven navigation, 7-state microexpression system, attention budget (4 items)
 - **Multi-Agent Orchestration**: 14 specialized agents with 3-tier memory, confidence-gated execution, learning service
 - **Triple-Store Knowledge**: PostgreSQL (57 entities) + Neo4j (graph relationships) + Qdrant (vector embeddings) with UUID-consistent sync
-- **MCP Protocol**: Full client/server (2,075 LoC), 10 transport types, tool discovery, streaming
+- **MCP Protocol**: Client/server with 3 transports (`stdio`, `http`, `streamable-http`), tool discovery, streaming
 - **Enterprise Security**: JWT + MFA + 5 OAuth providers + RBAC (USER/ADMIN/AGENT/SERVICE)
 - **Real-time Intelligence**: WebSocket discussions with turn strategies, consensus building, conversation enhancement
 

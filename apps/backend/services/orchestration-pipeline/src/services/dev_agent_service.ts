@@ -5,9 +5,8 @@ import type {
   RepoContext,
   SolutionDesign,
 } from '@uaip/types'
-import { logger, InternalServerError } from '@uaip/utils'
+import { InternalServerError } from '@uaip/utils'
 
-const DEVAGENT_PR_CREATED_EVENT = 'rdlo.devagent.pr.created'
 const DEVAGENT_CODE_REVIEW_EVENT = 'rdlo.devagent.code.review'
 
 export interface PRGenerationResult {
@@ -29,71 +28,40 @@ interface CodeReviewResult {
 export class DevAgentService {
   constructor(private readonly eventBusService: EventBusService) {}
 
+  /**
+   * NOT IMPLEMENTED.
+   *
+   * The name promises "execute this story"; the body never wrote a line of code.
+   * It derived a branch name, ran a static convention review, and then POSTed to
+   * GitHub's create-PR API with `head` set to a branch that was never created,
+   * never checked out, and never pushed. The PRGenerationResult it returned was
+   * fabricated in the same spirit: `filesChanged` counted the files the story
+   * *intended* to touch, and `lintPassed` / `testsPassed` came from that static
+   * review rather than from running any linter or test suite.
+   *
+   * Two things are missing before this can be real: a code-generation step, and a
+   * source-control write path (branch, commit, push) ahead of PR creation. Note
+   * also that createGitHubPR is hardcoded to api.github.com, which does not fit a
+   * Gitea-backed deployment.
+   *
+   * runCodeReview() and buildPRDescription() below are genuine and are kept —
+   * they are usable once there is real work to describe.
+   */
   async executeStory(
-    story: DecomposedStory,
-    repoCtx: RepoContext,
-    design: SolutionDesign,
-    boardProvider: BoardProvider,
+    _story: DecomposedStory,
+    _repoCtx: RepoContext,
+    _design: SolutionDesign,
+    _boardProvider: BoardProvider,
     boardStoryId: string,
-    githubToken: string
+    _githubToken: string
   ): Promise<PRGenerationResult> {
-    const branch = this.generateBranchName(boardStoryId)
-
-    await this.eventBusService.publish('rdlo.devagent.execute.start', {
-      storyTitle: story.title,
-      branch,
-      repoUrl: repoCtx.source,
-      affectedFiles: story.affectedFiles,
-    })
-
-    const reviewResult = await this.runCodeReview(story, repoCtx, design)
-
-    if (!reviewResult.approved && reviewResult.conventionViolations.length > 0) {
-      logger.warn('Code review found convention violations, proceeding with warnings', {
-        storyTitle: story.title,
-        violations: reviewResult.conventionViolations,
-      })
-    }
-
-    const prDescription = this.buildPRDescription(story, design, reviewResult)
-
-    const prUrl = await this.createGitHubPR({
-      owner: this.extractOwner(repoCtx.source),
-      repo: this.extractRepo(repoCtx.source),
-      token: githubToken,
-      title: `rdlo: ${story.title}`,
-      body: prDescription,
-      head: branch,
-      base: 'main',
-    })
-
-    await boardProvider.linkPR(boardStoryId, prUrl)
-
-    const result: PRGenerationResult = {
-      prUrl,
-      branch,
-      storyId: boardStoryId,
-      title: story.title,
-      filesChanged: story.affectedFiles.length,
-      lintPassed: reviewResult.conventionViolations.length === 0,
-      testsPassed: reviewResult.approved,
-    }
-
-    await this.eventBusService.publish(DEVAGENT_PR_CREATED_EVENT, {
-      prUrl,
-      branch,
-      storyTitle: story.title,
-      filesChanged: result.filesChanged,
-    })
-
-    logger.info('DevAgent PR created', {
-      prUrl,
-      branch,
-      storyTitle: story.title,
-      filesChanged: result.filesChanged,
-    })
-
-    return result
+    throw new InternalServerError(
+      `DevAgentService.executeStory is not implemented (story ${boardStoryId}). ` +
+        `It previously opened a pull request for branch ` +
+        `'${this.generateBranchName(boardStoryId)}', which it never created or pushed, ` +
+        `and reported fabricated filesChanged/lintPassed/testsPassed. Implement code ` +
+        `generation and a branch-and-push path before calling this.`
+    )
   }
 
   private async runCodeReview(

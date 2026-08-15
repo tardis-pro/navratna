@@ -1,8 +1,16 @@
 /**
  * MCP Secrets Utility — AES-256-GCM encryption for MCP server headers.
  *
- * Only the capability-registry service holds MCP_SECRETS_KEY.
- * Headers are stored encrypted in the DB; no other service can decrypt them.
+ * Only the capability-registry service holds MCP_SECRETS_KEY (it is mounted in
+ * navratna-gateway). Headers are stored encrypted in the DB; a service without
+ * the key cannot decrypt them.
+ *
+ * LOCATION: this lives in shared-services rather than capability-registry
+ * because McpConnectionResolver — which owns the `mcp_servers` read and is what
+ * attaches a server's standing credential — is here, and shared-services cannot
+ * import from a feature package that depends on it. Holding the code here does
+ * not hand anyone the key: without MCP_SECRETS_KEY in the environment, getKey()
+ * throws.
  *
  * Key setup:
  *   openssl rand -hex 32   →  add to .env as MCP_SECRETS_KEY

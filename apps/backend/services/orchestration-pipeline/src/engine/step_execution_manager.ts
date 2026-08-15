@@ -11,7 +11,6 @@ import {
   OperationError,
   ApprovalPendingError,
   StepMetrics,
-  ParallelExecutionPolicy,
 } from '@uaip/types';
 import type { ApprovalDecisionRecord } from '@uaip/types';
 import { logger, ValidationError } from '@uaip/utils';
@@ -47,6 +46,12 @@ export class StepExecutionManager extends EventEmitter {
     const startTime = Date.now();
     this.activeSteps.set(step.id, step);
 
+    // One controller per step execution, handed to every executor below. It used
+    // to be `new AbortController().signal` at each call site — a fresh controller
+    // that nothing ever aborted, so the cancellation plumbing was wired to a dead
+    // end and a timeout could not reach the running work.
+    const controller = new AbortController();
+
     try {
       // Emit step started event
       this.emit('step:started', {
@@ -55,34 +60,36 @@ export class StepExecutionManager extends EventEmitter {
         timestamp: new Date(),
       });
 
-      // Set timeout if specified
-      if (step.timeout) {
-        this.setStepTimeout(step, context);
-      }
-
       // Check resource availability
       await this.checkResources(step);
 
       // Execute based on step type
+      const run = (async (): Promise<StepResult> => {
+        switch (step.type) {
+          case 'agent-action':
+            return await this.executeAgentAction(step, context, controller.signal);
+          case 'tool-execution':
+            return await this.executeToolExecution(step, context, controller.signal);
+          case 'approval':
+            return await this.executeApproval(step, context, controller.signal);
+          case 'conditional':
+            return await this.executeConditional(step, context);
+          case 'parallel':
+            return await this.executeParallel(step, context);
+          default:
+            throw new OperationError(`Unknown step type: ${step.type}`, 'EXECUTION_ERROR');
+        }
+      })();
+
+      // Race the work against the deadline. Previously setStepTimeout only emitted
+      // 'step:timeout' and dropped the activeSteps entry — it never touched the
+      // in-flight promise, so the step went on to resolve normally and was reported
+      // COMPLETED while having been declared timed out.
       let result: StepResult;
-      switch (step.type) {
-        case 'agent-action':
-          result = await this.executeAgentAction(step, context);
-          break;
-        case 'tool-execution':
-          result = await this.executeToolExecution(step, context);
-          break;
-        case 'approval':
-          result = await this.executeApproval(step, context);
-          break;
-        case 'conditional':
-          result = await this.executeConditional(step, context);
-          break;
-        case 'parallel':
-          result = await this.executeParallel(step, context);
-          break;
-        default:
-          throw new OperationError(`Unknown step type: ${step.type}`, 'EXECUTION_ERROR');
+      if (step.timeout) {
+        result = await this.raceStepTimeout(run, step, context, controller);
+      } else {
+        result = await run;
       }
 
       // Clear timeout
@@ -110,6 +117,9 @@ export class StepExecutionManager extends EventEmitter {
       return result;
     } catch (error) {
       this.clearStepTimeout(step.id);
+      // Cancel any work still in flight on a failure path too, so a step that
+      // throws does not leave its executor running unobserved.
+      controller.abort();
 
       // Approval-pending is a control-flow signal (suspend + wait for external
       // decision), NOT a failure — never retried, never emitted as step:failed.
@@ -138,15 +148,12 @@ export class StepExecutionManager extends EventEmitter {
 
   private async executeAgentAction(
     step: ExecutionStep,
-    context: StepExecutionContext
+    context: StepExecutionContext,
+    signal: AbortSignal
   ): Promise<StepResult> {
     const params = this.toRecord(this.resolveParameters(step.parameters, context));
 
-    const result = await this.stepExecutorService.executeAgentAction(
-      step,
-      params,
-      new AbortController().signal
-    );
+    const result = await this.stepExecutorService.executeAgentAction(step, params, signal);
 
     return {
       stepId: step.id,
@@ -158,15 +165,12 @@ export class StepExecutionManager extends EventEmitter {
 
   private async executeToolExecution(
     step: ExecutionStep,
-    context: StepExecutionContext
+    context: StepExecutionContext,
+    signal: AbortSignal
   ): Promise<StepResult> {
     const input = this.toRecord(this.resolveParameters(step.input, context));
 
-    const result = await this.stepExecutorService.executeTool(
-      step,
-      input,
-      new AbortController().signal
-    );
+    const result = await this.stepExecutorService.executeTool(step, input, signal);
 
     return {
       stepId: step.id,
@@ -178,7 +182,8 @@ export class StepExecutionManager extends EventEmitter {
 
   private async executeApproval(
     step: ExecutionStep,
-    context: StepExecutionContext
+    context: StepExecutionContext,
+    signal: AbortSignal
   ): Promise<StepResult> {
     const input = this.toRecord(this.resolveParameters(step.input, context));
 
@@ -194,7 +199,7 @@ export class StepExecutionManager extends EventEmitter {
     const result = await this.stepExecutorService.executeApprovalStep(
       step,
       { ...input, ...decided },
-      new AbortController().signal
+      signal
     );
 
     return {
@@ -224,66 +229,40 @@ export class StepExecutionManager extends EventEmitter {
     };
   }
 
+  /**
+   * NOT IMPLEMENTED — and it now says so instead of lying.
+   *
+   * What this used to do: iterate each branch's step ids in a loop whose entire
+   * body was the comment "This would need to be implemented to execute
+   * sub-steps", synthesise `{ stepId, success: true }` for each, and report
+   * StepStatus.COMPLETED. Every branch "succeeded", so ALL_SUCCESS passed
+   * trivially, and downstream steps read the fabricated `branchResults` through
+   * `$.stepId.…` as if it were real output. A workflow could therefore complete
+   * green having executed nothing at all.
+   *
+   * Implementing it for real needs a way to resolve a branch's step ids back to
+   * ExecutionStep objects and run them — which this class cannot do, since it is
+   * handed one step at a time and the step list lives in WorkflowOrchestrator.
+   * Nothing in the codebase currently authors a 'parallel' step (only
+   * operation_validator's schema admits one), so the resolver is deliberately
+   * not built on speculation.
+   *
+   * Use `dependsOn` groups instead: WorkflowOrchestrator.determineExecutionOrder
+   * does a real topological sort and runs each group concurrently, which is what
+   * parallel branches were reaching for.
+   */
   private async executeParallel(
     step: ExecutionStep,
     _context: StepExecutionContext
   ): Promise<StepResult> {
-    const policy = step.policy || ParallelExecutionPolicy.ALL_SUCCESS;
     const branches = step.branches || [];
-
-    const branchPromises = branches.map(async (branch, index) => {
-      try {
-        // Execute branch steps sequentially
-        let lastResult: { stepId: string; success: boolean } | null = null;
-        for (const stepId of branch) {
-          // This would need to be implemented to execute sub-steps
-          lastResult = { stepId, success: true };
-        }
-        return { branch: index, success: true, result: lastResult };
-      } catch (error) {
-        return {
-          branch: index,
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-        };
-      }
-    });
-
-    const results = await Promise.allSettled(branchPromises);
-    const successCount = results.filter((r) => r.status === 'fulfilled' && r.value.success).length;
-
-    let overallSuccess = false;
-    const policyValue = typeof policy === 'string' ? policy : policy.policy;
-    switch (policyValue) {
-      case ParallelExecutionPolicy.ALL_SUCCESS:
-        overallSuccess = successCount === branches.length;
-        break;
-      case ParallelExecutionPolicy.ANY_SUCCESS:
-        overallSuccess = successCount > 0;
-        break;
-      case ParallelExecutionPolicy.MAJORITY_SUCCESS:
-        overallSuccess = successCount > branches.length / 2;
-        break;
-      default:
-        overallSuccess = true;
-        break;
-    }
-
-    if (!overallSuccess) {
-      throw new OperationError('Parallel execution failed per policy', 'EXECUTION_ERROR');
-    }
-
-    return {
-      stepId: step.id,
-      status: StepStatus.COMPLETED,
-      output: {
-        branchResults: results,
-        successCount,
-        totalBranches: branches.length,
-        policy,
-      },
-      startedAt: new Date(),
-    };
+    throw new OperationError(
+      `Step '${step.id}' is type 'parallel', which is not implemented. ` +
+        `It would have reported success for ${branches.length} branch(es) without executing any of them. ` +
+        `Express concurrency with 'dependsOn' groups instead — steps in the same dependency ` +
+        `group already run concurrently.`,
+      'EXECUTION_ERROR'
+    );
   }
 
   private async retryStep(
@@ -308,28 +287,88 @@ export class StepExecutionManager extends EventEmitter {
     return this.executeStep(step, context);
   }
 
+  /**
+   * Backoff for the next retry, honouring the step's own retry policy.
+   *
+   * It previously hardcoded `baseDelay = 1000` and applied an exponential curve
+   * unconditionally, so `retryDelay` and `backoffStrategy` — both settable on
+   * ExecutionStep.retryPolicy, both defaulted and validated by the schema — were
+   * accepted and ignored. A step asking for a fixed 5s retry got 1s, 2s, 4s.
+   */
   private calculateBackoff(step: ExecutionStep): number {
-    const baseDelay = 1000; // 1 second
-    const multiplier = typeof step.retryPolicy?.backoffMultiplier === 'number' ? step.retryPolicy.backoffMultiplier : 2;
+    const policy = step.retryPolicy;
+    const baseDelay = typeof policy?.retryDelay === 'number' ? policy.retryDelay : 1000;
+    const multiplier = typeof policy?.backoffMultiplier === 'number' ? policy.backoffMultiplier : 2;
     const attempt = step.retryCount || 1;
-    return baseDelay * Math.pow(multiplier, attempt - 1);
+
+    switch (policy?.backoffStrategy ?? 'exponential') {
+      case 'fixed':
+        return baseDelay;
+      case 'linear':
+        return baseDelay * attempt;
+      case 'exponential':
+      default:
+        return baseDelay * Math.pow(multiplier, attempt - 1);
+    }
   }
 
-  private setStepTimeout(step: ExecutionStep, context: StepExecutionContext): void {
-    if (!step.id) return;
-    const stepId = step.id;
-    const timeout = setTimeout(() => {
-      this.emit('step:timeout', {
-        stepId,
-        operationId: context.operationId,
-        timeout: step.timeout,
-      });
+  /**
+   * Runs `work` against the step's deadline.
+   *
+   * The version this replaces (setStepTimeout) emitted 'step:timeout', deleted the
+   * activeSteps entry, and returned. It never touched the promise, so the step
+   * kept running, resolved normally, and was recorded COMPLETED — a step could be
+   * reported both timed out and successful, and the caller was told the second
+   * one.
+   *
+   * On expiry this now aborts the shared controller AND rejects, so executeStep
+   * takes the failure path. JavaScript cannot forcibly kill an in-flight promise;
+   * what it can do is stop believing it, which is what the error says.
+   */
+  private async raceStepTimeout(
+    work: Promise<StepResult>,
+    step: ExecutionStep,
+    context: StepExecutionContext,
+    controller: AbortController
+  ): Promise<StepResult> {
+    const stepId = step.id!;
+    const timeoutMs = step.timeout!;
 
-      // Force fail the step
-      this.activeSteps.delete(stepId);
-    }, step.timeout!); // safe: setStepTimeout only called when step.timeout is truthy (see executeStep caller guard)
+    // Without this the losing promise rejects with no handler attached once the
+    // timeout wins the race, which surfaces as an unhandled rejection.
+    work.catch(() => undefined);
 
-    this.stepTimeouts.set(stepId, timeout);
+    return await new Promise<StepResult>((resolve, reject) => {
+      const handle = setTimeout(() => {
+        controller.abort();
+        this.emit('step:timeout', {
+          stepId,
+          operationId: context.operationId,
+          timeout: timeoutMs,
+        });
+        reject(
+          new OperationError(
+            `Step '${stepId}' exceeded its ${timeoutMs}ms timeout and was abandoned. ` +
+              `The executor was signalled to abort; any work it had already dispatched may ` +
+              `still be running.`,
+            'TIMEOUT_ERROR'
+          )
+        );
+      }, timeoutMs);
+
+      this.stepTimeouts.set(stepId, handle);
+
+      work.then(
+        (result) => {
+          this.clearStepTimeout(stepId);
+          resolve(result);
+        },
+        (error: unknown) => {
+          this.clearStepTimeout(stepId);
+          reject(error);
+        }
+      );
+    });
   }
 
   private clearStepTimeout(stepId: string): void {

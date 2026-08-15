@@ -109,7 +109,6 @@ export type {
   TriggerKind,
   StepType as WorkflowStepType,
   DeliveryType,
-  RepeatableJob,
   RepeatOptions,
 } from './workflow';
 export * from './complexity';

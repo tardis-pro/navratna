@@ -89,6 +89,27 @@ vi.mock('@uaip/shared-services', () => ({
       unassignServer: async (): Promise<number> => 0,
     }),
   },
+  // registerNativeTools() asserts at boot that every statically-known tool id has a
+  // danger_tool_list classification, and reads these two lists to do it. The real
+  // values matter — mocking them empty would make the assertion vacuous here.
+  PROJECT_TASK_TOOL_IDS: [
+    'project-list',
+    'project-get',
+    'task-list',
+    'task-get',
+    'task-create',
+    'task-update',
+    'task-stats',
+  ],
+  CALENDAR_TOOL_IDS: [
+    'calendar-list',
+    'calendar-events-list',
+    'calendar-event-get',
+    'calendar-event-create',
+    'calendar-event-update',
+    'calendar-event-delete',
+    'calendar-freebusy',
+  ],
 }));
 
 class FakeMcpRepository {}

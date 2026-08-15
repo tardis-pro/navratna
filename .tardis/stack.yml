@@ -261,6 +261,42 @@ services:
       JWT_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCn/ob1SkKf4tu4\nRm05DT1nkpwMEIUrORF3RTEVYwz5OibaXSQ5SV6whHisDD8p/Wp6n6rawzx9Sfzx\nSwmOjUbfLrfVuIjjL14S8ORWzSOz0rWbixIFfumoWvTY77gz+R8fKFEMJJ+IfqEx\n5+nhc8/jHkkIkpzytRHuz8zcwEFAvljJwR4DzDQ0pduEA0FhAFW39yZCLVoTru0o\npihQy5sUt3gc5rjMJmEGmDF0uWKBBJ/5GQtq446gUyNJm8EYcCyYPo9n2q33hTuo\nICxxKHIZUue9Ux25bxLZHpNT1a+VVQcF2jPWqo6B6Lx25SWydrnVlBhHzZ7HAezB\nZfZoWkB9AgMBAAECggEAUCmP669GUHYXo3yTtOQg93HJnaYqbYAbWf7913c+4xRB\nIvTMCrv8f52O2YY0g8xliWL0S9Ra4mwyU0+bnVbDyU7JMSYPx9y79qzVQKg9z5qN\nx02ayV2QkKHqcTQegUpwc9Uwq2s0ZxUJxT8lZsv1GKrEbd9MHjKR/pNQ7cudt471\nq1UQnHERGaxHabjzcqPajjKZ4vRouAkzzOXyyLLtouoQeZsnlibjMmkdknzyp0Nt\nIrXC39E6Ste5w3UaBY4aPJoa2517gebL3Wude9YBesoi4Cfrg7mLL4osT4JNELqF\nzyAM2aLxXGyk2/w5k7LcAUf8N9DFfwgJBkgBtPRAfwKBgQDoYRhKuu5kXzHMbKS/\n6Ib+CJE37YiTwRXEBgokOf7qjtWxl1z5dpoK8WSfRrgYwXwLmxq8RRGCaLc3zVxS\nQUAOWgB9M6s0+cIw3LSeuKE1+jjvK4O/xgTggET72lWI+U+L914YSdURpFQJVMdC\n7H7EmBzue4pYxbY/4Sbr8ZfgUwKBgQC5EgYkr+2WDNqTsrB51hiUxgcCH8qu4dbj\nrN3cA0UWih3ZoXW25Ew3OhkHF8NiMsbgbFP/HZnO60knQ0xThbLHPVGYZZooNBpV\nIHQWoTbde8zKf/dLF8wpGJkvRKE0qSF3+0LI3FnzhSiZkjNBUcJXZgcYceq64Chy\nKJUgRaKB7wKBgEIZrGFFfx5J/c5acRqtuAh2w2gXRyxQVjKmTSg03xA1hQ+5MJc9\nZ2AJfkfYQ/G2x+Q9QIOhWfOweb2DyukS6neqnkz+74poKRbhEPe9KQ5DmQJfbGCW\noTiDBBxn5MDLuhbkTH24MsWL6uOkm/Grd/vQERq9RYMu6kKNdxbSaBNFAoGAd+z6\nFiP6rVU+/p64RPs7ioyYVgQL7y9hdL+8NKnZxzVRConaId3mlZMMTNBVR/jnbt5D\nv/mKhc9p5At0Flt48isGCN8t+gdpWOhi0Zc+Wl+y4TXzJbISFj9eZIbwf5NpoLot\nGMPRdkA/guR+WkGE0eXHi0umc9p12yP5HqSBHfkCgYBNcbXiTB0JpwVKTYKDYrEA\nSb+WmM/aCdaw5HLe9hMCVb+6q1E7hHYNHdtRSb1Gu0GEwOPlAOL5YsjnL7fOfSQb\ns+W6uz5HimUtxsex45khnvcd4ch0iZzMfS6kVOFTzd/XPNp+EQYu3VGe1WlQntPc\nM4whOs86kPtnDBi9cxRd5A==\n-----END PRIVATE KEY-----"
       JWT_KEY_ID: "navratna-tardis-local-1"
       LLM_PROVIDER_ENCRYPTION_KEY: "1deae090f180e05266037660b8c507afbfa1180369239f5fe789d15bbb71366c"
+      # Encrypts the per-server headers of every registered MCP server —
+      # including the tardis project capability that lets this brain call its
+      # own project's agent.
+      #
+      # ONLY THE GATEWAY GETS THIS. capability-registry is mounted here
+      # (navratna-gateway/src/index.ts imports capabilityFeature), and
+      # utils/mcp_secrets.ts states outright that only that service holds the
+      # key. navratna-core does not need it and should not have it.
+      #
+      # IT WAS UNSET, AND THAT CAUSED TWO ERRORS THAT LOOK UNRELATED:
+      #   "MCP_SECRETS_KEY must be set to a 64-char hex string (32 bytes)"
+      #   "Failed to load MCP config for navratna-tardis-agent"
+      #   "Integration catalog discovery failed ... missing or invalid project
+      #    capability"
+      # The last one reads like a tardis-side auth problem and is not: with no
+      # key, the stored Authorization header cannot be decrypted, so the call
+      # goes out without a usable capability and the agent correctly refuses it.
+      #
+      # ROTATING THIS INVALIDATES EVERY STORED MCP HEADER. They are encrypted
+      # with it, not derived from it, so a new value means re-entering the
+      # credential for every registered MCP server. Generate with
+      # `openssl rand -hex 32`.
+      MCP_SECRETS_KEY: "b3d8d03abacdd21490dc7ede6f742690d9964f512c82a970602c2e0b0017f455"
+      # Signs the inbound ingress for workflow definitions whose trigger.kind is
+      # 'webhook' (POST /api/v1/workflows/hooks/:routingKey). Callers must send
+      # x-navratna-signature-256: sha256=<HMAC-SHA256 of the raw body>.
+      #
+      # The route is only MOUNTED when this is set — an unconfigured deploy has
+      # no route rather than one that 401s on every request — and
+      # verifyHookSignature fails closed if it is somehow absent at request time.
+      # A hook can start a workflow, and a workflow can run shell steps, so this
+      # path must never be reachable unsigned.
+      #
+      # Generate with `openssl rand -hex 32`. Rotating it invalidates nothing
+      # stored; it only means every caller must be given the new secret.
+      WORKFLOW_WEBHOOK_SECRET: "1a7ce3884913a23ae467be87efd1d8416f8c920cbd4839f55f7feb7d32273e8b"
       EMBEDDINGS_URL: "https://ai.tardis.digital/v1/embeddings"
       EMBEDDINGS_MODEL: "jina/jina-embeddings-v5-text-small"
       EMBEDDINGS_API_KEY: "sk-3909fbf385e370bc-c3b924-cfbfde2c"

@@ -7,7 +7,8 @@ import { logger } from '@uaip/utils';
 import { randomUUID } from 'crypto';
 import { UnifiedToolRegistry } from './unified_tool_registry.js';
 import {
-  getDangerToolConfig,
+  classifyTool,
+  isToolClassified,
   toolRequiresApproval,
   getRequiredApprovalLevel,
   toolRequiresSecurityTeamApproval,
@@ -246,8 +247,16 @@ export class ToolExecutionCoordinator {
         }
       }
 
-      // P5 Security: Check if tool requires approval before execution
-      if (config.tools.enableApprovalWorkflow) {
+      // P5 Security: Check if tool requires approval before execution.
+      //
+      // UNCONDITIONAL. This used to sit behind config.tools.enableApprovalWorkflow,
+      // which reads ENABLE_APPROVAL_WORKFLOW === 'true' and therefore defaulted to
+      // OFF — and both .env and sample.env set it to 'false' explicitly. The bus
+      // path carries no securityContext, so with the gate disabled a
+      // tool.execute.request for 'shell-exec' ran arbitrary commands with no check
+      // at all. Whether a dangerous tool may run is not a feature flag; the flag now
+      // only chooses how the refusal is delivered (see checkAndEnforceApproval).
+      {
         const approvalResult = await this.checkAndEnforceApproval(event, requestId);
         if (approvalResult.blocked) {
           // Tool execution blocked due to missing approval
@@ -620,10 +629,16 @@ export class ToolExecutionCoordinator {
       return { blocked: false, requiredApproval: 'NONE' };
     }
 
-    // Get danger tool configuration
-    const dangerConfig = getDangerToolConfig(toolId);
-    if (!dangerConfig) {
-      return { blocked: false, requiredApproval: 'NONE' };
+    // classifyTool, not getDangerToolConfig: the latter returns null for an id no
+    // row matches, and the early `return { blocked: false }` that used to guard on
+    // it turned "we have never classified this tool" into "this tool is safe".
+    const dangerConfig = classifyTool(toolId);
+    if (!isToolClassified(toolId)) {
+      logger.error('Refusing an unclassified tool on the event-bus path', {
+        toolId,
+        requestId,
+        agentId: event.agentId,
+      });
     }
 
     // Get required approval level
@@ -652,20 +667,26 @@ export class ToolExecutionCoordinator {
     // Tool requires approval but not granted - block execution
     const approvalRequestId = `approval_${requestId}_${Date.now()}`;
 
-    // Emit approval required event
-    await this.eventBus.publish('tool.approval.required', {
-      approvalRequestId,
-      toolId,
-      requestId,
-      requiredApproval,
-      riskLevel: dangerConfig.riskLevel,
-      categories: dangerConfig.categories,
-      reason: dangerConfig.reason,
-      userId: event.userId || event.securityContext?.userId,
-      agentId: event.agentId,
-      projectId: event.projectId,
-      timestamp: new Date().toISOString(),
-    });
+    // Emit approval required event.
+    //
+    // This is the only thing config.tools.enableApprovalWorkflow still controls:
+    // whether an unapproved call raises a reviewable approval request, or is just
+    // refused outright. Either way the call is blocked — see the caller.
+    if (config.tools.enableApprovalWorkflow) {
+      await this.eventBus.publish('tool.approval.required', {
+        approvalRequestId,
+        toolId,
+        requestId,
+        requiredApproval,
+        riskLevel: dangerConfig.riskLevel,
+        categories: dangerConfig.categories,
+        reason: dangerConfig.reason,
+        userId: event.userId || event.securityContext?.userId,
+        agentId: event.agentId,
+        projectId: event.projectId,
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     // Log audit event if required
     if (toolRequiresAudit(toolId)) {
