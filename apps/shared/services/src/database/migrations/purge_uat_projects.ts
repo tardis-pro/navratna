@@ -9,21 +9,22 @@
  *
  * SAFETY: every row it is about to delete is written to a JSON file first, and
  * the file is written BEFORE the delete runs. Nothing is deleted if the dump
- * cannot be written.
+ * cannot be written. The path is TIMESTAMPED and never overwritten — see the
+ * comment at the write site for the incident that requires it.
  *
- * Rows are only deleted if they have no dependents that would cascade into real
- * data — projects cascade to tasks, project_members and
- * project_agent_integration_connections, so a row with any of those is reported
- * and skipped rather than quietly taking them along.
+ * A row is skipped when it has dependents that exist independently of it —
+ * tasks, mcp_servers, project_agent_integration_connections. project_members is
+ * NOT such a dependent: a membership is the join to a user and is meaningless
+ * once the project is gone, so it cascades. See the comment at the filter.
  *
- * Standalone:
- *   bun apps/shared/services/src/database/migrations/purge_uat_projects.ts --dump /data/uat-projects.json
- *   bun apps/shared/services/src/database/migrations/purge_uat_projects.ts --dump /data/uat-projects.json --apply
+ * Standalone (the path given is a PREFIX; a timestamp and .json are appended):
+ *   bun .../purge_uat_projects.ts --dump /data/uat-projects --keep navratna
+ *   bun .../purge_uat_projects.ts --dump /data/uat-projects --keep navratna --apply
  *
  * Without --apply it is a DRY RUN: it dumps and reports, and deletes nothing.
  */
 
-import { writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { inArray, sql } from 'drizzle-orm';
 import { createLogger } from '@uaip/utils';
 import { getControlDb, initializePlanes } from '../drizzle/clients/index';
@@ -108,12 +109,31 @@ export class PurgeUatProjects {
     const deletable = candidates.filter((row) => !skipped.includes(row));
 
     // Dump BEFORE deleting. A failure to write aborts the whole thing.
+    //
+    // NEVER OVERWRITE. This was a real incident on 2026-08-15: the dump path was
+    // taken literally, so a later read-only DRY RUN reusing the same path
+    // rewrote the file with the then-current state and destroyed the backup of
+    // the 8 rows a previous --apply had deleted. A safety artifact that a
+    // subsequent harmless-looking command can clobber is not a safety artifact.
+    //
+    // The timestamp makes each run's dump unique, and the existence check is the
+    // belt to that braces: refuse rather than overwrite, and refuse BEFORE
+    // anything is deleted.
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const dumpPath = options.dumpPath.replace(/(\.json)?$/, `-${stamp}.json`);
+    if (existsSync(dumpPath)) {
+      throw new Error(
+        `Refusing to overwrite an existing dump at ${dumpPath}. ` +
+          `Move it aside, or pass a different --dump path.`
+      );
+    }
+
     writeFileSync(
-      options.dumpPath,
+      dumpPath,
       JSON.stringify({ takenAt: new Date().toISOString(), all }, null, 2),
       'utf8'
     );
-    logger.info('Wrote project dump', { dumpPath: options.dumpPath, rows: all.length });
+    logger.info('Wrote project dump', { dumpPath, rows: all.length });
 
     if (skipped.length > 0) {
       logger.warn('Skipping projects that have dependent rows', { skipped });
