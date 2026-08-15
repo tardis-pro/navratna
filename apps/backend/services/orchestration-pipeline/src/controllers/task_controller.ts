@@ -40,17 +40,13 @@ export interface TaskErrorResponse {
 
 type TaskControllerResponse<T = TaskEntity> = TaskSuccessResponse<T> | TaskErrorResponse;
 
+// The six values TaskType actually defines. 'deployment' and 'maintenance' were
+// accepted here and had no representation anywhere downstream — no TaskType
+// member, no column, no consumer — so a task created with either was stored as
+// something else. Rejecting them is the honest answer; silently rewriting them
+// is not.
 const taskTypeEnum = z
-  .enum([
-    'feature',
-    'bug',
-    'enhancement',
-    'research',
-    'documentation',
-    'testing',
-    'deployment',
-    'maintenance',
-  ])
+  .enum(['feature', 'bug', 'enhancement', 'research', 'documentation', 'testing'])
   .optional();
 const taskPriorityEnum = z.enum(['low', 'medium', 'high', 'urgent']).optional();
 const taskAssigneeFields = {
@@ -67,7 +63,11 @@ const taskAssigneeFields = {
 const createTaskSchema = z.object({
   title: z.string().min(1).max(255),
   description: z.string().optional(),
-  projectId: z.string().uuid(),
+  // Optional because the project is the path segment — `POST
+  // /api/v1/projects/:projectId/tasks`. Requiring it in the body made every
+  // correctly-formed request 400: the route's own body schema marks it
+  // optional, and the handler ignores the body value in favour of the param.
+  projectId: z.string().uuid().optional(),
   priority: taskPriorityEnum,
   type: taskTypeEnum,
   ...taskAssigneeFields,
@@ -159,6 +159,12 @@ function requireAuth(
   return null;
 }
 
+function errorStatus(error: unknown): number | null {
+  if (typeof error !== 'object' || error === null || !('status' in error)) return null;
+  const status = (error as { status?: unknown }).status;
+  return typeof status === 'number' && status >= 400 && status < 500 ? status : null;
+}
+
 function handleError(
   error: unknown,
   set: MutableStatusSet,
@@ -167,6 +173,18 @@ function handleError(
   if (error instanceof z.ZodError) {
     set.status = 400;
     return { success: false, error: 'Validation failed', details: error.errors };
+  }
+  // Repo convention: errors carry `err.status`, servers map 4xx through. Without
+  // this every caller mistake — a missing task, an illegal status transition,
+  // an assignee who is not a project member — came back as 500, which reads as
+  // "the server is broken" and sends the reader looking in the wrong place.
+  const status = errorStatus(error);
+  if (status !== null) {
+    set.status = status;
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : `Failed to ${operation}`,
+    };
   }
   set.status = 500;
   return {

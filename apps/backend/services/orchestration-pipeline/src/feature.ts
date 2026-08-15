@@ -69,8 +69,12 @@ export const orchestrationFeature: Feature = {
       )
     }
 
-    const taskService = TaskService.getInstance()
     const eventBusService = deps.eventBusService ?? EventBusService.getInstance()
+    // Constructed with its dependencies, not with a setter called later. The
+    // previous line was `TaskService.getInstance()`, whose repositories were
+    // filled in by a `setRepositories()` that no caller anywhere ever invoked —
+    // so every task route dereferenced null and answered 500.
+    const taskService = new TaskService({ eventPublisher: eventBusService })
     taskController = new TaskController(taskService)
     workflowEngineService = new WorkflowEngineService(eventBusService)
     workflowExecutorService = new WorkflowExecutorService(eventBusService)

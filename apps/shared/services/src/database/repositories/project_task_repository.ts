@@ -1,10 +1,36 @@
 import { getControlDb } from '../drizzle/clients/index';
-import { projects, projectMembers, tasks } from '../drizzle/schemas/control_schema';
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { projects, projectMembers, tasks, users } from '../drizzle/schemas/control_schema';
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNull,
+  lte,
+  notInArray,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import type { StoryStatus } from '@uaip/types';
 
 export type ProjectRow = typeof projects.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
+
+/**
+ * A project member who is a person, flattened for assignment scoring.
+ *
+ * `project_members` rows can carry a userId OR an agentId (agents are
+ * cross-plane, in the intelligence database, with no FK), so the join has to
+ * drop the agent rows rather than assume every member resolves to a user.
+ */
+export interface ProjectMemberUser {
+  id: string;
+  email: string;
+  name: string;
+}
 
 export interface ProjectListFilters {
   // A PROJECT status (ProjectStatus), not a task's StoryStatus — different
@@ -14,11 +40,31 @@ export interface ProjectListFilters {
 }
 
 export interface TaskListFilters {
-  status?: StoryStatus;
-  priority?: string;
+  /**
+   * A single status or a set of them. The HTTP task list accepts
+   * `?status=a,b,c`; the MCP task tools pass one. Both end up here rather than
+   * in two divergent query builders.
+   */
+  status?: StoryStatus | StoryStatus[];
+  priority?: string | string[];
+  /**
+   * Statuses to exclude. Needed by the "overdue" filter, which means
+   * `due_at < now AND status <> 'done'` — expressing that by fetching and then
+   * discarding in the service would drop rows against the LIMIT instead.
+   */
+  excludeStatus?: StoryStatus[];
   assigneeId?: string;
+  /** Agent assignment, which lives in `metadata` — see countTasksByAgentAssignee. */
+  agentAssigneeId?: string;
+  dueBefore?: Date;
+  dueAfter?: Date;
+  /** Case-insensitive substring over title and description. */
+  search?: string;
   limit?: number;
 }
+
+const asArray = <T>(value: T | T[] | undefined): T[] =>
+  value === undefined ? [] : Array.isArray(value) ? value : [value];
 
 export interface CreateTaskInput {
   projectId: string;
@@ -46,6 +92,12 @@ export interface TaskStatistics {
   total: number;
   byStatus: Record<string, number>;
   byPriority: Record<string, number>;
+  /**
+   * 'human' | 'agent' | 'unassigned'. Read out of `metadata` because there is no
+   * assignee_type column; the key is always present so a caller can tell "no
+   * agent work" from "the breakdown was not computed".
+   */
+  byAssigneeType: Record<string, number>;
 }
 
 export class ProjectTaskRepository {
@@ -111,11 +163,42 @@ export class ProjectTaskRepository {
     return row ?? null;
   }
 
-  async findTasksByProject(projectId: string, filters: TaskListFilters = {}): Promise<TaskRow[]> {
-    const conditions = [eq(tasks.projectId, projectId)];
-    if (filters.status) conditions.push(eq(tasks.status, filters.status));
-    if (filters.priority) conditions.push(eq(tasks.priority, filters.priority));
+  /**
+   * Filter clauses shared by both list queries, so a filter added for the HTTP
+   * task list cannot silently not exist for the cross-project one.
+   */
+  private buildTaskFilterConditions(filters: TaskListFilters): SQL[] {
+    const conditions: SQL[] = [];
+
+    const statuses = asArray(filters.status);
+    if (statuses.length === 1) conditions.push(eq(tasks.status, statuses[0]));
+    else if (statuses.length > 1) conditions.push(inArray(tasks.status, statuses));
+
+    const priorities = asArray(filters.priority);
+    if (priorities.length === 1) conditions.push(eq(tasks.priority, priorities[0]));
+    else if (priorities.length > 1) conditions.push(inArray(tasks.priority, priorities));
+
+    if (filters.excludeStatus?.length) {
+      conditions.push(notInArray(tasks.status, filters.excludeStatus));
+    }
+
     if (filters.assigneeId) conditions.push(eq(tasks.assigneeId, filters.assigneeId));
+    if (filters.agentAssigneeId) {
+      conditions.push(sql`${tasks.metadata}->>'assignedToAgentId' = ${filters.agentAssigneeId}`);
+    }
+    if (filters.dueBefore) conditions.push(lte(tasks.dueAt, filters.dueBefore));
+    if (filters.dueAfter) conditions.push(gte(tasks.dueAt, filters.dueAfter));
+    if (filters.search) {
+      const pattern = `%${filters.search}%`;
+      const match = or(ilike(tasks.title, pattern), ilike(tasks.description, pattern));
+      if (match) conditions.push(match);
+    }
+
+    return conditions;
+  }
+
+  async findTasksByProject(projectId: string, filters: TaskListFilters = {}): Promise<TaskRow[]> {
+    const conditions = [eq(tasks.projectId, projectId), ...this.buildTaskFilterConditions(filters)];
 
     return this.db
       .select()
@@ -131,10 +214,10 @@ export class ProjectTaskRepository {
   ): Promise<TaskRow[]> {
     if (projectIds.length === 0) return [];
 
-    const conditions = [inArray(tasks.projectId, projectIds)];
-    if (filters.status) conditions.push(eq(tasks.status, filters.status));
-    if (filters.priority) conditions.push(eq(tasks.priority, filters.priority));
-    if (filters.assigneeId) conditions.push(eq(tasks.assigneeId, filters.assigneeId));
+    const conditions = [
+      inArray(tasks.projectId, projectIds),
+      ...this.buildTaskFilterConditions(filters),
+    ];
 
     return this.db
       .select()
@@ -180,26 +263,102 @@ export class ProjectTaskRepository {
     return row ?? null;
   }
 
+  async countTasksByProject(projectId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ cnt: sql<number>`count(*)::int` })
+      .from(tasks)
+      .where(eq(tasks.projectId, projectId));
+    return row?.cnt ?? 0;
+  }
+
+  /**
+   * Hard delete. The `tasks` table has no `deleted_at` column, so there is no
+   * soft delete to perform — a service that set one would be writing a field
+   * that is silently dropped and then reading it back as "not deleted" on the
+   * next request. Returns whether a row actually went away so the caller can
+   * answer 404 instead of reporting success for an id that never existed.
+   */
+  async deleteTask(taskId: string): Promise<boolean> {
+    const rows = await this.db.delete(tasks).where(eq(tasks.id, taskId)).returning({ id: tasks.id });
+    return rows.length > 0;
+  }
+
+  /**
+   * Members of a project that resolve to real users.
+   *
+   * `project_members` has no `status` column — an earlier query filtered on
+   * `pm.status = 'active'` and would have matched nothing had it ever run.
+   * Membership itself is the only signal the table carries.
+   */
+  async findProjectMemberUsers(projectId: string): Promise<ProjectMemberUser[]> {
+    const rows = await this.db
+      .select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+      })
+      .from(projectMembers)
+      .innerJoin(users, eq(projectMembers.userId, users.id))
+      .where(and(eq(projectMembers.projectId, projectId), eq(users.isActive, true)));
+
+    return rows.map((row) => ({
+      id: row.id,
+      email: row.email,
+      name: [row.firstName, row.lastName].filter(Boolean).join(' ').trim() || row.email,
+    }));
+  }
+
+  /** How many tasks a person is actively carrying, used to score assignment suggestions. */
+  async countTasksByAssignee(userId: string, status: StoryStatus): Promise<number> {
+    const [row] = await this.db
+      .select({ cnt: sql<number>`count(*)::int` })
+      .from(tasks)
+      .where(and(eq(tasks.assigneeId, userId), eq(tasks.status, status)));
+    return row?.cnt ?? 0;
+  }
+
+  /**
+   * The same count for an agent. Agent assignment cannot live in `assignee_id`
+   * — that column is an FK to control.users and agents are rows in a different
+   * database — so it is carried in `metadata.assignedToAgentId` and has to be
+   * counted through the jsonb.
+   */
+  async countTasksByAgentAssignee(agentId: string, status: StoryStatus): Promise<number> {
+    const [row] = await this.db
+      .select({ cnt: sql<number>`count(*)::int` })
+      .from(tasks)
+      .where(
+        and(sql`${tasks.metadata}->>'assignedToAgentId' = ${agentId}`, eq(tasks.status, status))
+      );
+    return row?.cnt ?? 0;
+  }
+
   async getTaskStatistics(projectId: string): Promise<TaskStatistics> {
+    const assigneeType = sql<string | null>`${tasks.metadata}->>'assigneeType'`;
     const rows = await this.db
       .select({
         status: tasks.status,
         priority: tasks.priority,
+        assigneeType,
         cnt: sql<number>`count(*)::int`,
       })
       .from(tasks)
       .where(eq(tasks.projectId, projectId))
-      .groupBy(tasks.status, tasks.priority);
+      .groupBy(tasks.status, tasks.priority, assigneeType);
 
     const byStatus: Record<string, number> = {};
     const byPriority: Record<string, number> = {};
+    const byAssigneeType: Record<string, number> = { human: 0, agent: 0, unassigned: 0 };
     let total = 0;
     for (const row of rows) {
       const cnt = row.cnt ?? 0;
       total += cnt;
       byStatus[row.status] = (byStatus[row.status] ?? 0) + cnt;
       byPriority[row.priority] = (byPriority[row.priority] ?? 0) + cnt;
+      const bucket = row.assigneeType ?? 'unassigned';
+      byAssigneeType[bucket] = (byAssigneeType[bucket] ?? 0) + cnt;
     }
-    return { total, byStatus, byPriority };
+    return { total, byStatus, byPriority, byAssigneeType };
   }
 }
