@@ -1,5 +1,6 @@
 import { Elysia } from 'elysia'
-import { withRequiredAuth } from '@uaip/middleware'
+import { timingSafeEqual } from 'node:crypto'
+import { withOptionalAuth } from '@uaip/middleware'
 import { DatabaseService, ProjectManagementService } from '@uaip/shared-services'
 import { logger } from '@uaip/utils'
 import { RepoIngestionService } from '../services/repo_ingestion_service.js'
@@ -30,7 +31,42 @@ function parseProjectIdFromBody(body: unknown): string | null {
   return projectId.length > 0 ? projectId : null
 }
 
-/** withRequiredAuth attaches `user`; read defensively like the body parsers above. */
+const SERVICE_TOKEN_HEADER = 'x-navratna-service-token'
+
+/**
+ * A caller that is a machine rather than a person.
+ *
+ * Ingest had exactly one door and it needed a human session behind it, which
+ * meant `tardis init` could register a project and then never hand over its
+ * repository: the provisioner has no user to be. Every project on the platform
+ * was therefore linked and empty, and the knowledge graph held tool definitions
+ * and not one line of anybody's code.
+ *
+ * This is the same shape as the provisioning route in security-gateway
+ * (`verifyServiceToken`, `project_provision_elysia.ts`) and deliberately so —
+ * the edge lets the request through and the HANDLER does the checking. It is
+ * reimplemented rather than imported because navratna-core does not depend on
+ * security-gateway and should not start; twelve lines duplicated is cheaper than
+ * a new coupling between two deployable services.
+ *
+ * Fails closed when the token is unset, and compares in constant time. Length is
+ * checked first because timingSafeEqual throws on a mismatch and the throw would
+ * itself leak length.
+ */
+function isServiceCall(ctx: unknown): boolean {
+  const expected = process.env.PROJECT_PROVISION_TOKEN
+  if (!expected) return false
+  if (typeof ctx !== 'object' || ctx === null || !('request' in ctx)) return false
+  const request = (ctx as { request?: Request }).request
+  const presented = request?.headers?.get(SERVICE_TOKEN_HEADER)
+  if (!presented) return false
+  const a = Buffer.from(presented)
+  const b = Buffer.from(expected)
+  if (a.length !== b.length) return false
+  return timingSafeEqual(a, b)
+}
+
+/** withOptionalAuth attaches `user`; read defensively like the body parsers above. */
 function readUserId(ctx: unknown): string | undefined {
   if (typeof ctx !== 'object' || ctx === null || !('user' in ctx)) return undefined
   const user = (ctx as { user?: unknown }).user
@@ -53,7 +89,17 @@ function isClientInputError(message: string): boolean {
 export function registerKnowledgeIngestRoutes() {
   const repoIngestionService = new RepoIngestionService()
 
-  return new Elysia().group('/api/v1/knowledge', (group) => withRequiredAuth(group).post('/ingest', async (ctx) => {
+  return new Elysia().group('/api/v1/knowledge', (group) => withOptionalAuth(group).post('/ingest', async (ctx) => {
+    // withOptionalAuth attaches a session when there is one but refuses nobody,
+    // so this handler is now the wall: a caller must be either an authenticated
+    // person or the platform itself. Neither means 401, exactly as before.
+    const userId = readUserId(ctx)
+    const service = isServiceCall(ctx)
+    if (!userId && !service) {
+      ctx.set.status = 401
+      return { success: false, error: 'Authentication required', code: 'AUTH_REQUIRED' }
+    }
+
     const source = parseSourceFromBody(ctx.body)
     if (!source) {
       ctx.set.status = 400
@@ -74,7 +120,13 @@ export function registerKnowledgeIngestRoutes() {
     if (projectId) {
       const projectService = new ProjectManagementService(DatabaseService.getInstance())
       await projectService.initialize()
-      if (!(await projectService.getProject(projectId, readUserId(ctx)))) {
+      // A person is scoped to the projects they can see. The platform is not
+      // scoped to anyone — it provisions every project on the box, so its own
+      // ingest must be able to name any of them — and the service token IS that
+      // authorisation. The existence check still runs either way: it is what
+      // stops one project's knowledge being tagged onto another, which is a
+      // mistake no credential should be able to make.
+      if (!(await projectService.getProject(projectId, service ? undefined : userId))) {
         ctx.set.status = 404
         return { success: false, error: 'Project not found' }
       }

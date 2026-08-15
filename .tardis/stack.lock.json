@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "stackSha256": "b067522e21f93c2d689d4846520c92e9ec594d14d6990b6202963e98e0596d33",
+  "stackSha256": "d02ac5c5ec28a4360ff930768c90ce23519d22045389e6640bfe6a59175a1332",
   "services": [
     {
       "id": "postgres",
@@ -152,6 +152,7 @@
         "NODE_ENV": "production",
         "NAVRATNA_CORE_PORT": "8080",
         "LOG_LEVEL": "info",
+        "PROJECT_PROVISION_TOKEN": "00a9bc1b69d1ea35d602fa98f78896d5338b3c99656044a1d6e07dee94964f65",
         "SENTRY_DSN": "https://94327d1a3c8c4d3e88e673a2d77f2011@sentry.tardis.local/14",
         "SENTRY_ENVIRONMENT": "tardis-local",
         "DB_SSL": "false",

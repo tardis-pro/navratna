@@ -157,6 +157,13 @@ services:
       NODE_ENV: "production"
       NAVRATNA_CORE_PORT: "8080"
       LOG_LEVEL: "info"
+      # The same service credential the gateway holds for /provision, because
+      # /api/v1/knowledge/ingest lives HERE and now accepts it as an alternative
+      # to a human session. Without it that route falls back to demanding a
+      # session the provisioner cannot supply, and every project stays registered
+      # with an empty graph — which is the state this unblocks. Must stay
+      # identical to the gateway's value: it is compared, not merely presented.
+      PROJECT_PROVISION_TOKEN: "00a9bc1b69d1ea35d602fa98f78896d5338b3c99656044a1d6e07dee94964f65"
       # Hour-0 error tracking. BaseService.initializeObservability() already
       # calls initSentry(), so the SDK only ever needed a DSN — each app gets
       # its OWN GlitchTip project so an error is attributable to a service
