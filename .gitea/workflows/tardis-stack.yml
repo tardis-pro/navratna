@@ -12,6 +12,72 @@ on:
   push:
 
 jobs:
+  # Tests and the coverage ratchet, in PARALLEL with the build.
+  #
+  # This job did not exist until the ratchet needed somewhere to live, which is
+  # why the multi-service projects — the largest ones on the platform — had never
+  # run a test or reported a coverage number in CI at all. Their builds were
+  # green because nothing was being asked of them.
+  #
+  # It deliberately does not block the deploy: previews ship in parallel, as they
+  # do in the single-image workflow. What it produces is an honest per-job verdict
+  # that a pull request can be gated on.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: run tests + coverage ratchet
+        run: |
+          # A monorepo's tests live behind its own script; if there is no `test`
+          # script there is nothing to run, and that is not a failure. What IS a
+          # failure is a test suite that runs and fails — see the note in
+          # workflow.yml about `|| echo "tests failed"`.
+          if [ -f package.json ] && python3 -c "import json,sys; sys.exit(0 if 'test' in json.load(open('package.json')).get('scripts',{}) else 1)"; then
+            npm ci 2>/dev/null || npm install
+            npm test
+          else
+            echo "no test script in package.json — nothing to run"
+          fi
+          PCT=""
+          if [ -f coverage/coverage-summary.json ]; then
+            PCT=$(python3 -c "import json; print(json.load(open('coverage/coverage-summary.json'))['total']['lines']['pct'])")
+          elif [ -f coverage.xml ]; then
+            PCT=$(python3 -c "import xml.etree.ElementTree as ET; print(round(float(ET.parse('coverage.xml').getroot().get('line-rate', '0'))*100, 1))")
+          fi
+          if [ -z "$PCT" ]; then
+            echo "no coverage report found — nothing to ratchet"
+            exit 0
+          fi
+          curl -sS -X POST "${{ secrets.TARDIS_AGENT_URL }}/api/coverage" \
+            -H "Authorization: Bearer ${{ secrets.TARDIS_CAPABILITY }}" \
+            -H 'Content-Type: application/json' \
+            -d "{\"branch\":\"${GITHUB_REF_NAME}\",\"pct\":$PCT,\"sha\":\"${GITHUB_SHA}\"}" -k || true
+
+          # The ratchet: today may not be worse than the best day this project
+          # has already had. No target to pick or defend, enforceable from the
+          # first build, and it holds every gain. See workflow.yml for the longer
+          # note on why a high-water mark and not the previous value.
+          BASELINE=$(curl -sS -k -H "Authorization: Bearer ${{ secrets.TARDIS_CAPABILITY }}" \
+            "${{ secrets.TARDIS_AGENT_URL }}/api/coverage/baseline" 2>/dev/null \
+            | python3 -c "import json,sys; b=json.load(sys.stdin).get('baseline'); print('' if b is None else b)" 2>/dev/null || echo "")
+          if [ -z "$BASELINE" ]; then
+            echo "coverage $PCT% — first recorded on this project, nothing to compare against"
+            exit 0
+          fi
+          python3 - "$PCT" "$BASELINE" <<'RATCHET'
+          import sys
+          pct, base = float(sys.argv[1]), float(sys.argv[2])
+          TOLERANCE = 0.5
+          if pct + TOLERANCE < base:
+              print(f"::error::coverage regressed to {pct}% from the {base}% this project has already reached")
+              print(f"add tests for what you changed, or explain the drop — tolerance is {TOLERANCE}pp")
+              raise SystemExit(1)
+          verb = "raised" if pct > base else "held"
+          print(f"coverage {verb}: {pct}% against a high-water mark of {base}%")
+          RATCHET
+
   build-deploy:
     runs-on: ubuntu-latest
     steps:
@@ -153,8 +219,23 @@ jobs:
           # See workflow.yml for why both flags are needed: --volumes-from because
           # the checkout lives on a Docker volume at /workspace that the daemon
           # cannot bind by path, and the CA import because the scanner image does
-          # not trust the homelab CA. Both fail silently — this step is
-          # non-blocking by design.
+          # not trust the homelab CA. Both used to fail silently behind a
+          # `|| echo`; a scanner that did not run is not a pass, so they now fail
+          # the job.
+          #
+          # The gate VERDICT stays reported until a project opts in with
+          # TARDIS_SONAR_GATE=enforce — the stock gate wants 80% coverage on new
+          # code and every project here is at 0.0%, so enforcing it today would
+          # red every main build permanently. The coverage ratchet is the gate
+          # that can pass now. workflow.yml carries the full reasoning.
+          GATE=""
+          if [ "${{ vars.TARDIS_SONAR_GATE }}" = "enforce" ]; then
+            GATE="-Dsonar.qualitygate.wait=true"
+            echo "quality gate: ENFORCED — a failing gate fails this build"
+          else
+            echo "quality gate: reported only — set repo variable TARDIS_SONAR_GATE=enforce to block on it"
+            echo "               read the current verdict with: tardis quality"
+          fi
           docker run --rm \
             --volumes-from "$(cat /etc/hostname)" \
             -e SONAR_HOST_URL="${{ secrets.SONAR_HOST_URL }}" \
@@ -169,5 +250,4 @@ jobs:
                 -keystore /tmp/tardis-truststore.p12 -storetype PKCS12 -storepass changeit >/dev/null &&
               sonar-scanner "$@"
             ' sh -Dsonar.projectKey=tardis-$SLUG -Dsonar.projectBaseDir="$PWD" \
-                 -Dsonar.working.directory=/tmp/scannerwork \
-            || echo "sonar analysis failed (non-blocking)"
+                 -Dsonar.working.directory=/tmp/scannerwork $GATE
