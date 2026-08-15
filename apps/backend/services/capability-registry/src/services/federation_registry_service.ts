@@ -20,6 +20,7 @@ import type {
   NewFederatedTool,
 } from '@uaip/shared-services/drizzle/control';
 import { z } from 'zod';
+import { federatedToolSecurityLevel } from '../utils/federated_tool_security.js';
 
 // ---------------------------------------------------------------------------
 // Manifest validation schema
@@ -59,6 +60,7 @@ const mcpManifestSchema = z.object({
 });
 
 export type MCPManifest = z.infer<typeof mcpManifestSchema>;
+
 
 // ---------------------------------------------------------------------------
 // Types
@@ -629,7 +631,7 @@ export class FederationRegistryService {
             inputSchema: tool.inputSchema,
             category: 'api',
             version: '1.0.0',
-            securityLevel: 'medium',
+            securityLevel: federatedToolSecurityLevel(tool.name),
             isEnabled: true,
             tags: ['federation'],
           },
