@@ -311,7 +311,22 @@ export const capabilityFeature: Feature = {
     // out of step with the image running against it.
     //
     // Idempotent and multi-instance safe (advisory lock + IF NOT EXISTS).
-    await new EnsureMcpServerProjectScope().run()
+    //
+    // Contained rather than fatal: FeatureFactory bounds each initialize() with a
+    // timeout and swallows throws, so letting this propagate would silently skip
+    // EVERYTHING below it — the tool coordinator, the native tool registrations,
+    // the MCP client — and leave one generic "init failed" line to explain it.
+    // Tool execution does not depend on this column, so it keeps working; only
+    // MCP resolution is affected, and the log says exactly that.
+    try {
+      await new EnsureMcpServerProjectScope().run()
+    } catch (error) {
+      logger.error(
+        'Failed to ensure mcp_servers.project_id — MCP resolution WILL fail until this succeeds, ' +
+          'because McpConnectionResolver selects that column. The rest of the registry continues.',
+        { error: error instanceof Error ? error.message : String(error) }
+      )
+    }
 
     const federation = FederationRegistryService.getInstance()
     await federation.initialize({ eventBusService: deps?.eventBusService })
