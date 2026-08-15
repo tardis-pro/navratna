@@ -1137,7 +1137,7 @@ export const workflowDefinitions = pgTable('workflow_definitions', {
     .$type<{ kind: 'cron' | 'every' | 'webhook' | 'event'; expr: string; tz?: string }>()
     .notNull(),
   steps: jsonb('steps')
-    .$type<Array<{ type: 'agentTurn' | 'bash' | 'httpCall'; [key: string]: unknown }>>()
+    .$type<Array<{ type: 'agentTurn' | 'bash' | 'httpCall' | 'toolCall'; [key: string]: unknown }>>()
     .notNull(),
   delivery: jsonb('delivery').$type<{
     type: 'webhook' | 'email' | 'slack' | 'whatsapp';
@@ -1148,6 +1148,19 @@ export const workflowDefinitions = pgTable('workflow_definitions', {
   agentId: text('agent_id'),
   sessionKey: text('session_key'),
   model: text('model'),
+  /**
+   * The project every tool call in a run of this definition is scoped to.
+   *
+   * NULL is a real state, not a missing value: the bash/httpCall/agentTurn steps
+   * that predate this column never needed a project, and their definitions keep
+   * working without one. A `toolCall` step targeting an MCP tool does need it —
+   * UnifiedToolRegistry refuses a project-scoped capability without a project —
+   * so such a definition is refused at dispatch rather than being allowed to
+   * borrow whatever scope happens to be nearby.
+   *
+   * DDL ships in EnsureWorkflowDefinitionProjectScope, which runs at boot.
+   */
+  projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
 });
 
 // ─── SECURITY & AUDIT ──────────────────────────────────────────────────────

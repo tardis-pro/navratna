@@ -2,6 +2,7 @@ import type { Feature, ServiceDeps } from '@uaip/shared-services/feature-factory
 import {
   CompensationService,
   EnsureSystemActor,
+  EnsureWorkflowDefinitionProjectScope,
   EventBusService,
   OperationManagementService,
   ResourceManagerService,
@@ -22,6 +23,7 @@ import { registerWorkflowHookRoutes } from './routes/workflow_hook_routes.js'
 import { registerGitHubWebhookRoutes } from './routes/github_webhook_routes.js'
 import { registerJiraWebhookRoutes } from './routes/jira_webhook_routes.js'
 import { importOpenClawWorkflows } from './seeds/openclaw-workflow-import.js'
+import { seedNightlyTriageWorkflow } from './seeds/nightly-triage-workflow.js'
 import { DevLoopOrchestrator } from './services/dev_loop_orchestrator.js'
 import { HealingAgentService } from './services/healing_agent_service.js'
 import { WorkflowEngineService } from './services/workflow_engine_service.js'
@@ -48,6 +50,23 @@ export const orchestrationFeature: Feature = {
       logger.error('orchestration-pipeline: system actor missing — operation writes will be rejected', {
         error: error instanceof Error ? error.message : String(error),
       })
+    }
+
+    // Schema and the code that reads it arrive in the same deploy. Deliberately
+    // NOT allowed to propagate: FeatureFactory swallows init throws, so letting
+    // this escape would silently skip everything below it — the workflow executor,
+    // the dev loop, the orchestration engine — behind one generic "init failed"
+    // line. Only the project scope of a run depends on this column, so bash,
+    // httpCall and agentTurn steps keep working; toolCall steps against a
+    // project-scoped MCP tool are what break, and the log says so.
+    try {
+      await new EnsureWorkflowDefinitionProjectScope().run()
+    } catch (error) {
+      logger.error(
+        'Failed to ensure workflow_definitions.project_id — scheduled runs WILL be refused by ' +
+          'UnifiedToolRegistry for any project-scoped MCP tool until this succeeds. Other step types continue.',
+        { error: error instanceof Error ? error.message : String(error) }
+      )
     }
 
     const taskService = TaskService.getInstance()
@@ -83,6 +102,20 @@ export const orchestrationFeature: Feature = {
         logger.info('OpenClaw workflow definitions imported', result)
       } catch (error) {
         logger.error('OpenClaw workflow import failed', {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+
+    // Seeded before loadAll() so the row exists when the cron jobs are registered.
+    // It arrives DISABLED, so registering it schedules nothing until a human has
+    // watched it run once via the on-demand trigger.
+    if (process.env.SEED_NIGHTLY_TRIAGE === 'true') {
+      try {
+        const result = await seedNightlyTriageWorkflow()
+        logger.info('Nightly triage workflow seed', result)
+      } catch (error) {
+        logger.error('Nightly triage workflow seed failed', {
           error: error instanceof Error ? error.message : String(error),
         })
       }
