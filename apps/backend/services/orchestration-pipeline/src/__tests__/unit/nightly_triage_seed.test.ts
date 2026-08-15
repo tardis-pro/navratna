@@ -11,7 +11,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const projectRows: Array<{ id: string }> = [];
-const definitionRows: Array<{ id: string }> = [];
+const definitionRows: Array<{ id: string; enabled?: boolean }> = [];
 const insertValuesMock = vi.fn();
 const updateSetMock = vi.fn();
 
@@ -45,7 +45,7 @@ vi.mock('@uaip/shared-services/drizzle/clients', () => ({
 }));
 
 vi.mock('@uaip/shared-services/drizzle/control', () => ({
-  workflowDefinitions: { id: 'wf.id', name: 'wf.name' },
+  workflowDefinitions: { id: 'wf.id', name: 'wf.name', enabled: 'wf.enabled' },
   projects: 'projects_table',
 }));
 
@@ -117,6 +117,29 @@ describe('seedNightlyTriageWorkflow', () => {
     expect(result.action).toBe('updated');
     expect(insertValuesMock).not.toHaveBeenCalled();
     expect(updateSetMock).toHaveBeenCalledTimes(1);
+  });
+
+  // This seed runs at EVERY gateway boot. It used to write `enabled: false` on
+  // the update path, so an operator who followed this file's own instruction and
+  // flipped the row had it silently reverted by the next restart — the engine
+  // then reported `loaded: 0` and nothing explained why. Seeding owns the
+  // definition; being switched on is an operator decision.
+  it('preserves an operator-enabled row across a redeploy', async () => {
+    projectRows.push({ id: 'proj-42' });
+    definitionRows.push({ id: 'wf-existing', enabled: true });
+
+    await seedNightlyTriageWorkflow();
+
+    expect((updateSetMock.mock.calls[0][0] as SeededRow).enabled).toBe(true);
+  });
+
+  it('still lets an explicit --enable turn a disabled row on', async () => {
+    projectRows.push({ id: 'proj-42' });
+    definitionRows.push({ id: 'wf-existing', enabled: false });
+
+    await seedNightlyTriageWorkflow({ enable: true });
+
+    expect((updateSetMock.mock.calls[0][0] as SeededRow).enabled).toBe(true);
   });
 
   it('gathers on cron and ends in a reasoning step that can see the gathering', async () => {

@@ -114,14 +114,30 @@ export async function seedNightlyTriageWorkflow(
   };
 
   const existing = await db
-    .select({ id: workflowDefinitions.id })
+    .select({ id: workflowDefinitions.id, enabled: workflowDefinitions.enabled })
     .from(workflowDefinitions)
     .where(eq(workflowDefinitions.name, NIGHTLY_TRIAGE_NAME))
     .limit(1);
 
   if (existing.length > 0) {
-    await db.update(workflowDefinitions).set(row).where(eq(workflowDefinitions.id, existing[0].id));
-    logger.info('Nightly triage workflow updated', { projectId: project.id });
+    // AN UPDATE MUST NOT CLOBBER `enabled`.
+    //
+    // This seed runs at every gateway boot, and it used to write
+    // `enabled: opts.enable ?? false` on the update path too — so an operator who
+    // followed this file's own instruction ("enable with --enable, or by
+    // flipping `enabled` on the row") had the flag silently reverted by the next
+    // restart. It was flipped, the engine reported `loaded: 0`, and nothing said
+    // why.
+    //
+    // Seeding owns the DEFINITION — steps, trigger, description. Whether the
+    // thing is switched on is an operator decision and belongs to whoever made
+    // it. Only an explicit `--enable` may change it from here.
+    const preserved = opts.enable === undefined ? existing[0].enabled : opts.enable;
+    await db
+      .update(workflowDefinitions)
+      .set({ ...row, enabled: preserved })
+      .where(eq(workflowDefinitions.id, existing[0].id));
+    logger.info('Nightly triage workflow updated', { projectId: project.id, enabled: preserved });
     return { action: 'updated', projectId: project.id };
   }
 
