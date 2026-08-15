@@ -23,6 +23,11 @@ jobs:
   # do in the single-image workflow. What it produces is an honest per-job verdict
   # that a pull request can be gated on.
   test:
+    # MAIN ONLY. The runner is a single slot, so a test job on every push
+    # doubles the queue for every branch and preview — and the coverage
+    # baseline is a main-branch high-water mark anyway, so a branch run had
+    # nothing to ratchet against that main would not re-check on merge.
+    if: github.ref_name == 'main'
     runs-on: ubuntu-latest
     steps:
       - name: checkout
@@ -237,6 +242,41 @@ jobs:
             echo "attempt $attempt failed; retrying in 10s"; sleep 10
           done
           echo "stack deploy failed after 5 attempts"; exit 1
+
+      - name: standards ratchet (main only)
+        if: github.ref_name == 'main'
+        run: |
+          # THE STANDARD AS A RATCHET, NOT AS A BAR.
+          #
+          # Absolute compliance cannot gate a build here yet: projects on this
+          # platform fail several dimensions today, and a gate that is red the
+          # day it ships is one everybody learns to ignore. What IS enforceable
+          # from the first run is direction — this commit may not fail more
+          # dimensions than the best this project has already managed.
+          #
+          # Same shape as the coverage ratchet above, applied to the whole
+          # standard. `tardis standards` shows the detail; this only guards
+          # against getting worse.
+          OUT=$(curl -sS -k -X POST "${{ secrets.TARDIS_AGENT_URL }}/api/standards/record" \
+            -H "Authorization: Bearer ${{ secrets.TARDIS_CAPABILITY }}" \
+            -H 'Content-Type: application/json' \
+            -d "{\"branch\":\"${GITHUB_REF_NAME}\",\"sha\":\"${GITHUB_SHA}\"}" 2>/dev/null) || {
+              echo "::warning::could not reach the standards endpoint — not treating that as a regression"
+              exit 0
+            }
+          printf '%s' "$OUT" > /tmp/standards.json
+          python3 - <<'STANDARDS'
+          import json
+          d = json.load(open('/tmp/standards.json'))
+          if d.get('baseline') is None:
+              print('standards: {} failing, first record on this project'.format(d['fails']))
+              raise SystemExit(0)
+          if d.get('regressed'):
+              print('::error::standards regressed: {} dimensions failing, best was {}'.format(d['fails'], d['baseline']))
+              print('now failing: ' + ', '.join(d.get('failing', [])))
+              raise SystemExit(1)
+          print('standards held: {} failing against a best of {}'.format(d['fails'], d['baseline']))
+          STANDARDS
 
       - name: sonarqube analysis (main only)
         if: github.ref_name == 'main' && env.SONAR_TOKEN != ''

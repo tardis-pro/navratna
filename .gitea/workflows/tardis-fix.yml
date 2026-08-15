@@ -144,11 +144,37 @@ jobs:
           print("prompt: {} characters".format(len(text)))
           PY
 
+      - name: point the coding agent at the model
+        env:
+          TARDIS_API_KEY: ${{ secrets.TARDIS_API_KEY }}
+        run: |
+          # Written to jcode's own credential store rather than left in the
+          # environment, and piped on STDIN so the key never appears in a process
+          # list, a shell history, or this job's log.
+          #
+          # VERIFIED, because two of these were surprises:
+          #   * `jcode run` authenticates from the stored profile alone — no env
+          #     var needed at run time.
+          #   * `jcode auth-test` FAILS against this gateway with "Missing bearer
+          #     authentication in header". That is its model-DISCOVERY probe not
+          #     sending the bearer; the actual run path works. Do not add
+          #     auth-test as a gate here and do not "fix" it by exporting
+          #     OPENAI_COMPAT_API_KEY — that makes jcode bypass the profile and
+          #     talk to api.openai.com instead, which fails differently and more
+          #     confusingly.
+          if [ -z "$TARDIS_API_KEY" ]; then
+            echo "::error::TARDIS_API_KEY is not set on this repo — the agent has no model to call"
+            exit 1
+          fi
+          printf '%s' "$TARDIS_API_KEY" | jcode provider add tardis \
+            --base-url "${TARDIS_MODEL_ENDPOINT:-https://ai.tardis.digital/v1}" \
+            --model "${TARDIS_MODEL:-ultra-smart-reliable}" \
+            --api-key-stdin --set-default >/dev/null
+          echo "agent configured: ${TARDIS_MODEL:-ultra-smart-reliable} via ${TARDIS_MODEL_ENDPOINT:-ai.tardis.digital}"
+
       - name: run the coding agent
         env:
           TARDIS_AGENT_CMD: ${{ secrets.TARDIS_AGENT_CMD }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           # The seam. Everything about which model and which CLI lives in
           # .tardis/run_agent.sh, and a missing agent fails here rather than
