@@ -34,9 +34,37 @@ jobs:
           # script there is nothing to run, and that is not a failure. What IS a
           # failure is a test suite that runs and fails — see the note in
           # workflow.yml about `|| echo "tests failed"`.
+          # THE LOCKFILE PICKS THE PACKAGE MANAGER, NOT A GUESS.
+          #
+          # This ran `npm ci` unconditionally and died instantly on the flagship
+          # project here: navratna is a bun workspace, and npm cannot even parse
+          # its manifest — `EUNSUPPORTEDPROTOCOL, Unsupported URL Type
+          # "catalog:"`. Every push then paid for a doomed install, serialised
+          # behind maxParallel=1, to arrive at a red job that said nothing about
+          # any test.
+          #
+          # A repo that needs a package manager this runner does not have is
+          # reported and SKIPPED, not failed. "These tests failed" and "these
+          # tests could not be run here" are different facts, and a permanently
+          # red job teaches everyone to ignore the colour — which costs more than
+          # the gate was ever worth.
           if [ -f package.json ] && python3 -c "import json,sys; sys.exit(0 if 'test' in json.load(open('package.json')).get('scripts',{}) else 1)"; then
-            npm ci 2>/dev/null || npm install
-            npm test
+            if [ -f bun.lockb ] || [ -f bun.lock ]; then PM=bun
+            elif [ -f pnpm-lock.yaml ]; then PM=pnpm
+            elif [ -f yarn.lock ]; then PM=yarn
+            else PM=npm
+            fi
+            echo "lockfile says $PM"
+            if ! command -v "$PM" >/dev/null 2>&1; then
+              echo "::warning::$PM is not installed on this runner — tests were NOT run for this commit"
+              exit 0
+            fi
+            case "$PM" in
+              bun)  bun install --frozen-lockfile || bun install; bun run test ;;
+              pnpm) pnpm install --frozen-lockfile || pnpm install; pnpm test ;;
+              yarn) yarn install --frozen-lockfile || yarn install; yarn test ;;
+              *)    npm ci 2>/dev/null || npm install; npm test ;;
+            esac
           else
             echo "no test script in package.json — nothing to run"
           fi
