@@ -38,6 +38,30 @@ vi.mock('@uaip/utils', () => ({
   isRecord: (val: unknown) => typeof val === 'object' && val !== null && !Array.isArray(val),
 }));
 
+const accessMocks = vi.hoisted(() => ({ canAccessAgent: vi.fn() }));
+
+/**
+ * The chat route asks canAccessAgent whether the caller is assigned this agent
+ * before it will generate anything (added by `fix(security): ... agent access on
+ * chat`). That guard resolves through a module-level
+ * UserAgentAssignmentRepository singleton which reads the control plane, so in a
+ * unit test with no planes initialized it threw
+ * "Control plane not initialized. Call initializePlanes()." — and every request
+ * in this file answered 500, the happy path included. The generation-failure
+ * assertions below then read as product bugs when the request had in fact never
+ * reached generation at all.
+ *
+ * Granting access here is not a hole in the coverage: that the guard DENIES is
+ * pinned by agent_route_access_guard.test.ts in this package and by
+ * agent-intelligence's agent_chat_access.test.ts, both of which drive it false.
+ * Here it is a dependency being satisfied — and it is asserted to have run, so a
+ * refactor cannot quietly drop the check from this path and still be green.
+ */
+vi.mock('@uaip/shared-services', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@uaip/shared-services')>();
+  return { ...actual, canAccessAgent: accessMocks.canAccessAgent };
+});
+
 import { registerAgentChatRoutes } from '@uaip/agent-intelligence-core';
 
 const AGENT_ID = 'aaaaaaa1-0000-4000-8000-000000000005';
@@ -89,14 +113,19 @@ function sendChat(message: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  accessMocks.canAccessAgent.mockResolvedValue(true);
   agentMocks.getAgent.mockResolvedValue({
     id: AGENT_ID,
     name: 'Taniye',
     role: 'assistant',
     assignedMCPTools: [],
   });
+  // `state`, not `status` — AgentChatTurnState is discriminated on `state`, and
+  // the route reads turn.state to tell a fresh claim from a replay or a lease
+  // held elsewhere. The old `status` key only worked because an undefined
+  // discriminant falls past both other branches into the claim path.
   persistenceMocks.beginTurn.mockResolvedValue({
-    status: 'claimed',
+    state: 'claimed',
     claim: {
       conversationId: CONVERSATION_ID,
       userMessageId: USER_MESSAGE_ID,
@@ -184,5 +213,23 @@ describe('agent chat rejects an in-band generation failure', () => {
       })
     );
     expect(persistenceMocks.failTurn).not.toHaveBeenCalled();
+  });
+
+  // canAccessAgent is stubbed above so these tests can reach generation. Pinning
+  // that it was still CALLED keeps that stub honest: without this, deleting the
+  // guard from the route would leave this file green.
+  it('still asks the assignment guard before generating', async () => {
+    llmMocks.generateAgentResponse.mockResolvedValue({
+      content: 'PINEAPPLE',
+      model: 'gpt-4o-mini',
+      finishReason: 'stop',
+    });
+
+    await sendChat('say pineapple');
+
+    expect(accessMocks.canAccessAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: authState.user.id, role: authState.user.role }),
+      AGENT_ID
+    );
   });
 });

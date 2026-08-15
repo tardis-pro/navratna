@@ -38,6 +38,29 @@ vi.mock('@uaip/types', async (importActual) => {
   return { ...actual };
 });
 
+const accessMocks = vi.hoisted(() => ({ canAccessAgent: vi.fn() }));
+
+/**
+ * The chat route asks canAccessAgent whether the caller is assigned this agent
+ * before it will generate anything (added by `fix(security): ... agent access on
+ * chat`). That guard resolves through a module-level
+ * UserAgentAssignmentRepository singleton which reads the control plane, so in a
+ * unit test with no planes initialized it threw
+ * "Control plane not initialized. Call initializePlanes()." — and every case
+ * below answered 500, including the 200s and the 400. Only the 404 survived,
+ * because a missing agent short-circuits ahead of the guard.
+ *
+ * Granting access here is not a hole in the coverage: that the guard DENIES is
+ * pinned by agent_route_access_guard.test.ts in this package and by
+ * agent-intelligence's agent_chat_access.test.ts. Here it is a dependency being
+ * satisfied — and it is asserted to have run, so a refactor cannot quietly drop
+ * the check from this path and still be green.
+ */
+vi.mock('@uaip/shared-services', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@uaip/shared-services')>();
+  return { ...actual, canAccessAgent: accessMocks.canAccessAgent };
+});
+
 import { registerAgentChatRoutes } from '@uaip/agent-intelligence-core';
 
 function authHeader() {
@@ -67,6 +90,7 @@ function makeSecurityService() {
 describe('Agent Chat Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    accessMocks.canAccessAgent.mockResolvedValue(true);
   });
 
   describe('POST /api/v1/agents/:agentId/chat', () => {
@@ -199,6 +223,34 @@ describe('Agent Chat Routes', () => {
       expect(res.status).toBe(500);
       const body = await res.json();
       expect(body.error).toBe('LLM offline');
+    });
+
+    // canAccessAgent is stubbed at the top of this file so the cases above can
+    // reach generation. Pinning that it was still CALLED keeps that stub honest:
+    // without this, deleting the guard from the route would leave this file green.
+    it('asks the assignment guard before generating', async () => {
+      const agent = { id: 'a1', name: 'Alpha', role: 'analyst' };
+
+      const app = new Elysia().use(
+        registerAgentChatRoutes(
+          makeAgentService(agent) as never,
+          makeUserLLMService({ content: 'hi', model: 'gpt-4' }) as never,
+          makeSecurityService() as never
+        )
+      );
+
+      await app.handle(
+        new Request('http://localhost/api/v1/agents/a1/chat', {
+          method: 'POST',
+          headers: { ...authHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: 'hello' }),
+        })
+      );
+
+      expect(accessMocks.canAccessAgent).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-uuid-1234' }),
+        'a1'
+      );
     });
   });
 });

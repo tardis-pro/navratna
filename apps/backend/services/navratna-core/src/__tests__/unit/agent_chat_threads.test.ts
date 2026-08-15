@@ -36,6 +36,30 @@ vi.mock('@uaip/utils', () => ({
   isRecord: (val: unknown) => typeof val === 'object' && val !== null && !Array.isArray(val),
 }));
 
+const accessMocks = vi.hoisted(() => ({ canAccessAgent: vi.fn() }));
+
+/**
+ * Both POST /:agentId/chat and GET /:agentId/chat/messages ask canAccessAgent
+ * whether the caller is assigned this agent before doing anything (added by
+ * `fix(security): ... agent access on chat`). That guard resolves through a
+ * module-level UserAgentAssignmentRepository singleton which reads the control
+ * plane, so in a unit test with no planes initialized it threw
+ * "Control plane not initialized. Call initializePlanes()." and every
+ * agent-scoped request here answered 500 before touching persistence.
+ *
+ * Worth naming: the 500 made 'does not title a thread whose generation failed'
+ * pass for the wrong reason — nothing was titled because nothing ran at all.
+ * That assertion only becomes real once the guard is satisfied.
+ *
+ * Granting access is not a hole in the coverage: that the guard DENIES is pinned
+ * by agent_route_access_guard.test.ts here and by agent-intelligence's
+ * agent_chat_access.test.ts.
+ */
+vi.mock('@uaip/shared-services', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@uaip/shared-services')>();
+  return { ...actual, canAccessAgent: accessMocks.canAccessAgent };
+});
+
 import { registerAgentChatRoutes } from '@uaip/agent-intelligence-core';
 
 const AGENT_ID = 'aaaaaaa1-0000-4000-8000-000000000005';
@@ -78,6 +102,7 @@ function chatApp() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  accessMocks.canAccessAgent.mockResolvedValue(true);
   agentMocks.getAgent.mockResolvedValue({
     id: AGENT_ID,
     name: 'Taniye',
