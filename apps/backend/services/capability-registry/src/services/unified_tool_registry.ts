@@ -428,7 +428,23 @@ export class UnifiedToolRegistry {
         isEnterprise: !!validated.vendor,
       });
     } catch (error) {
-      logger.error('Failed to register tool', { error, toolId: toolDef.id });
+      // Re-registering a tool that already exists is the NORMAL path: the
+      // built-in tools are registered on every boot, and MCP discovery re-runs
+      // on every reconnect. Logging that at error made four ConflictErrors part
+      // of every healthy boot, which trains readers to skim the error stream --
+      // and a real failure on this same line, an MCP server node that could
+      // never be written to Neo4j, sat unnoticed behind exactly that noise.
+      //
+      // Still rethrown either way: the caller decides whether a conflict is
+      // tolerable, and for the built-ins it is.
+      if (error instanceof ConflictError) {
+        logger.debug('Tool already registered, skipping', {
+          toolId: toolDef.id,
+          name: toolDef.name,
+        });
+      } else {
+        logger.error('Failed to register tool', { error, toolId: toolDef.id });
+      }
       throw error;
     }
   }
