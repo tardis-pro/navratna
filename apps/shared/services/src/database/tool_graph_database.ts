@@ -17,6 +17,42 @@ import {
 import { logger } from '@uaip/utils';
 import { config, DatabaseConfig } from '@uaip/config';
 
+/**
+ * Neo4j node and relationship properties may only be primitives, or arrays of
+ * primitives. Handing the driver a nested object fails the whole write with
+ * `Neo.ClientError.Statement.TypeError` — and because these writes are wrapped
+ * in warn-level error handling, that failure is easy to miss for months.
+ *
+ * Anything already storable goes through untouched, so numbers stay numbers and
+ * stay queryable; only the nested case degrades to a JSON string.
+ */
+function serializeGraphProperty(value: unknown): string | number | boolean | null | unknown[] {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+  if (
+    Array.isArray(value) &&
+    value.every((v) => ['string', 'number', 'boolean'].includes(typeof v))
+  ) {
+    return value;
+  }
+  return JSON.stringify(value);
+}
+
+/**
+ * Same rule applied across a caller-supplied property bag. The update methods
+ * build their SET clause from arbitrary keys, so one nested value from any
+ * caller fails the entire statement.
+ */
+function sanitizeGraphProperties(updates: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(updates).map(([key, value]) => [key, serializeGraphProperty(value)])
+  );
+}
+
 export class ToolGraphDatabase {
   private driver: Driver;
   private database: string;
@@ -337,7 +373,7 @@ export class ToolGraphDatabase {
           toId: toToolId,
           strength: relationship.strength,
           reason: relationship.reason || '',
-          metadata: relationship.metadata || {},
+          metadata: serializeGraphProperty(relationship.metadata),
         }
       );
       logger.info(`Relationship added: ${fromToolId} -[${relationship.type}]-> ${toToolId}`);
@@ -746,9 +782,18 @@ export class ToolGraphDatabase {
           name: serverData.name,
           type: serverData.type,
           status: serverData.status,
-          capabilities: serverData.capabilities || {},
+          // Neo4j node properties accept primitives and arrays of primitives —
+          // nothing nested. `capabilities` is the MCP initialize response's
+          // capability map (`{tools:{}}` in practice), and writing it raw threw
+          // Neo.ClientError.Statement.TypeError on EVERY call. The failure was
+          // logged at warn on a path whose success line logs right after, so no
+          // MCPServer node has ever existed in the graph while the tools
+          // themselves registered fine — a silent hole in server→tool traversal.
+          capabilities: serializeGraphProperty(serverData.capabilities),
+          // Names stay queryable without parsing the JSON blob.
+          capabilityNames: Object.keys(serverData.capabilities || {}),
           tags: serverData.tags || [],
-          metadata: serverData.metadata || {},
+          metadata: serializeGraphProperty(serverData.metadata),
           tenantId,
         }
       );
@@ -774,7 +819,7 @@ export class ToolGraphDatabase {
         `MATCH (s:MCPServer {id: $serverId})
          SET ${setClause}, s.updatedAt = datetime()
          RETURN s`,
-        { serverId, ...updates }
+        { serverId, ...sanitizeGraphProperties(updates) }
       );
     }, `Update MCP server node ${serverId}`);
   }
@@ -853,7 +898,7 @@ export class ToolGraphDatabase {
           duration: toolCallData.duration || null,
           agentId: toolCallData.agentId || null,
           timestamp: toolCallData.timestamp.toISOString(),
-          metadata: toolCallData.metadata || {},
+          metadata: serializeGraphProperty(toolCallData.metadata),
         }
       );
     }, `Create MCP tool call node ${toolCallData.id}`);
@@ -876,7 +921,7 @@ export class ToolGraphDatabase {
         `MATCH (tc:MCPToolCall {id: $toolCallId})
          SET ${setClause}, tc.updatedAt = datetime()
          RETURN tc`,
-        { toolCallId, ...updates }
+        { toolCallId, ...sanitizeGraphProperties(updates) }
       );
     }, `Update MCP tool call node ${toolCallId}`);
   }
