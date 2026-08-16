@@ -352,6 +352,25 @@ services:
       EMBEDDINGS_API_KEY: "sk-3909fbf385e370bc-c3b924-cfbfde2c"
       EMBEDDINGS_DIM: "1024"
       QDRANT_VECTOR_DIM: "1024"
+      # Web research tools (web-search, web-fetch) and the knowledge ingest
+      # URL lane both call Firecrawl. Until now this was unset, so the ingest
+      # lane silently fell back to a plain fetch and `web-search` returned
+      # FABRICATED results - invented URLs built from the query string.
+      #
+      # Must be the public hostname, not a cluster-internal one: proj-navratna's
+      # project-isolation NetworkPolicy permits egress to 0.0.0.0/0 EXCEPT the
+      # 10.42.0.0/16 pod CIDR, and the firecrawl namespace is not on the allow
+      # list. This host resolves out to Traefik, which is outside that CIDR.
+      # TLS works because the platform mounts the homelab CA everywhere.
+      FIRECRAWL_API_URL: "https://firecrawl.tardis.local"
+      # Auth is disabled on the instance (USE_DB_AUTHENTICATION=false), so this
+      # is accepted and ignored. Sent anyway so caller identity is already in
+      # the request shape if auth is ever turned on.
+      FIRECRAWL_API_TOKEN: "navratna"
+      # The remote allows 3 concurrent page renders across EVERY consumer on the
+      # platform (single Playwright replica), and Hermes shares it. 2 leaves
+      # headroom rather than claiming the whole budget.
+      FIRECRAWL_MAX_CONCURRENCY: "2"
       RERANKING_URL: "https://ai.tardis.digital/v1/rerank"
       RERANKING_MODEL: "jina/jina-reranker-v3"
       OPENAI_API_KEY: "sk-3909fbf385e370bc-c3b924-cfbfde2c"

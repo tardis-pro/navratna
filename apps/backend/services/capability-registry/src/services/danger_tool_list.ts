@@ -115,17 +115,35 @@ export const DANGER_TOOLS: DangerToolConfig[] = [
     toolIdPattern: 'file-reader',
     riskLevel: 'LOW',
     categories: ['FILE_SYSTEM'],
-    reason: 'Returns simulated file content; performs no real disk read',
+    // Not implemented: it throws. It used to return fabricated content keyed
+    // off the file extension. When a project-scoped filesystem MCP server
+    // replaces it, this row must be re-rated — a real disk read from inside the
+    // gateway process is not LOW.
+    reason: 'Not implemented; throws. Previously returned simulated file content',
     requiredApproval: 'NONE',
     auditRequired: false,
   },
   {
+    // This row used to read "issues no outbound request", which was accurate
+    // while the tool fabricated its results. It now performs a real search
+    // through the self-hosted Firecrawl, so the classification has to say so.
     toolIdPattern: 'web-search',
     riskLevel: 'LOW',
-    categories: ['NETWORK'],
-    reason: 'Returns simulated search results; issues no outbound request',
+    categories: ['NETWORK', 'EXTERNAL_API'],
+    reason: 'Queries the self-hosted Firecrawl/SearxNG search backend',
     requiredApproval: 'NONE',
-    auditRequired: false,
+    auditRequired: true,
+  },
+  {
+    // Fetches a caller-supplied URL. The request is issued by Firecrawl rather
+    // than by this process, so it is not an SSRF path into the cluster the way
+    // http-request is — Firecrawl reaches the page from its own namespace.
+    toolIdPattern: 'web-fetch',
+    riskLevel: 'LOW',
+    categories: ['NETWORK', 'EXTERNAL_API'],
+    reason: 'Fetches one URL as markdown via the self-hosted Firecrawl',
+    requiredApproval: 'NONE',
+    auditRequired: true,
   },
   {
     toolIdPattern: 'math-calculator',

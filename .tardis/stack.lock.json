@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "stackSha256": "ff2c3abfe049bd3806985ddb7372f8499f119bae07d55b11db16dc52096dcae2",
+  "stackSha256": "edbed2b40935e3ae9a624a78ddfaa210eafbde016bcac4a5af5c9394544b0062",
   "services": [
     {
       "id": "postgres",
@@ -250,6 +250,9 @@
         "EMBEDDINGS_API_KEY": "sk-3909fbf385e370bc-c3b924-cfbfde2c",
         "EMBEDDINGS_DIM": "1024",
         "QDRANT_VECTOR_DIM": "1024",
+        "FIRECRAWL_API_URL": "https://firecrawl.tardis.local",
+        "FIRECRAWL_API_TOKEN": "navratna",
+        "FIRECRAWL_MAX_CONCURRENCY": "2",
         "RERANKING_URL": "https://ai.tardis.digital/v1/rerank",
         "RERANKING_MODEL": "jina/jina-reranker-v3",
         "OPENAI_API_KEY": "sk-3909fbf385e370bc-c3b924-cfbfde2c",

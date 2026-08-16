@@ -273,6 +273,60 @@ async function registerNativeTools(registry: UnifiedToolRegistry): Promise<void>
       dependencies: [],
       examples: [],
     },
+    // Web research pair, both backed by the self-hosted Firecrawl. Registered
+    // here so an agent can actually be GRANTED them: a tool the executor can
+    // dispatch but that has no tool_definitions row cannot be resolved by
+    // loadToolSchema, so the model never sees it.
+    {
+      id: 'web-search',
+      name: 'web-search',
+      description:
+        'Search the web and return real results (title, url, snippet). Returns zero results ' +
+        'with reliability:"unconfirmed" when the search backend is degraded — treat that as ' +
+        'inconclusive, never as proof that nothing exists.',
+      version: '2.0.0',
+      category: ToolCategory.NETWORK,
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'The search query' },
+          maxResults: { type: 'number', description: 'Maximum results to return (default 10, max 20)' },
+        },
+        required: ['query'],
+      },
+      returnType: { type: 'object' },
+      securityLevel: SecurityLevel.LOW,
+      requiresApproval: false,
+      isEnabled: true,
+      author: 'system',
+      tags: ['web', 'search', 'research', 'native'],
+      dependencies: [],
+      examples: [],
+    },
+    {
+      id: 'web-fetch',
+      name: 'web-fetch',
+      description:
+        'Fetch a single web page and return its main content as markdown. Use after web-search ' +
+        'to READ a source rather than citing it from a snippet.',
+      version: '1.0.0',
+      category: ToolCategory.NETWORK,
+      parameters: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'Absolute http(s) URL of the page to read' },
+        },
+        required: ['url'],
+      },
+      returnType: { type: 'object' },
+      securityLevel: SecurityLevel.LOW,
+      requiresApproval: false,
+      isEnabled: true,
+      author: 'system',
+      tags: ['web', 'fetch', 'research', 'native'],
+      dependencies: [],
+      examples: [],
+    },
   ]
 
   // Refuse to boot on a tool this service can dispatch but nobody has classified.

@@ -44,6 +44,54 @@ function asString(value: unknown): string | undefined {
 }
 
 /**
+ * A page render can be slow; the remote has one Playwright replica.
+ */
+const FIRECRAWL_TIMEOUT_MS = 60_000;
+
+/**
+ * How many Firecrawl requests this process will have in flight at once.
+ *
+ * The remote allows 3 concurrent pages TOTAL across every consumer on the
+ * platform, and Hermes is one of them. Two leaves headroom for the neighbours
+ * rather than claiming the whole budget.
+ */
+const FIRECRAWL_MAX_CONCURRENCY = Math.max(
+  1,
+  Number(process.env.FIRECRAWL_MAX_CONCURRENCY) || 2
+);
+
+/**
+ * Minimal FIFO concurrency gate.
+ *
+ * Deliberately not a rate limiter: the constraint being respected is the
+ * remote's concurrent-render budget, not a requests-per-second quota. Waiters
+ * queue in arrival order and each release admits exactly one, so a burst of
+ * agent turns degrades into a queue instead of a stampede.
+ */
+class ConcurrencyGate {
+  private active = 0;
+  private readonly waiting: Array<() => void> = [];
+
+  constructor(private readonly limit: number) {}
+
+  async run<T>(task: () => Promise<T>): Promise<T> {
+    if (this.active >= this.limit) {
+      await new Promise<void>((resolve) => this.waiting.push(resolve));
+    }
+    this.active++;
+    try {
+      return await task();
+    } finally {
+      this.active--;
+      // Shift, not pop: FIFO, so a queued request cannot be starved by later
+      // arrivals under sustained load.
+      const next = this.waiting.shift();
+      if (next) next();
+    }
+  }
+}
+
+/**
  * Every tool id this executor dispatches by name.
  *
  * Kept beside the switch below and asserted against DANGER_TOOLS at boot
@@ -59,11 +107,18 @@ export const BASE_TOOL_EXECUTOR_TOOL_IDS = [
   'id-generator',
   'file-reader',
   'web-search',
+  'web-fetch',
   'shell-exec',
   'http-request',
 ] as const;
 
 export class BaseToolExecutor {
+  /**
+   * Shared across every instance: the limit belongs to the remote service, not
+   * to any one executor object.
+   */
+  private static readonly firecrawlQueue = new ConcurrencyGate(FIRECRAWL_MAX_CONCURRENCY);
+
   async execute(toolId: string, parameters: Record<string, unknown>): Promise<unknown> {
     logger.info(`Executing tool: ${toolId}`, { parameters });
 
@@ -80,6 +135,8 @@ export class BaseToolExecutor {
         return this.executeFileReader(parameters);
       case 'web-search':
         return this.executeWebSearch(parameters);
+      case 'web-fetch':
+        return this.executeWebFetch(parameters);
       case 'shell-exec':
         return this.executeShellCommand(parameters);
       case 'http-request':
@@ -573,93 +630,205 @@ export class BaseToolExecutor {
     };
   }
 
-  // File Reader Tool (Simulated)
+  /**
+   * Reads no files, and no longer pretends to.
+   *
+   * This returned invented content keyed off the file EXTENSION —
+   * "This is simulated text file content." for any .txt path, a fake three-row
+   * CSV, a stub JSON document — with a real-looking size, line count and
+   * timestamp. It was registered, classified LOW ("performs no real disk
+   * read"), and dispatched like any working tool, so an agent asked to read a
+   * file got fiction back and had no way to tell.
+   *
+   * It throws rather than reading the disk because the honest implementation is
+   * not "call readFile here". This executor runs inside the gateway process
+   * with the full process.env and the whole container filesystem in reach, so
+   * an unscoped read is a credential-exfiltration primitive, not a convenience
+   * — the same shape as the shell-exec and sandbox findings.
+   *
+   * The intended replacement is a per-project filesystem MCP server: scoped to
+   * one project's files at the server, isolated from this process, reachable
+   * only through the MCP path that already carries project scoping, approval
+   * and audit. Until that exists, failing is the correct behaviour.
+   */
   private async executeFileReader(parameters: unknown): Promise<unknown> {
     const p = asRecord(parameters);
     const filePath = asString(p.filePath);
-    const encoding = asString(p.encoding) ?? 'utf8';
 
     if (!filePath) {
       throw new ValidationError('File reader requires filePath parameter');
     }
 
-    // Simulate file reading (in real implementation, this would read actual files)
-    // For demo purposes, return simulated content based on file extension
-    const extension = filePath.split('.').pop()?.toLowerCase();
-
-    let content: string;
-    let mimeType: string;
-
-    switch (extension) {
-      case 'txt':
-        content = 'This is simulated text file content.\nLine 2 of the file.\nLine 3 of the file.';
-        mimeType = 'text/plain';
-        break;
-      case 'json':
-        content = JSON.stringify({ message: 'Simulated JSON content', data: [1, 2, 3] }, null, 2);
-        mimeType = 'application/json';
-        break;
-      case 'csv':
-        content = 'Name,Age,City\nJohn,30,New York\nJane,25,Los Angeles\nBob,35,Chicago';
-        mimeType = 'text/csv';
-        break;
-      default:
-        content = 'Simulated binary file content (base64 encoded)';
-        mimeType = 'application/octet-stream';
-    }
-
-    return {
-      filePath,
-      content,
-      encoding,
-      mimeType,
-      size: content.length,
-      lines: content.split('\n').length,
-      timestamp: new Date().toISOString(),
-    };
+    throw new InternalServerError(
+      `file-reader is not implemented. It previously returned SIMULATED content for any path ` +
+        `(requested: ${filePath}), which callers had no way to distinguish from a real read. ` +
+        `Real file access is being provided by a project-scoped filesystem MCP server instead ` +
+        `of an unscoped read inside the gateway process.`
+    );
   }
 
-  // Web Search Tool (Simulated)
+  /**
+   * Real web search, via the self-hosted Firecrawl at FIRECRAWL_API_URL.
+   *
+   * THIS TOOL USED TO FABRICATE ITS ENTIRE OUTPUT. It manufactured URLs from
+   * the query string (`https://www.<query>.com`), invented snippets, and faked
+   * its own latency with `Math.random()`. It was registered, classified LOW,
+   * and dispatched like any other tool, so an agent granted it received
+   * confabulated sources and cited them as researched fact. That is worse than
+   * having no search tool at all, which is why there is no fabricating
+   * fallback anywhere below: if search cannot run, it fails.
+   */
   private async executeWebSearch(parameters: unknown): Promise<unknown> {
     const p = asRecord(parameters);
     const query = asString(p.query);
-    const maxResults = typeof p.maxResults === 'number' ? p.maxResults : 10;
-    const language = asString(p.language) ?? 'en';
+    const maxResults = typeof p.maxResults === 'number' ? Math.min(p.maxResults, 20) : 10;
 
     if (!query) {
       throw new ValidationError('Web search requires query parameter');
     }
 
-    // Simulate web search results
-    const simulatedResults = [
-      {
-        title: `${query} - Wikipedia`,
-        url: `https://en.wikipedia.org/wiki/${encodeURIComponent(query)}`,
-        snippet: `Learn about ${query} on Wikipedia. Comprehensive information and references.`,
-        domain: 'wikipedia.org',
-      },
-      {
-        title: `${query} - Official Website`,
-        url: `https://www.${query.toLowerCase().replace(/\s+/g, '')}.com`,
-        snippet: `Official website for ${query}. Get the latest information and updates.`,
-        domain: `${query.toLowerCase().replace(/\s+/g, '')}.com`,
-      },
-      {
-        title: `${query} News and Updates`,
-        url: `https://news.google.com/search?q=${encodeURIComponent(query)}`,
-        snippet: `Latest news and updates about ${query}. Stay informed with recent developments.`,
-        domain: 'news.google.com',
-      },
-    ];
+    const body = await this.callFirecrawl('/v2/search', { query, limit: maxResults });
+    const data = asRecord(body.data);
+    // v2 buckets results by source; `web` is the one SearxNG fills.
+    const web = Array.isArray(data.web) ? data.web : [];
 
+    const results = web.slice(0, maxResults).map((entry) => {
+      const r = asRecord(entry);
+      const url = asString(r.url) ?? '';
+      return {
+        title: asString(r.title) ?? url,
+        url,
+        snippet: asString(r.description) ?? '',
+        domain: BaseToolExecutor.hostnameOf(url),
+      };
+    });
+
+    if (results.length > 0) {
+      return { query, results, resultCount: results.length, searchedAt: new Date().toISOString() };
+    }
+
+    // A zero-result search is NOT the same claim as "nothing exists", and the
+    // difference is not observable from here. Firecrawl's search is backed by
+    // SearxNG, which scrapes upstream engines from one shared public IP; when
+    // those engines throttle it, it returns a well-formed empty result set
+    // rather than an error. Reporting that as a clean "no results" invites a
+    // confident, sourceless conclusion — the same failure this tool was just
+    // rescued from. So the empty case is labelled as unconfirmed, in the
+    // payload the model actually reads.
+    logger.warn('Web search returned no results; may be absence or upstream throttling', { query });
     return {
       query,
-      results: simulatedResults.slice(0, maxResults),
-      totalResults: simulatedResults.length,
-      language,
-      timestamp: new Date().toISOString(),
-      searchTime: Math.random() * 500 + 100, // Simulate search time
+      results: [],
+      resultCount: 0,
+      reliability: 'unconfirmed',
+      note:
+        'Zero results. This may mean nothing matched, OR that the upstream search backend is ' +
+        'rate-limited or degraded — the two are indistinguishable from here. Do NOT conclude ' +
+        'that no such information exists. Re-run or narrow the query, and say the search was ' +
+        'inconclusive rather than negative.',
+      searchedAt: new Date().toISOString(),
     };
+  }
+
+  /**
+   * Fetch one page as markdown, so an agent can READ a source rather than cite
+   * a title it got from a search snippet.
+   */
+  private async executeWebFetch(parameters: unknown): Promise<unknown> {
+    const p = asRecord(parameters);
+    const url = asString(p.url);
+
+    if (!url) {
+      throw new ValidationError('web-fetch requires a "url" string parameter');
+    }
+
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new ValidationError(`web-fetch requires an absolute http(s) URL, got: ${url}`);
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new ValidationError(`web-fetch refuses non-http(s) scheme: ${parsed.protocol}`);
+    }
+
+    const body = await this.callFirecrawl('/v2/scrape', {
+      url,
+      formats: ['markdown'],
+      onlyMainContent: true,
+    });
+    const data = asRecord(body.data);
+    const markdown = asString(data.markdown) ?? '';
+    const metadata = asRecord(data.metadata);
+
+    if (markdown.trim().length === 0) {
+      throw new ExternalServiceError(`web-fetch got no readable content from ${url}`);
+    }
+
+    return {
+      url,
+      title: asString(metadata.title) ?? parsed.hostname,
+      markdown,
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * One door to Firecrawl, so the throttle cannot be bypassed by adding a tool.
+   *
+   * The instance is small and shared: MAX_CONCURRENT_PAGES=3 across a single
+   * Playwright replica, and Hermes is on it too. An agent fleet issuing a
+   * search plus several fetches per discussion turn would starve the other
+   * consumers, so requests queue here rather than at the remote.
+   */
+  private async callFirecrawl(path: string, payload: unknown): Promise<Record<string, unknown>> {
+    const base = process.env.FIRECRAWL_API_URL?.trim();
+    if (!base) {
+      throw new ExternalServiceError(
+        'FIRECRAWL_API_URL is not configured, so web tools cannot run. Refusing rather than ' +
+          'returning invented results.'
+      );
+    }
+
+    // Auth is currently disabled on the instance (USE_DB_AUTHENTICATION=false),
+    // which means a bearer token is accepted and ignored. Sending a stable one
+    // anyway costs nothing and means the caller identity is already in the
+    // request shape if auth is ever switched on. Nothing here assumes it is
+    // enforced.
+    const token = process.env.FIRECRAWL_API_TOKEN?.trim() || 'navratna';
+
+    return BaseToolExecutor.firecrawlQueue.run(async () => {
+      const resp = await fetch(`${base.replace(/\/$/, '')}${path}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(FIRECRAWL_TIMEOUT_MS),
+      });
+
+      if (!resp.ok) {
+        throw new ExternalServiceError(
+          `Firecrawl ${path} failed: HTTP ${resp.status} ${resp.statusText}`
+        );
+      }
+
+      const json: unknown = await resp.json();
+      const body = asRecord(json);
+      if (body.success !== true) {
+        throw new ExternalServiceError(`Firecrawl ${path} reported failure: ${JSON.stringify(body)}`);
+      }
+      return body;
+    });
+  }
+
+  private static hostnameOf(url: string): string {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return '';
+    }
   }
 
   // Helper Methods
