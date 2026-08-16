@@ -176,6 +176,14 @@ interface MCPTool {
 }
 
 // MCP Server State
+/**
+ * Reconnect backoff for a server whose transport dropped. The base matches the
+ * health-check interval so the first retry lands on the next tick; the cap keeps
+ * a permanently-down remote at 4 probes an hour instead of 120.
+ */
+const MCP_RECONNECT_BASE_DELAY_MS = 30_000;
+const MCP_RECONNECT_MAX_DELAY_MS = 15 * 60_000;
+
 interface MCPServerState {
   name: string;
   config: MCPServerConfig;
@@ -200,6 +208,12 @@ interface MCPServerState {
   startTime?: Date;
   lastHealthCheck?: Date;
   error?: string;
+  /**
+   * Reconnect bookkeeping. A dropped transport is a state transition, not a
+   * terminal state — see attemptReconnect for why this exists.
+   */
+  reconnectAttempts?: number;
+  nextReconnectAt?: number;
   capabilities?: MCPServerCapabilities;
   tools?: MCPTool[];
   resources?: MCPResource[];
@@ -957,8 +971,19 @@ export class MCPClientService extends EventEmitter {
     }
   ): Promise<unknown> {
     const server = this.servers.get(serverName);
-    if (!server || server.status !== 'running') {
+    if (!server) {
       throw new ExternalServiceError(`Server ${serverName} is not running`);
+    }
+    if (server.status !== 'running') {
+      // This is the path users actually hit: a tool call notices a dropped
+      // transport long before the 30s health probe does. Try to recover once,
+      // inline, before failing the caller. attemptReconnect still honours the
+      // backoff window, so repeated calls against a genuinely dead remote
+      // cannot turn this into a retry storm.
+      const recovered = await this.attemptReconnect(serverName);
+      if (!recovered) {
+        throw new ExternalServiceError(`Server ${serverName} is not running`);
+      }
     }
 
     let jobId: string | null = null;
@@ -1459,9 +1484,20 @@ export class MCPClientService extends EventEmitter {
         if (server.status === 'running') {
           // eslint-disable-next-line no-await-in-loop -- sequential processing required
           await this.performHealthCheck(serverName);
+        } else if (server.status === 'error') {
+          // This loop used to visit ONLY 'running' servers, so the single state
+          // that needed probing was the single state never probed. A server that
+          // failed one health check stayed 'error' until the gateway process was
+          // restarted, however healthy the remote became.
+          // 'stopped' is deliberate and stays untouched.
+          // eslint-disable-next-line no-await-in-loop -- sequential processing required
+          await this.attemptReconnect(serverName);
         }
       }
     }, 30000); // Check every 30 seconds
+
+    // Do not hold the process open for a background probe.
+    this.healthCheckInterval.unref?.();
   }
 
   private async performHealthCheck(serverName: string): Promise<void> {
@@ -1476,8 +1512,87 @@ export class MCPClientService extends EventEmitter {
       const server = this.servers.get(serverName)!;
       server.status = 'error';
       server.error = `Health check failed: ${errMsg}`;
+      // The session died with the remote. Replaying its id gets a 404 from any
+      // streamable-http server, so drop it and let initialize issue a fresh one.
+      server.httpSessionId = undefined;
+      this.scheduleReconnect(server);
       this.emit('serverError', { serverName, error: errMsg });
     }
+  }
+
+  /**
+   * Bring back a server whose transport dropped.
+   *
+   * The failure this fixes: when a remote MCP pod is replaced, the cached
+   * streamable-http session dies with it. The health check marked the server
+   * 'error' and nothing ever cleared that — every tool call failed with
+   * "Server <name> is not running" until the gateway itself was restarted, even
+   * though the remote was healthy and the stored credential still valid.
+   *
+   * Reconnect is scheduled and backed off rather than immediate and unbounded:
+   * the remote is a shared homelab service, and a tight retry loop across every
+   * registered server would be worse than the outage it repairs.
+   */
+  private async attemptReconnect(serverName: string): Promise<boolean> {
+    const server = this.servers.get(serverName);
+    if (!server) {
+      return false;
+    }
+
+    if (server.nextReconnectAt !== undefined && Date.now() < server.nextReconnectAt) {
+      return false;
+    }
+
+    const attempt = (server.reconnectAttempts ?? 0) + 1;
+    logger.info(`Reconnecting MCP server ${serverName} (attempt ${attempt})`);
+
+    try {
+      if (server.transportType === 'http' || server.transportType === 'streamable-http') {
+        // initializeConnection dispatches through sendRequest, which refuses any
+        // server that is not already 'running' — the same ordering startServer
+        // depends on. The catch below puts it back to 'error' if this fails, so
+        // the optimistic flip never outlives the attempt.
+        server.httpSessionId = undefined;
+        server.status = 'running';
+        await this.initializeConnection(serverName);
+      } else {
+        await this.restartServer(serverName);
+      }
+
+      server.status = 'running';
+      server.error = undefined;
+      server.startTime ??= new Date();
+      server.reconnectAttempts = 0;
+      server.nextReconnectAt = undefined;
+      this.emit('serverStarted', { serverName, reconnected: true });
+      await this.publishEvent('mcp.server.started', { serverName, reconnected: true });
+      logger.info(`MCP server ${serverName} reconnected`);
+      return true;
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      server.status = 'error';
+      server.error = `Reconnect failed: ${errMsg}`;
+      this.scheduleReconnect(server);
+      logger.warn(
+        `Reconnect failed for ${serverName}; next attempt no sooner than ` +
+          `${new Date(server.nextReconnectAt!).toISOString()}`,
+        errMsg
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Exponential backoff, capped. The first retry lands on the next health tick;
+   * a remote that stays down is probed every 15 minutes rather than every 30
+   * seconds forever.
+   */
+  private scheduleReconnect(server: MCPServerState): void {
+    const attempts = (server.reconnectAttempts ?? 0) + 1;
+    server.reconnectAttempts = attempts;
+    server.nextReconnectAt =
+      Date.now() +
+      Math.min(MCP_RECONNECT_BASE_DELAY_MS * 2 ** (attempts - 1), MCP_RECONNECT_MAX_DELAY_MS);
   }
 
   // Logging
