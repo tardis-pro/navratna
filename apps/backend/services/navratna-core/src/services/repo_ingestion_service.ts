@@ -559,9 +559,54 @@ function listBranches(repoPath: string): string[] {
  * Defaults under tmpdir so the service works with no configuration, but a
  * deployment that wants the cache to survive a restart must point this at a
  * mounted volume — otherwise every boot re-clones every project.
+ *
+ * On the homelab this default was actively harmful: tmpdir is an EmptyDir with
+ * a 256Mi sizeLimit, so the first real ingest evicted the pod. It is pointed at
+ * the project's mounted volume there. See pruneRepoCache for why that move
+ * REQUIRES a bound — the volume it moved onto is hostPath-backed and enforces
+ * no quota of its own.
  */
 const REPO_CACHE_ROOT =
   process.env.REPO_CACHE_DIR?.trim() || join(tmpdir(), 'navratna-repo-cache')
+
+/**
+ * Upper bound on the whole cache, and on how long an unused checkout is kept.
+ *
+ * These are not tuning knobs, they are the containment. Nothing else limits
+ * this cache: it holds one full checkout per project, keeps them deliberately,
+ * and never shrinks on its own.
+ */
+const REPO_CACHE_MAX_BYTES = positiveIntFromEnv('REPO_CACHE_MAX_BYTES', 5 * 1024 * 1024 * 1024)
+const REPO_CACHE_TTL_MS = positiveIntFromEnv('REPO_CACHE_TTL_DAYS', 14) * 24 * 60 * 60 * 1000
+
+function positiveIntFromEnv(name: string, fallback: number): number {
+  const raw = process.env[name]?.trim()
+  if (!raw) return fallback
+
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    // Loud, because the failure mode of silently accepting garbage here is an
+    // unbounded cache on a shared disk — exactly what this exists to prevent.
+    logger.error('Ignoring invalid cache bound; falling back to the default', {
+      name,
+      value: raw,
+      fallback,
+    })
+    return fallback
+  }
+  return Math.floor(parsed)
+}
+
+/**
+ * Cache keys with an ingest currently running against them.
+ *
+ * Pruning is the one operation that crosses keys: it deletes directories
+ * belonging to OTHER projects, which `withCacheLock` — a per-key lock — does
+ * not protect. Without this set, a prune triggered by one project could delete
+ * the checkout another project is mid-read of, and that ingest would report
+ * whatever it managed to read as the repository's real contents.
+ */
+const inFlightCacheKeys = new Set<string>()
 
 /**
  * One directory per project, so re-ingesting a project reuses its checkout.
@@ -658,6 +703,131 @@ async function syncRepoCache(
   return cachePath
 }
 
+/** Total bytes under `path`, following the tree. Symlinks are counted as links. */
+function directorySize(path: string): number {
+  let total = 0
+  const pending: string[] = [path]
+
+  while (pending.length > 0) {
+    const current = pending.pop()!
+    let entries: Dirent[]
+    try {
+      entries = readdirSync(current, { withFileTypes: true })
+    } catch {
+      // Raced with a delete, or unreadable. Nothing to count.
+      continue
+    }
+
+    for (const entry of entries) {
+      const entryPath = join(current, entry.name)
+      if (entry.isDirectory()) {
+        pending.push(entryPath)
+        continue
+      }
+      if (!entry.isFile()) continue
+      try {
+        total += statSync(entryPath).size
+      } catch {
+        // Same race; skip it rather than abandoning the whole measurement.
+      }
+    }
+  }
+
+  return total
+}
+
+/**
+ * Keeps the cache under REPO_CACHE_MAX_BYTES, dropping unused checkouts first.
+ *
+ * This exists because of where the cache lives, not because disk is tight. The
+ * homelab volume it sits on is hostPath-backed: its declared capacity is a
+ * label, it enforces no quota, and it is shared with the Gitea instance that is
+ * the ORIGIN for the platform repo, and with the backups. An unbounded cache
+ * there does not evict a pod when it overruns — it fills a shared disk and
+ * takes the git server and the backups down with it. The EmptyDir this cache
+ * used to sit on at least had a sizeLimit doing that containment; moving off it
+ * removed the only enforcement that existed, so this replaces it.
+ *
+ * Eviction is least-recently-used, after anything past the TTL. `protectKey`
+ * and any other in-flight ingest are never touched.
+ */
+export function pruneRepoCache(protectKey: string): void {
+  let entries: Dirent[]
+  try {
+    entries = readdirSync(REPO_CACHE_ROOT, { withFileTypes: true })
+  } catch {
+    return
+  }
+
+  const now = Date.now()
+  const candidates: Array<{ key: string; path: string; size: number; lastUsed: number }> = []
+  let totalBytes = 0
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+
+    const path = join(REPO_CACHE_ROOT, entry.name)
+    let lastUsed: number
+    try {
+      lastUsed = statSync(path).mtimeMs
+    } catch {
+      continue
+    }
+
+    const size = directorySize(path)
+    totalBytes += size
+
+    // An in-flight checkout still counts toward the total — it is really on
+    // disk — but must never be a candidate for deletion.
+    if (entry.name === protectKey || inFlightCacheKeys.has(entry.name)) continue
+    candidates.push({ key: entry.name, path, size, lastUsed })
+  }
+
+  // Oldest first, so both passes below evict in the same order.
+  candidates.sort((a, b) => a.lastUsed - b.lastUsed)
+
+  const removed: string[] = []
+  const remove = (candidate: (typeof candidates)[number], reason: string): void => {
+    try {
+      rmSync(candidate.path, { recursive: true, force: true })
+      totalBytes -= candidate.size
+      removed.push(candidate.key)
+      logger.info('Evicted a cached checkout', {
+        cacheKey: candidate.key,
+        bytes: candidate.size,
+        reason,
+      })
+    } catch (error) {
+      logger.warn('Could not evict a cached checkout', {
+        cacheKey: candidate.key,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  for (const candidate of candidates) {
+    if (now - candidate.lastUsed <= REPO_CACHE_TTL_MS) continue
+    remove(candidate, 'ttl')
+  }
+
+  for (const candidate of candidates) {
+    if (totalBytes <= REPO_CACHE_MAX_BYTES) break
+    if (removed.includes(candidate.key)) continue
+    remove(candidate, 'size')
+  }
+
+  if (totalBytes > REPO_CACHE_MAX_BYTES) {
+    // Everything evictable is gone and it is STILL over. Says the live
+    // checkouts alone exceed the budget, which no amount of pruning fixes —
+    // surface it rather than looping.
+    logger.error('Repository cache is over its limit with nothing left to evict', {
+      totalBytes,
+      limitBytes: REPO_CACHE_MAX_BYTES,
+      cacheRoot: REPO_CACHE_ROOT,
+    })
+  }
+}
+
 export interface IngestOptions {
   /**
    * Scopes the resulting knowledge to a project: it is tagged `project:<id>` so
@@ -695,12 +865,34 @@ export class RepoIngestionService {
     }
 
     const sourceIsGitUrl = isGitUrl(trimmedSource)
+    const cacheKey = repoCacheKey(trimmedSource, options.projectId)
 
     // Serialized per cache key rather than per call: two ingests of different
     // projects are independent and still run concurrently.
-    return withCacheLock(repoCacheKey(trimmedSource, options.projectId), () =>
-      this.runIngest(trimmedSource, sourceIsGitUrl, options)
-    )
+    return withCacheLock(cacheKey, async () => {
+      // Marked in-flight for the WHOLE ingest, not just the clone: the checkout
+      // is read all the way through analysis, so a concurrent ingest of another
+      // project must not prune it out from under this one.
+      inFlightCacheKeys.add(cacheKey)
+      try {
+        return await this.runIngest(trimmedSource, sourceIsGitUrl, options)
+      } finally {
+        inFlightCacheKeys.delete(cacheKey)
+
+        // After the ingest, so the cache is measured in its settled state and a
+        // failed ingest still gets cleaned up after. Never allowed to fail the
+        // ingest: the work is already done and reported by this point.
+        if (sourceIsGitUrl) {
+          try {
+            pruneRepoCache(cacheKey)
+          } catch (error) {
+            logger.warn('Could not prune the repository cache', {
+              error: error instanceof Error ? error.message : String(error),
+            })
+          }
+        }
+      }
+    })
   }
 
   private async runIngest(

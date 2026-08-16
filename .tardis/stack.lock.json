@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "stackSha256": "d02ac5c5ec28a4360ff930768c90ce23519d22045389e6640bfe6a59175a1332",
+  "stackSha256": "ff2c3abfe049bd3806985ddb7372f8499f119bae07d55b11db16dc52096dcae2",
   "services": [
     {
       "id": "postgres",
@@ -178,6 +178,9 @@
         "EMBEDDINGS_API_KEY": "sk-3909fbf385e370bc-c3b924-cfbfde2c",
         "EMBEDDINGS_DIM": "1024",
         "QDRANT_VECTOR_DIM": "1024",
+        "REPO_CACHE_DIR": "/data/repo-cache",
+        "REPO_CACHE_MAX_BYTES": "5368709120",
+        "REPO_CACHE_TTL_DAYS": "14",
         "RERANKING_URL": "https://ai.tardis.digital/v1/rerank",
         "RERANKING_MODEL": "jina/jina-reranker-v3",
         "OPENAI_API_KEY": "sk-3909fbf385e370bc-c3b924-cfbfde2c",

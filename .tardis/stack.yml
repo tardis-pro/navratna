@@ -201,6 +201,24 @@ services:
       EMBEDDINGS_API_KEY: "sk-3909fbf385e370bc-c3b924-cfbfde2c"
       EMBEDDINGS_DIM: "1024"
       QDRANT_VECTOR_DIM: "1024"
+      # Repository ingest caches a full checkout per project and keeps it
+      # deliberately. Unset, it defaults under tmpdir - which here is an
+      # EmptyDir with a sizeLimit, so the first real ingest wrote GBs into
+      # /tmp and the kubelet evicted navratna-core (23:24 on 2026-08-15,
+      # ~2 GiB written against a steady state of zero). It also re-cloned
+      # every project on every restart, since scratch does not survive one.
+      #
+      # /data is the project's RWX volume and is already mounted. It is
+      # hostPath-backed and enforces NO quota - the declared capacity is a
+      # label, and the same disk carries Gitea (the origin for the platform
+      # repo) and the backups. So this move deliberately ships WITH the cache
+      # bound below: without it, an overrun stops evicting one pod and starts
+      # filling a shared disk.
+      #
+      # Gateway does NOT get these: repo ingest lives in core.
+      REPO_CACHE_DIR: "/data/repo-cache"
+      REPO_CACHE_MAX_BYTES: "5368709120"   # 5 GiB
+      REPO_CACHE_TTL_DAYS: "14"
       RERANKING_URL: "https://ai.tardis.digital/v1/rerank"
       RERANKING_MODEL: "jina/jina-reranker-v3"
       OPENAI_API_KEY: "sk-3909fbf385e370bc-c3b924-cfbfde2c"
