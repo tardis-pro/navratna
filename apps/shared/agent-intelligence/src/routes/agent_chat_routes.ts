@@ -16,6 +16,10 @@ import type {
 } from '@uaip/types'
 import type { UserLLMService } from '@uaip/llm-service'
 import { logger, isRecord } from '@uaip/utils'
+// Moved to a dependency-free module so the discussion turn handler can use them
+// without importing this HTTP surface. Re-exported: existing importers unchanged.
+import { resolveAgentTools, toAssignedTools, type ToolSchemaProvider } from '../agent_tool_bindings.js'
+export { resolveAgentTools, toAssignedTools, type ToolSchemaProvider }
 
 /**
  * How many stored messages are replayed to the model. Bounds prompt growth on a
@@ -161,14 +165,6 @@ type SecurityDeps = {
   getApprovalDecisionRepository(): ApprovalDecisionRepo
 }
 
-/**
- * Looks up the stored definition of a bound tool so the model receives its real
- * JSON schema. Returns null for a tool that no longer exists, which drops it
- * from the turn rather than failing the chat.
- */
-export type ToolSchemaProvider = (
-  toolId: string
-) => Promise<{ description: string; parameters: Record<string, unknown> } | null>
 
 /**
  * Server-side knowledge retrieval for a chat turn. Injected rather than
@@ -248,33 +244,6 @@ export const filterToolsForProject = (
   })
 }
 
-export const resolveAgentTools = async (
-  assigned: AgentAssignedTool[],
-  provider: ToolSchemaProvider | undefined
-): Promise<AvailableTool[]> => {
-  if (!provider) return []
-
-  const resolved: AvailableTool[] = []
-  for (const tool of assigned) {
-    if (tool.enabled === false) continue
-
-    const schema = await provider(tool.toolId)
-    if (!schema) {
-      logger.warn('Skipping agent tool with no resolvable definition', {
-        toolId: tool.toolId,
-        toolName: tool.toolName,
-      })
-      continue
-    }
-
-    resolved.push({
-      name: tool.toolName,
-      description: schema.description,
-      parameters: schema.parameters,
-    })
-  }
-  return resolved
-}
 
 
 const toChatMessage = (value: unknown, index: number): ChatMessage | null => {
@@ -430,28 +399,6 @@ const toDocumentContext = (value: unknown): DocumentContext | undefined => {
  * false would auto-execute them until rediscovery happened to repair the row.
  * A built-in tool keeps the original opt-in behaviour.
  */
-export const toAssignedTools = (value: unknown): AgentAssignedTool[] => {
-  if (!Array.isArray(value)) return []
-
-  const assigned: AgentAssignedTool[] = []
-  for (const entry of value) {
-    if (!isRecord(entry)) continue
-    if (typeof entry.toolId !== 'string' || typeof entry.toolName !== 'string') continue
-
-    const isExternal = entry.toolId.startsWith('mcp-')
-    const requiresApproval =
-      typeof entry.requiresApproval === 'boolean' ? entry.requiresApproval : isExternal
-
-    assigned.push({
-      toolId: entry.toolId,
-      toolName: entry.toolName,
-      serverName: typeof entry.serverName === 'string' ? entry.serverName : '',
-      enabled: entry.enabled !== false,
-      requiresApproval,
-    })
-  }
-  return assigned
-}
 
 /**
  * Builds the system prompt a responding agent actually runs with.

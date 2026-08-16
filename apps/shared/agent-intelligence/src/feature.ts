@@ -319,6 +319,10 @@ export const agentIntelligenceFeature: Feature = {
         userLLMService,
         databaseService: databaseServiceRef,
         publish: (topic, payload) => bus.publish(topic, payload),
+        // The same resolver the chat routes get. Without it the handler cannot
+        // turn an agent's bindings into schemas, so every discussion turn ran
+        // as a plain completion however many tools the agent was granted.
+        toolSchemaProvider: loadToolSchema,
       })
     })
     /**

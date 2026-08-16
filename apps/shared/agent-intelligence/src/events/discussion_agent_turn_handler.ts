@@ -1,7 +1,17 @@
 import type { AgentIntelligenceService, DatabaseService } from '@uaip/shared-services'
 import type { UserLLMService } from '@uaip/llm-service'
-import type { AgentResponseRequest, ChatMessage, EventBusMessage } from '@uaip/types'
+import type {
+  AgentAssignedTool,
+  AgentResponseRequest,
+  ChatMessage,
+  EventBusMessage,
+} from '@uaip/types'
 import { logger, isRecord } from '@uaip/utils'
+import {
+  resolveAgentTools,
+  toAssignedTools,
+  type ToolSchemaProvider,
+} from '../agent_tool_bindings.js'
 
 type TriggerParams = {
   discussionId: string
@@ -52,6 +62,36 @@ type AgentTurnDeps = {
   userLLMService: Pick<UserLLMService, 'generateAgentResponse'>
   databaseService: Pick<DatabaseService, 'findMany'>
   publish: (topic: string, payload: Record<string, unknown>) => Promise<void>
+  /**
+   * Resolves an assigned binding into a schema the model can be offered.
+   *
+   * Optional so existing callers and tests keep working: without it a turn
+   * behaves exactly as it did before, one plain LLM call with no tools.
+   */
+  toolSchemaProvider?: ToolSchemaProvider
+}
+
+/**
+ * Which of an agent's assigned tools may be offered on a DISCUSSION turn.
+ *
+ * The chat path narrows an agent's bindings with `filterToolsForProject`,
+ * because an agent's assigned set spans every project it was linked in and a
+ * chat in project A must not be offered a credential bound in project B. A
+ * discussion trigger carries no projectId at all, so that scope cannot be
+ * established here — and "cannot establish scope" must not quietly mean "offer
+ * everything".
+ *
+ * So MCP-discovered bindings are withheld on this path. They are the ones that
+ * can carry a per-project credential, and `McpConnectionResolver` would refuse
+ * a mismatched call anyway — offering a tool that is going to be refused just
+ * spends a turn discovering that. Native tools (web-search, web-fetch,
+ * time-utility, …) hold no per-project credential and are safe to offer.
+ *
+ * When discussions carry a projectId, this should become the same
+ * `filterToolsForProject` call the chat path makes, rather than a second rule.
+ */
+function toolsAllowedInDiscussion(assigned: AgentAssignedTool[]): AgentAssignedTool[] {
+  return assigned.filter((tool) => !tool.toolId.startsWith('mcp-'))
 }
 
 type AgentMessageFailurePayload = {
@@ -135,6 +175,14 @@ export async function handleAgentDiscussionTrigger(
       },
     ]
 
+    // The tool loop is gated on request.tools being non-empty
+    // (UserLLMService.runWithTools short-circuits otherwise), so a discussion
+    // turn used to be one plain LLM call no matter what the agent was granted.
+    // Resolving them here is what makes an assigned tool actually reachable
+    // from a discussion.
+    const assignedTools = toolsAllowedInDiscussion(toAssignedTools(agent.assignedMCPTools))
+    const tools = await resolveAgentTools(assignedTools, deps.toolSchemaProvider)
+
     const request: AgentResponseRequest = {
       agent: {
         id: typeof agent.id === 'string' && agent.id ? agent.id : agentId,
@@ -159,8 +207,12 @@ export async function handleAgentDiscussionTrigger(
             }
           : undefined,
         skills: Array.isArray(agent.skills) ? agent.skills : undefined,
+        // Omitting this silently strips every assigned tool downstream, which
+        // is half of why discussions had no tool access.
+        assignedMCPTools: assignedTools,
       },
       messages,
+      ...(tools.length > 0 ? { tools } : {}),
     }
 
     const userId = discussionOwnerId || (typeof agent.createdBy === 'string' ? agent.createdBy : '')
@@ -204,6 +256,20 @@ export async function handleAgentDiscussionTrigger(
       messageType: 'message',
       isInitialParticipation,
     })
+
+    // Tool use inside a discussion is otherwise invisible: the published
+    // message carries only the content, so nothing downstream records that a
+    // turn searched the web. Logged until the message payload can carry it.
+    const toolsExecuted = isRecord(response) && Array.isArray(response.toolsExecuted)
+      ? response.toolsExecuted.length
+      : 0
+    if (toolsExecuted > 0) {
+      logger.info('agent.discussion.trigger: turn executed tools', {
+        discussionId,
+        agentId,
+        toolsExecuted,
+      })
+    }
 
     logger.info('agent.discussion.trigger: agent response published', {
       discussionId,
