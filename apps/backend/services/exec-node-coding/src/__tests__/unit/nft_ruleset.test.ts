@@ -57,11 +57,13 @@ describe('nftables ruleset — exact rule contract', () => {
   it('output chain does NOT allow UID 1001 any non-loopback port', () => {
     // No "skuid 1001" accept rule outside loopback must exist.
     const lines = s.split('\n');
+    const violations: string[] = [];
     for (const line of lines) {
       if (line.includes('skuid 1001') && line.trim().endsWith('accept')) {
-        throw new Error(`forbidden: UID1001 accept rule outside loopback: ${line}`);
+        violations.push(line.trim());
       }
     }
+    expect(violations).toEqual([]);
     // We rely on "policy drop" + loopback accept to enforce the default-deny.
   });
 
